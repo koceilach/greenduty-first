@@ -39,13 +39,13 @@ type MarketplaceOrder = {
   id: string;
   total_price_dzd: number;
   status: string;
-  escrow_status?: string | null;
-  marketplace_items?: {
+  escrow_status: string | null;
+  marketplace_items: {
     id: string;
     seller_id: string;
     category: string | null;
     plant_type: string | null;
-  } | null;
+  }[];
 };
 
 const GD_avatarInitials = (name?: string | null) => {
@@ -61,6 +61,55 @@ const GD_formatDate = (value?: string | null) => {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Recently";
   return date.toLocaleDateString();
+};
+
+const GD_isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const GD_toNullableString = (value: unknown): string | null =>
+  typeof value === "string" ? value : null;
+
+const GD_toFiniteNumber = (value: unknown): number => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+};
+
+const GD_normalizeOrderItems = (value: unknown): MarketplaceOrder["marketplace_items"] => {
+  const rows = Array.isArray(value) ? value : GD_isRecord(value) ? [value] : [];
+  return rows
+    .map((row) => {
+      if (!GD_isRecord(row)) return null;
+      if (typeof row.id !== "string" || typeof row.seller_id !== "string") {
+        return null;
+      }
+      return {
+        id: row.id,
+        seller_id: row.seller_id,
+        category: GD_toNullableString(row.category),
+        plant_type: GD_toNullableString(row.plant_type),
+      };
+    })
+    .filter((row): row is MarketplaceOrder["marketplace_items"][number] => row !== null);
+};
+
+const GD_normalizeOrders = (value: unknown): MarketplaceOrder[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((row) => {
+      if (!GD_isRecord(row) || typeof row.id !== "string") return null;
+      return {
+        id: row.id,
+        total_price_dzd: GD_toFiniteNumber(row.total_price_dzd),
+        status: GD_toNullableString(row.status) ?? "unknown",
+        escrow_status: GD_toNullableString(row.escrow_status),
+        marketplace_items: GD_normalizeOrderItems(row.marketplace_items),
+      };
+    })
+    .filter((row): row is MarketplaceOrder => row !== null);
 };
 
 export default function MarketplaceProfilePage() {
@@ -191,7 +240,7 @@ export default function MarketplaceProfilePage() {
           setOrders([]);
           return;
         }
-        const list = (data ?? []) as MarketplaceOrder[];
+        const list = GD_normalizeOrders(data);
         setOrders(list);
         const released = list.filter(
           (order) =>
@@ -215,15 +264,15 @@ export default function MarketplaceProfilePage() {
           setOrders([]);
           return;
         }
-        const list = (data ?? []) as MarketplaceOrder[];
+        const list = GD_normalizeOrders(data);
         setOrders(list);
         const totalSpend = list.reduce(
           (sum, order) => sum + (order.total_price_dzd ?? 0),
           0
         );
         const seedOrders = list.filter((order) => {
-          const category =
-            order.marketplace_items?.category ?? order.marketplace_items?.plant_type;
+          const firstItem = order.marketplace_items[0];
+          const category = firstItem?.category ?? firstItem?.plant_type;
           return (category ?? "").toLowerCase().includes("seed");
         }).length;
         const ecoScore = Math.round(list.length * 8 + seedOrders * 12);
