@@ -47,7 +47,7 @@ const roles = [
   },
 ];
 
-const panelVariants = {
+const panelVariants: Record<string, any> = {
   hidden: { opacity: 0, y: 36, scale: 0.96 },
   visible: (i: number) => ({
     opacity: 1,
