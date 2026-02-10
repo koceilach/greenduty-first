@@ -251,9 +251,14 @@ export default function MapComponent({
   }, []);
 
   useEffect(() => {
-    const ensureLeafletCss = async () => {
+    const ensureLeafletCss = () => {
       try {
-        await import('leaflet/dist/leaflet.css');
+        if (typeof window !== 'undefined' && !document.querySelector('link[href*="leaflet"]')) {
+          const link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+          document.head.appendChild(link);
+        }
       } catch (error) {
         console.error('Leaflet CSS load failed:', error);
       }
@@ -294,7 +299,7 @@ export default function MapComponent({
     const container = mapNodeRef.current;
     if (!container) return;
     if (mapRef.current) return;
-    if (L.DomUtil.get(mapId)?.['_leaflet_id']) return;
+    if ((L.DomUtil.get(mapId) as any)?.['_leaflet_id']) return;
 
     if ((container as any)._leaflet_id) {
       try {
