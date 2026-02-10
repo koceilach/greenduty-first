@@ -83,8 +83,8 @@ const GD_System_LEGEND_ITEMS = [
   { label: "Recyclable", detail: "Plastic Dump", color: "#4cc9f0" },
 ] as const;
 
-const GD_System_getNearestCity = (lat: number, lng: number) => {
-  let nearest = GD_System_CITY_LOOKUP[0]?.name ?? "Unknown";
+const GD_System_getNearestCity = (lat: number, lng: number): string => {
+  let nearest: string = GD_System_CITY_LOOKUP[0]?.name ?? "Unknown";
   let minDistance = Number.POSITIVE_INFINITY;
   GD_System_CITY_LOOKUP.forEach((city) => {
     const distance = Math.hypot(lat - city.lat, lng - city.lng);
@@ -2218,7 +2218,7 @@ export default function GD_System_ReportedAreaPage() {
     const { data: userData, error: userError } =
       await GD_System_supabase.auth.getUser();
     if (userError) {
-      console.error("User fetch failed:", userError.message, userError.details, userError.hint);
+      console.error("User fetch failed:", userError.message, (userError as any).details, (userError as any).hint);
     }
     const activeUser = userData?.user ?? GD_System_authState.user;
     if (!activeUser) {
@@ -2559,7 +2559,7 @@ export default function GD_System_ReportedAreaPage() {
           if (
             bucketMissing &&
             GD_System_STORAGE_BUCKET &&
-            GD_System_STORAGE_BUCKET !== GD_System_AVATAR_BUCKET
+            (GD_System_STORAGE_BUCKET as string) !== (GD_System_AVATAR_BUCKET as string)
           ) {
             const fallbackResult = await uploadToBucket(GD_System_STORAGE_BUCKET);
             if (fallbackResult.publicUrl) {
@@ -2652,7 +2652,7 @@ export default function GD_System_ReportedAreaPage() {
     }
     const { error } = await GD_System_supabase.auth.signOut();
     if (error) {
-      console.error("Logout failed:", error.message, error.details, error.hint);
+      console.error("Logout failed:", error.message, (error as any).details, (error as any).hint);
     }
     if (GD_System_channelRef.current) {
       GD_System_supabase.removeChannel(GD_System_channelRef.current);
