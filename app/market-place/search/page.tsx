@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -29,7 +29,15 @@ const GD_formatWilayaLabel = (value?: string | null) => {
   return value === "All Wilayas" ? "All Algeria" : value;
 };
 
-export default function MarketplaceSearchPage() {
+export default function MarketplaceSearchPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <MarketplaceSearchPage />
+    </Suspense>
+  );
+}
+
+function MarketplaceSearchPage() {
   const { supabase, profile } = useMarketplaceAuth();
   const router = useRouter();
   const searchParams = useSearchParams();

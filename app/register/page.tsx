@@ -1,6 +1,6 @@
 "use client"
 
-import React from "react"
+import React, { Suspense } from "react"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
 import Link from "next/link"
@@ -9,6 +9,18 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { supabaseClient } from "@/lib/supabase/client"
 
 const GDutyRegisterSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""
+
+// ============================================================
+// Suspense Wrapper
+// ============================================================
+
+export default function RegisterPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <RegisterPage />
+    </Suspense>
+  )
+}
 
 // ============================================================
 // Icons
@@ -272,7 +284,7 @@ function GDutyRegisterToast({
 // Main Register Page
 // ============================================================
 
-export default function RegisterPage() {
+function RegisterPage() {
   const [mounted, setMounted] = useState(false)
   const [formData, setFormData] = useState({
     fullName: "",

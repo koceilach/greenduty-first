@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode, type InputHTMLAttributes } from "react"
+import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode, type InputHTMLAttributes } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabaseClient } from "@/lib/supabase/client"
@@ -10,6 +10,14 @@ const GDutyAuthSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""
 // ═══════════════════════════════════════════════════════════════════════════════
 // GREENDUTY AUTH - IMMERSIVE NATURE EXPERIENCE
 // ═══════════════════════════════════════════════════════════════════════════════
+
+export default function GDutyAuthLoginPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <GDutyAuthLoginPage />
+    </Suspense>
+  )
+}
 
 // Icons
 function GDutyAuthMailIcon({ className }: { className?: string }) {
@@ -395,7 +403,7 @@ function GDutyAuthToast({
 // MAIN LOGIN PAGE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-export default function GDutyAuthLoginPage() {
+function GDutyAuthLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)

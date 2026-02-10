@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { Suspense, useCallback, useMemo, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock, User, ArrowRight } from "lucide-react";
@@ -32,7 +32,15 @@ function AuthField({
   );
 }
 
-export default function GreenspotRegisterPage() {
+export default function GreenspotRegisterPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading...</div>}>
+      <GreenspotRegisterPage />
+    </Suspense>
+  );
+}
+
+function GreenspotRegisterPage() {
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
