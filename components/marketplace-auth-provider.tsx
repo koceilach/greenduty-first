@@ -26,6 +26,21 @@ export type MarketplaceProfile = {
   updated_at: string | null;
 };
 
+export type SellerApplication = {
+  id: string;
+  user_id: string;
+  email: string | null;
+  full_name: string | null;
+  store_name: string;
+  phone: string | null;
+  location: string | null;
+  bio: string | null;
+  id_file_url: string | null;
+  status: "pending" | "approved" | "rejected";
+  rejection_reason: string | null;
+  created_at: string;
+};
+
 type MarketplaceAuthContextValue = {
   supabase: SupabaseClient | null;
   user: User | null;
@@ -42,7 +57,17 @@ type MarketplaceAuthContextValue = {
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (payload: Partial<MarketplaceProfile>) => Promise<void>;
+  /** @deprecated Use submitSellerApplication instead. Only admins can change roles via RLS. */
   updateRole: (role: MarketplaceProfile["role"]) => Promise<void>;
+  submitSellerApplication: (payload: {
+    store_name: string;
+    bio: string;
+    location: string;
+    phone?: string;
+    full_name?: string;
+    id_file?: File | null;
+  }) => Promise<{ error: string | null }>;
+  getMySellerApplication: () => Promise<SellerApplication | null>;
 };
 
 const MarketplaceAuthContext = createContext<
@@ -60,35 +85,175 @@ export function MarketplaceAuthProvider({
   const [profile, setProfile] = useState<MarketplaceProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // The single admin email — used as client-side failsafe
+  const ADMIN_EMAIL = "osgamer804@gmail.com";
+
+  const MP_SELECT_COLS =
+    "id, email, username, role, bio, store_name, avatar_url, location, store_latitude, store_longitude, created_at, updated_at";
+
+  /**
+   * Ensures a marketplace_profiles row exists for the given user.
+   * Handles all edge cases:
+   *  - Row exists but email/username are null (from backfill migrations)
+   *  - Row doesn't exist at all
+   *  - RPC function not deployed yet
+   *  - admin email gets admin role
+   */
+  const ensureProfile = useCallback(
+    async (authUser: User): Promise<MarketplaceProfile | null> => {
+      if (!supabase) return null;
+
+      const email = authUser.email ?? "";
+      const username =
+        (authUser.user_metadata?.username as string | undefined) ??
+        (email.split("@")[0] || "user");
+      const isAdmin = email.toLowerCase() === ADMIN_EMAIL;
+
+      // ── Step 1: Check if profile row already exists ──
+      const { data: existing, error: selectError } = await supabase
+        .from("marketplace_profiles")
+        .select(MP_SELECT_COLS)
+        .eq("id", authUser.id)
+        .maybeSingle();
+
+      if (selectError) {
+        console.error("[Marketplace] SELECT profile failed:", selectError.message);
+      }
+
+      if (existing) {
+        let mp = existing as MarketplaceProfile;
+
+        // Fix missing email/username and admin role on existing rows
+        const needsFix =
+          !mp.email ||
+          !mp.username ||
+          (isAdmin && mp.role !== "admin");
+
+        if (needsFix) {
+          // Try RPC first (bypasses RLS, can change role)
+          const { error: rpcErr } = await supabase.rpc(
+            "ensure_marketplace_profile",
+            { p_email: email, p_username: username }
+          );
+
+          if (rpcErr) {
+            // RPC not available — try direct update (role change may fail due to RLS)
+            const updates: Record<string, string> = {};
+            if (!mp.email) updates.email = email;
+            if (!mp.username) updates.username = username;
+            // Note: role update will fail for non-admins due to RLS (that's fine)
+            if (isAdmin && mp.role !== "admin") updates.role = "admin";
+
+            if (Object.keys(updates).length > 0) {
+              await supabase
+                .from("marketplace_profiles")
+                .update(updates)
+                .eq("id", authUser.id);
+            }
+          }
+
+          // Re-fetch to get updated data
+          const { data: refreshed } = await supabase
+            .from("marketplace_profiles")
+            .select(MP_SELECT_COLS)
+            .eq("id", authUser.id)
+            .maybeSingle();
+
+          if (refreshed) mp = refreshed as MarketplaceProfile;
+        }
+
+        // Client-side admin failsafe: even if DB update failed, show admin UI
+        if (isAdmin && mp.role !== "admin") {
+          mp = { ...mp, role: "admin" };
+        }
+
+        return mp;
+      }
+
+      // ── Step 2: No row exists — create one ──
+
+      // Try RPC first (SECURITY DEFINER — always works, sets admin too)
+      const { error: rpcCreateErr } = await supabase.rpc(
+        "ensure_marketplace_profile",
+        { p_email: email, p_username: username }
+      );
+
+      if (!rpcCreateErr) {
+        const { data: afterRpc } = await supabase
+          .from("marketplace_profiles")
+          .select(MP_SELECT_COLS)
+          .eq("id", authUser.id)
+          .maybeSingle();
+
+        if (afterRpc) {
+          let mp = afterRpc as MarketplaceProfile;
+          if (isAdmin && mp.role !== "admin") mp = { ...mp, role: "admin" };
+          return mp;
+        }
+      } else {
+        console.warn("[Marketplace] RPC unavailable:", rpcCreateErr.message);
+      }
+
+      // Fallback: direct insert
+      const { error: insertErr } = await supabase
+        .from("marketplace_profiles")
+        .insert({
+          id: authUser.id,
+          email,
+          username,
+          role: isAdmin ? "admin" : "buyer",
+        });
+
+      if (insertErr) {
+        console.warn("[Marketplace] INSERT failed:", insertErr.message);
+      }
+
+      // Final fetch
+      const { data: afterInsert } = await supabase
+        .from("marketplace_profiles")
+        .select(MP_SELECT_COLS)
+        .eq("id", authUser.id)
+        .maybeSingle();
+
+      if (afterInsert) {
+        let mp = afterInsert as MarketplaceProfile;
+        if (isAdmin && mp.role !== "admin") mp = { ...mp, role: "admin" };
+        return mp;
+      }
+
+      // Absolute last resort: return a synthetic profile so UI doesn't break
+      if (authUser.id && email) {
+        return {
+          id: authUser.id,
+          email,
+          username,
+          role: isAdmin ? "admin" : "buyer",
+          bio: null,
+          store_name: null,
+          avatar_url: null,
+          location: null,
+          store_latitude: null,
+          store_longitude: null,
+          created_at: null,
+          updated_at: null,
+        };
+      }
+
+      return null;
+    },
+    [supabase]
+  );
+
   const fetchProfile = useCallback(
     async (currentUser: User | null) => {
       if (!supabase || !currentUser) {
         setProfile(null);
         return;
       }
-
-      const { data, error } = await supabase
-        .from("marketplace_profiles")
-        .select(
-          "id, email, username, role, bio, store_name, avatar_url, location, store_latitude, store_longitude, created_at, updated_at"
-        )
-        .eq("id", currentUser.id)
-        .maybeSingle();
-
-      if (error) {
-        console.warn("Marketplace profile fetch failed:", error.message);
-        setProfile(null);
-        return;
-      }
-
-      if (!data) {
-        setProfile(null);
-        return;
-      }
-
-      setProfile(data as MarketplaceProfile);
+      const mp = await ensureProfile(currentUser);
+      setProfile(mp);
     },
-    [supabase]
+    [supabase, ensureProfile]
   );
 
   const refreshProfile = useCallback(async () => {
@@ -166,6 +331,13 @@ export function MarketplaceAuthProvider({
       });
 
       if (error) {
+        // Detect wrong password for existing users
+        if (error.message === "Invalid login credentials") {
+          return {
+            error:
+              "Invalid login credentials. If you registered via Reported Area, use the same password here.",
+          };
+        }
         return { error: error.message };
       }
 
@@ -174,63 +346,13 @@ export function MarketplaceAuthProvider({
         return { error: "Unable to sign in right now." };
       }
 
-      const { data: profileData, error: profileError } = await supabase
-        .from("marketplace_profiles")
-        .select(
-          "id, email, username, role, bio, store_name, avatar_url, location, store_latitude, store_longitude, created_at, updated_at"
-        )
-        .eq("id", authUser.id)
-        .maybeSingle();
-
-      if (profileError || !profileData) {
-        const isMarketplaceUser =
-          authUser.user_metadata?.marketplace === true ||
-          authUser.user_metadata?.marketplace === "true";
-        if (isMarketplaceUser) {
-          const { error: insertError } = await supabase
-            .from("marketplace_profiles")
-            .insert([
-              {
-                id: authUser.id,
-                email: authUser.email ?? email,
-                username:
-                  (authUser.user_metadata?.username as string | undefined) ??
-                  null,
-                role: "buyer",
-              },
-            ]);
-
-          if (!insertError) {
-            const { data: retryProfile } = await supabase
-              .from("marketplace_profiles")
-              .select(
-                "id, email, username, role, bio, store_name, avatar_url, location, store_latitude, store_longitude, created_at, updated_at"
-              )
-              .eq("id", authUser.id)
-              .maybeSingle();
-
-            if (retryProfile) {
-              setUser(authUser);
-              setProfile(retryProfile as MarketplaceProfile);
-              return { error: null };
-            }
-          }
-        }
-
-        await supabase.auth.signOut();
-        setUser(null);
-        setProfile(null);
-        return {
-          error:
-            "No marketplace profile found. Please register a Marketplace account.",
-        };
-      }
-
+      // ensureProfile creates the row if it doesn't exist
+      const mp = await ensureProfile(authUser);
       setUser(authUser);
-      setProfile(profileData as MarketplaceProfile);
+      setProfile(mp);
       return { error: null };
     },
-    [supabase]
+    [supabase, ensureProfile]
   );
 
   const signOut = useCallback(async () => {
@@ -259,6 +381,8 @@ export function MarketplaceAuthProvider({
   const updateRole = useCallback(
     async (role: MarketplaceProfile["role"]) => {
       if (!supabase || !user) return;
+      // Role changes are now blocked by RLS for non-admins.
+      // This function is kept for backward compat but will fail at DB level.
       const { error } = await supabase
         .from("marketplace_profiles")
         .update({ role })
@@ -272,6 +396,80 @@ export function MarketplaceAuthProvider({
     [supabase, user, fetchProfile]
   );
 
+  const submitSellerApplication = useCallback(
+    async (payload: {
+      store_name: string;
+      bio: string;
+      location: string;
+      phone?: string;
+      full_name?: string;
+      id_file?: File | null;
+    }): Promise<{ error: string | null }> => {
+      if (!supabase || !user) return { error: "Please sign in first." };
+
+      // Check if already a seller
+      if (profile?.role === "seller") return { error: "You are already a seller." };
+
+      // Check for existing pending application
+      const { data: existing } = await supabase
+        .from("marketplace_seller_applications")
+        .select("id, status")
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (existing) return { error: "You already have a pending application." };
+
+      // Upload ID file if provided
+      let idFileUrl: string | null = null;
+      if (payload.id_file) {
+        const ext = payload.id_file.name.split(".").pop() ?? "jpg";
+        const path = `seller-applications/${user.id}/${Date.now()}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(path, payload.id_file, { upsert: true });
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from("avatars")
+            .getPublicUrl(path);
+          idFileUrl = urlData?.publicUrl ?? null;
+        }
+      }
+
+      const { error } = await supabase
+        .from("marketplace_seller_applications")
+        .insert([
+          {
+            user_id: user.id,
+            email: user.email ?? profile?.email ?? null,
+            full_name: payload.full_name ?? profile?.username ?? null,
+            store_name: payload.store_name,
+            phone: payload.phone ?? null,
+            location: payload.location,
+            bio: payload.bio,
+            id_file_url: idFileUrl,
+            status: "pending",
+          },
+        ]);
+
+      if (error) return { error: error.message };
+      return { error: null };
+    },
+    [supabase, user, profile]
+  );
+
+  const getMySellerApplication = useCallback(async (): Promise<SellerApplication | null> => {
+    if (!supabase || !user) return null;
+    const { data } = await supabase
+      .from("marketplace_seller_applications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data as SellerApplication | null;
+  }, [supabase, user]);
+
   useEffect(() => {
     if (!supabase) {
       setLoading(false);
@@ -281,12 +479,17 @@ export function MarketplaceAuthProvider({
     let mounted = true;
     supabase.auth
       .getSession()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (!mounted) return;
         const currentUser = data.session?.user ?? null;
         setUser(currentUser);
-        setLoading(false);
-        void fetchProfile(currentUser);
+        if (currentUser) {
+          const mp = await ensureProfile(currentUser);
+          if (mounted) setProfile(mp);
+        } else {
+          setProfile(null);
+        }
+        if (mounted) setLoading(false);
       })
       .catch(() => {
         if (!mounted) return;
@@ -296,11 +499,17 @@ export function MarketplaceAuthProvider({
       });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
+        if (!mounted) return;
         const currentUser = session?.user ?? null;
         setUser(currentUser);
-        setLoading(false);
-        void fetchProfile(currentUser);
+        if (currentUser) {
+          const mp = await ensureProfile(currentUser);
+          if (mounted) setProfile(mp);
+        } else {
+          setProfile(null);
+        }
+        if (mounted) setLoading(false);
       }
     );
 
@@ -308,7 +517,7 @@ export function MarketplaceAuthProvider({
       mounted = false;
       authListener.subscription.unsubscribe();
     };
-  }, [supabase, fetchProfile]);
+  }, [supabase, ensureProfile]);
 
   const value = useMemo(
     () => ({
@@ -322,6 +531,8 @@ export function MarketplaceAuthProvider({
       refreshProfile,
       updateProfile,
       updateRole,
+      submitSellerApplication,
+      getMySellerApplication,
     }),
     [
       supabase,
@@ -334,6 +545,8 @@ export function MarketplaceAuthProvider({
       refreshProfile,
       updateProfile,
       updateRole,
+      submitSellerApplication,
+      getMySellerApplication,
     ]
   );
 

@@ -61,7 +61,7 @@ type BuyerCartItem = {
 };
 
 export default function BuyerDashboardPage() {
-  const { supabase, user, profile, updateProfile, updateRole, refreshProfile } =
+  const { supabase, user, profile, updateProfile, refreshProfile, submitSellerApplication, getMySellerApplication } =
     useMarketplaceAuth();
   const router = useRouter();
   const [orders, setOrders] = useState<BuyerOrder[]>([]);
@@ -371,24 +371,24 @@ export default function BuyerDashboardPage() {
       return;
     }
     setSellerSubmitting(true);
-    await updateProfile({
+    const { error } = await submitSellerApplication({
       store_name: sellerStoreName.trim(),
       bio: sellerBio.trim(),
       location: sellerLocation.trim(),
     });
-    await updateRole("seller");
-    await refreshProfile();
     setSellerSubmitting(false);
     setSellerRequestOpen(false);
-    setToast("Seller mode enabled. Welcome!");
+    if (error) {
+      setToast(error);
+    } else {
+      setToast("Application submitted! An admin will review it shortly.");
+    }
   }, [
     user,
     sellerStoreName,
     sellerBio,
     sellerLocation,
-    updateProfile,
-    updateRole,
-    refreshProfile,
+    submitSellerApplication,
   ]);
 
   const uploadReceipt = useCallback(
@@ -603,7 +603,7 @@ export default function BuyerDashboardPage() {
 
   if (!user) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
@@ -619,7 +619,7 @@ export default function BuyerDashboardPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
@@ -666,7 +666,7 @@ export default function BuyerDashboardPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex items-center justify-between text-xs text-white/60">
                 Total Orders
@@ -1408,7 +1408,8 @@ export default function BuyerDashboardPage() {
               Share your store details
             </h2>
             <p className="mt-2 text-sm text-white/60">
-              Add your store name, bio, and location to unlock seller tools.
+              Add your store name, bio, and location. An admin will review and
+              approve your application.
             </p>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -1470,7 +1471,7 @@ export default function BuyerDashboardPage() {
                 disabled={sellerSubmitting}
                 className="rounded-full bg-emerald-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {sellerSubmitting ? "Submitting..." : "Activate Seller Mode"}
+                {sellerSubmitting ? "Submitting..." : "Submit Application"}
               </button>
             </div>
           </div>

@@ -7,13 +7,14 @@ import { ArrowRight, Leaf, Mail, ShieldCheck, User } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 
 export default function MarketplaceRegisterPage() {
-  const { signUp, signOut } = useMarketplaceAuth();
+  const { signUp, signIn, signOut } = useMarketplaceAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageType, setMessageType] = useState<"error" | "info">("error");
 
   const canSubmit = useMemo(
     () =>
@@ -33,7 +34,33 @@ export default function MarketplaceRegisterPage() {
       username: username.trim(),
     });
     if (result.error) {
+      // If user already exists in auth (e.g. from Reported Area), try signing in
+      if (
+        result.error.toLowerCase().includes("already registered") ||
+        result.error.toLowerCase().includes("already been registered")
+      ) {
+        const signInResult = await signIn({
+          email: email.trim(),
+          password,
+        });
+        if (!signInResult.error) {
+          // Signed in successfully — marketplace profile auto-created
+          setMessage("Welcome! Your marketplace profile has been set up.");
+          setMessageType("info");
+          setSubmitting(false);
+          router.replace("/market-place");
+          return;
+        }
+        // Sign-in also failed — they used the wrong password
+        setMessage(
+          "This email already has a GreenDuty account. Please go to the login page and use your existing GreenDuty password."
+        );
+        setMessageType("error");
+        setSubmitting(false);
+        return;
+      }
       setMessage(result.error);
+      setMessageType("error");
       setSubmitting(false);
       return;
     }
@@ -44,7 +71,7 @@ export default function MarketplaceRegisterPage() {
   }, [canSubmit, submitting, signUp, signOut, email, password, username, router]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl" />
@@ -60,7 +87,7 @@ export default function MarketplaceRegisterPage() {
             </div>
             <h1 className="mt-4 text-2xl font-semibold">Create your buyer profile</h1>
             <p className="mt-2 text-sm text-white/60">
-              New marketplace accounts start as buyers. Upgrade to seller anytime.
+              New marketplace accounts start as buyers. You can apply to become a seller after registration.
             </p>
 
             <div className="mt-6 space-y-4">
@@ -110,7 +137,11 @@ export default function MarketplaceRegisterPage() {
               </div>
 
               {message && (
-                <div className="rounded-2xl border border-emerald-200/20 bg-emerald-200/10 px-4 py-3 text-xs text-emerald-100">
+                <div className={`rounded-2xl border px-4 py-3 text-xs ${
+                  messageType === "info"
+                    ? "border-emerald-200/20 bg-emerald-200/10 text-emerald-100"
+                    : "border-red-200/20 bg-red-200/10 text-red-200"
+                }`}>
                   {message}
                 </div>
               )}

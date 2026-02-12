@@ -167,7 +167,7 @@ export default function GreenSpotAdminVerificationPage() {
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-[#0b0f12] text-white">
+      <main className="min-h-screen gd-page-bg--flat text-white">
         <Navbar />
         <section className="pt-28 pb-16">
           <div className="max-w-3xl mx-auto px-4">
@@ -183,7 +183,7 @@ export default function GreenSpotAdminVerificationPage() {
 
   if (!profileLoading && !isAdmin) {
     return (
-      <main className="min-h-screen bg-[#0b0f12] text-white">
+      <main className="min-h-screen gd-page-bg--flat text-white">
         <Navbar />
         <section className="pt-28 pb-16">
           <div className="max-w-3xl mx-auto px-4">
@@ -198,7 +198,7 @@ export default function GreenSpotAdminVerificationPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0b0f12] text-white">
+    <main className="min-h-screen gd-page-bg--flat text-white">
       <Navbar />
       <section className="pt-28 pb-16">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">

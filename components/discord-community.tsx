@@ -42,13 +42,13 @@ const featureTiles = [
 
 export function DiscordCommunity() {
   return (
-    <section id="discord-community" className="relative overflow-hidden bg-transparent py-24 text-slate-100">
+    <section id="discord-community" className="relative overflow-hidden bg-transparent py-12 sm:py-16 lg:py-24 text-slate-100">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <motion.div
-          initial={{ opacity: 0, y: 34, scale: 0.98 }}
-          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.55, ease: "easeOut" }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
           className="relative overflow-hidden rounded-[32px] border border-white/12 bg-white/5 backdrop-blur-md shadow-[0_30px_70px_rgba(0,0,0,0.4)]"
         >
           <div className="pointer-events-none absolute inset-0">

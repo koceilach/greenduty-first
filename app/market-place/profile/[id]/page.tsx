@@ -151,8 +151,10 @@ export default function MarketplaceProfilePage() {
   useEffect(() => {
     if (!supabase || !profileId) return;
     let active = true;
-    const fetchProfile = async () => {
+    const loadProfile = async () => {
       setLoadingProfile(true);
+
+      // For own profile: use context profile (ensureProfile already ran)
       if (isSelf && profile) {
         if (active) {
           setViewProfile(profile);
@@ -160,6 +162,8 @@ export default function MarketplaceProfilePage() {
         }
         return;
       }
+
+      // For other profiles or if context profile not ready: fetch from DB
       const { data, error } = await supabase
         .from("marketplace_profiles")
         .select(
@@ -171,16 +175,34 @@ export default function MarketplaceProfilePage() {
       if (error) {
         setToast("Unable to load marketplace profile.");
         setViewProfile(null);
+      } else if (data) {
+        setViewProfile(data as typeof profile);
+      } else if (isSelf && user) {
+        // Row might not exist yet — create a synthetic profile for own view
+        setViewProfile({
+          id: user.id,
+          email: user.email ?? null,
+          username: user.email?.split("@")[0] ?? "User",
+          role: "buyer",
+          bio: null,
+          store_name: null,
+          avatar_url: null,
+          location: null,
+          store_latitude: null,
+          store_longitude: null,
+          created_at: null,
+          updated_at: null,
+        });
       } else {
-        setViewProfile((data as typeof profile) ?? null);
+        setViewProfile(null);
       }
       setLoadingProfile(false);
     };
-    fetchProfile();
+    loadProfile();
     return () => {
       active = false;
     };
-  }, [supabase, profileId, isSelf, profile]);
+  }, [supabase, profileId, isSelf, profile, user]);
 
   useEffect(() => {
     if (!isSelf || !profile) return;
@@ -437,7 +459,7 @@ export default function MarketplaceProfilePage() {
 
   if (!profileId) {
     return (
-      <div className="min-h-screen bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub min-h-screen bg-[#0b2b25] text-white">
         <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-white/60">
           Profile not found.
         </div>
@@ -447,7 +469,7 @@ export default function MarketplaceProfilePage() {
 
   if (!user) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl" />
@@ -469,7 +491,7 @@ export default function MarketplaceProfilePage() {
 
   if (loadingProfile) {
     return (
-      <div className="min-h-screen bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub min-h-screen bg-[#0b2b25] text-white">
         <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-white/60">
           Loading profile...
         </div>
@@ -479,9 +501,17 @@ export default function MarketplaceProfilePage() {
 
   if (!viewProfile) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
-        <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-white/60">
-          Profile not found.
+      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+        <div className="mx-auto max-w-3xl px-6 py-16">
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
+            Profile not found.{" "}
+            <Link
+              href="/market-place"
+              className="font-semibold text-emerald-200 hover:text-emerald-100"
+            >
+              Back to marketplace
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -491,7 +521,7 @@ export default function MarketplaceProfilePage() {
     viewProfile.username ?? viewProfile.store_name ?? "Marketplace Member";
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl" />
@@ -500,7 +530,7 @@ export default function MarketplaceProfilePage() {
 
       <div className="relative z-10 mx-auto max-w-6xl px-6 py-10">
         <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-          <aside className={`${cardBase} h-max space-y-4 p-5`}>
+          <aside className={`${cardBase} hidden h-max space-y-4 p-5 lg:block`}>
             <div className="text-xs uppercase tracking-[0.3em] text-emerald-200/70">
               Account
             </div>

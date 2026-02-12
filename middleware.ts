@@ -33,10 +33,28 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user && request.nextUrl.pathname.startsWith("/reported-area")) {
+  const pathname = request.nextUrl.pathname;
+
+  if (!user && pathname.startsWith("/reported-area")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("redirectedFrom", request.nextUrl.pathname);
+    redirectUrl.searchParams.set("redirectedFrom", pathname);
+    return NextResponse.redirect(redirectUrl);
+  }
+
+  /* ── Education / Messages / Profile route protection ────────────────────── */
+  const isEduRoute =
+    pathname.startsWith("/education") ||
+    pathname.startsWith("/messages") ||
+    pathname.startsWith("/profile");
+
+  const isPublicEduRoute =
+    pathname === "/education/login" || pathname === "/education/register";
+
+  if (!user && isEduRoute && !isPublicEduRoute) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/education/login";
+    redirectUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -44,5 +62,10 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/reported-area/:path*"],
+  matcher: [
+    "/reported-area/:path*",
+    "/education/:path*",
+    "/messages/:path*",
+    "/profile/:path*",
+  ],
 };

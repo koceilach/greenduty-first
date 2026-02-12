@@ -18,7 +18,7 @@ import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 import { GD_WILAYAS } from "@/lib/wilayas";
 
 export default function SellerOnboardingPage() {
-  const { user, profile, updateProfile, updateRole, refreshProfile } =
+  const { user, profile, submitSellerApplication, getMySellerApplication } =
     useMarketplaceAuth();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -26,6 +26,7 @@ export default function SellerOnboardingPage() {
   const [idFile, setIdFile] = useState<File | null>(null);
   const [idPreview, setIdPreview] = useState<string | null>(null);
   const [completed, setCompleted] = useState(false);
+  const [existingApp, setExistingApp] = useState<{ status: string } | null>(null);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -43,6 +44,18 @@ export default function SellerOnboardingPage() {
     const timer = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  // Check for existing application or if already a seller
+  useEffect(() => {
+    if (!user) return;
+    if (profile?.role === "seller") {
+      setCompleted(true);
+      return;
+    }
+    getMySellerApplication().then((app) => {
+      if (app) setExistingApp({ status: app.status });
+    });
+  }, [user, profile?.role, getMySellerApplication]);
 
   useEffect(() => {
     if (!user) return;
@@ -100,19 +113,23 @@ export default function SellerOnboardingPage() {
 
     try {
       const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
-      await updateProfile({
-        username: fullName || null,
-        store_name: form.businessName.trim() || null,
-        location: form.wilaya.trim() || null,
-        bio: form.bio.trim() || null,
+      const { error } = await submitSellerApplication({
+        store_name: form.businessName.trim() || fullName,
+        bio: form.bio.trim() || "Seller on GreenDuty Marketplace",
+        location: form.wilaya.trim(),
+        phone: form.phone.trim(),
+        full_name: fullName,
+        id_file: idFile,
       });
 
-      await updateRole("seller");
-      await refreshProfile();
-      setCompleted(true);
-      setToast("Seller mode enabled. Welcome aboard!");
-    } catch (error) {
-      setToast("Unable to activate seller mode. Please try again.");
+      if (error) {
+        setToast(error);
+      } else {
+        setCompleted(true);
+        setToast("Application submitted! An admin will review it shortly.");
+      }
+    } catch {
+      setToast("Unable to submit application. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -124,13 +141,13 @@ export default function SellerOnboardingPage() {
     form.businessName,
     form.wilaya,
     form.bio,
-    updateProfile,
-    updateRole,
-    refreshProfile,
+    form.phone,
+    idFile,
+    submitSellerApplication,
   ]);
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.2),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(16,185,129,0.25),_transparent_60%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
 
@@ -207,12 +224,12 @@ export default function SellerOnboardingPage() {
           </div>
 
           <div className="rounded-[32px] border border-white/10 bg-white/5 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.4)] backdrop-blur-xl">
-            {completed ? (
+            {completed && profile?.role === "seller" ? (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-200/40 bg-emerald-200/10 text-emerald-200">
                   <BadgeCheck className="h-6 w-6" />
                 </div>
-                <div className="text-xl font-semibold">You're a Seller!</div>
+                <div className="text-xl font-semibold">You&apos;re a Seller!</div>
                 <p className="text-sm text-white/60">
                   Your seller tools are now active. You can publish products
                   directly from the marketplace.
@@ -224,6 +241,35 @@ export default function SellerOnboardingPage() {
                 >
                   Go to Marketplace
                 </button>
+              </div>
+            ) : completed || existingApp?.status === "pending" ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-200/40 bg-amber-200/10 text-amber-200">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div className="text-xl font-semibold">Application Submitted</div>
+                <p className="text-sm text-white/60">
+                  Your seller application is under review. An admin will approve or
+                  contact you shortly. You&apos;ll be able to sell once approved.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/market-place")}
+                  className="rounded-full bg-emerald-400 px-6 py-2 text-sm font-semibold text-emerald-950"
+                >
+                  Back to Marketplace
+                </button>
+              </div>
+            ) : existingApp?.status === "rejected" ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-200/40 bg-red-200/10 text-red-300">
+                  <ShieldCheck className="h-6 w-6" />
+                </div>
+                <div className="text-xl font-semibold">Application Rejected</div>
+                <p className="text-sm text-white/60">
+                  Your previous application was not approved. You can submit a new
+                  application with updated information below.
+                </p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -431,7 +477,7 @@ export default function SellerOnboardingPage() {
                   disabled={submitting}
                   className="inline-flex w-full items-center justify-center rounded-full bg-emerald-400 px-6 py-3 text-sm font-semibold text-emerald-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? "Submitting..." : "Submit & Activate Seller Mode"}
+                  {submitting ? "Submitting..." : "Submit Application for Review"}
                 </button>
               </div>
             )}

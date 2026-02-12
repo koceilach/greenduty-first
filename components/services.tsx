@@ -1,9 +1,9 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { MapPin, Sprout, Truck, ArrowRight, Clock, GraduationCap, TreePine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StaggerContainer, StaggerItem, FadeSlide } from "@/lib/ux/motion";
 
 const services = [
   {
@@ -25,9 +25,9 @@ const services = [
     description:
       "Spot a place that needs greenery? Report locations perfect for planting trees and flowers. Help us identify and transform barren spots into green havens.",
     icon: TreePine,
-    active: false,
-    buttonText: "Coming Soon",
-    href: "#",
+    active: true,
+    buttonText: "Start Reporting",
+    href: "/greenspot",
     category: "reporting",
   },
   {
@@ -37,9 +37,9 @@ const services = [
     description:
       "Trade seeds, tools, and agricultural products. Connect with local farmers and build a sustainable food network.",
     icon: Sprout,
-    active: false,
-    buttonText: "Coming Soon",
-    href: "#",
+    active: true,
+    buttonText: "Browse Market",
+    href: "/market-place",
     category: "commerce",
   },
   {
@@ -68,34 +68,15 @@ const services = [
   },
 ];
 
-const panelVariants: Record<string, any> = {
-  hidden: { opacity: 0, y: 36, scale: 0.96 },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    scale: 1,
-    transition: {
-      delay: i * 0.08,
-      duration: 0.48,
-      ease: "easeOut",
-    },
-  }),
-};
 
 export function Services() {
   const featuredService = services.find((service) => service.active) ?? services[0];
   const secondaryServices = services.filter((service) => service.id !== featuredService.id);
 
   return (
-    <section id="about" className="bg-transparent py-24">
+    <section id="about" className="bg-transparent py-12 sm:py-16 lg:py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-          className="mb-14 text-center"
-        >
+        <FadeSlide direction="up" spring="soft" className="mb-14 text-center">
           <span className="inline-flex items-center rounded-full border border-emerald-300/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200">
             Platform Modules
           </span>
@@ -106,17 +87,12 @@ export function Services() {
             Five connected products orchestrated for cleaner cities, greener zones,
             and smarter environmental action.
           </p>
-        </motion.div>
+        </FadeSlide>
 
-        <div className="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
-          <motion.article
-            custom={0}
-            variants={panelVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            whileHover={{ y: -6 }}
-            className="group relative overflow-hidden rounded-[28px] border border-emerald-300/35 bg-white/5 p-7 backdrop-blur-md shadow-[0_24px_55px_rgba(16,185,129,0.18)] sm:p-8"
+        <StaggerContainer stagger={0.08} spring="gentle" className="grid gap-6 lg:grid-cols-[1.25fr_1fr]">
+          <StaggerItem direction="up" distance={30}>
+          <article
+            className="group relative overflow-hidden rounded-[28px] border border-emerald-300/35 bg-white/5 p-7 backdrop-blur-md shadow-[0_24px_55px_rgba(16,185,129,0.18)] sm:p-8 transition-transform duration-300 hover:-translate-y-1.5"
           >
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute -left-10 -top-10 h-44 w-44 rounded-full bg-emerald-400/18 blur-3xl transition-opacity duration-300 group-hover:opacity-90" />
@@ -178,25 +154,27 @@ export function Services() {
                 </Button>
               </div>
             </div>
-          </motion.article>
+          </article>
+          </StaggerItem>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            {secondaryServices.map((service, i) => (
-            <motion.div
-              key={service.id}
-              custom={i + 1}
-              variants={panelVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              whileHover={{ y: -5, scale: 1.01 }}
-              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-md transition-all duration-300 hover:border-emerald-300/40 hover:bg-white/[0.07]"
+          <StaggerContainer stagger={0.06} spring="gentle" className="grid gap-4 sm:grid-cols-2">
+            {secondaryServices.map((service) => (
+            <StaggerItem key={service.id} direction="up" distance={24}>
+            <div
+              className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 hover:scale-[1.01] hover:border-emerald-300/40 hover:bg-white/[0.07]"
             >
               <div className="mb-4 flex items-center justify-between gap-2">
                 <span className="inline-flex rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300">
                   {service.category}
                 </span>
-                {!service.active ? (
+                {service.active ? (
+                  <Badge
+                    variant="secondary"
+                    className="border border-emerald-300/30 bg-emerald-400/12 text-emerald-200"
+                  >
+                    Live Now
+                  </Badge>
+                ) : (
                   <Badge
                     variant="secondary"
                     className="border border-white/15 bg-white/10 text-slate-200"
@@ -204,7 +182,7 @@ export function Services() {
                     <Clock className="mr-1 h-3 w-3" />
                     Coming Soon
                   </Badge>
-                ) : null}
+                )}
               </div>
 
               <div className="mb-4 flex items-start gap-3">
@@ -229,17 +207,18 @@ export function Services() {
                     : "cursor-not-allowed border border-white/15 bg-white/10 text-slate-300"
                 }`}
                 onClick={() => {
-                  if (!service.active) return;
-                  window.location.href = "/login?redirect=/reported-area";
+                  if (!service.active || !service.href) return;
+                  window.location.href = service.href;
                 }}
               >
                 {service.buttonText}
                 {service.active ? <ArrowRight className="ml-2 h-4 w-4" /> : null}
               </Button>
-            </motion.div>
+            </div>
+            </StaggerItem>
             ))}
-          </div>
-        </div>
+          </StaggerContainer>
+        </StaggerContainer>
       </div>
     </section>
   );

@@ -3,7 +3,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Leaf,
   MapPin,
   GraduationCap,
   AlertTriangle,
@@ -16,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
+import { usePrefetch } from "@/lib/ux/use-prefetch";
 
 const navLinks = [
   { name: "Home", href: "#home" },
@@ -48,6 +48,7 @@ export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [country, setCountry] = useState<string>("Global");
+  const prefetch = usePrefetch();
 
   const dynamicLinks = useMemo(() => {
     return [...navLinks];
@@ -86,8 +87,8 @@ export function Navbar() {
       <div
         className={`mx-auto mt-3 max-w-6xl transition-all duration-500 ${
           scrolled
-            ? "rounded-2xl border border-white/[0.08] bg-white/[0.04] shadow-[0_8px_40px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
-            : "rounded-2xl border border-transparent bg-white/[0.02] backdrop-blur-xl"
+            ? "gd-navbar rounded-2xl border border-white/[0.08] bg-white/[0.04] shadow-[0_8px_40px_rgba(0,0,0,0.25),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur-2xl"
+            : "gd-navbar gd-navbar--transparent rounded-2xl border border-transparent bg-white/[0.02] backdrop-blur-xl"
         }`}
       >
         <nav className="px-4 sm:px-5">
@@ -100,21 +101,21 @@ export function Navbar() {
             >
               <Link href="/" className="flex items-center gap-2.5">
                 <div className="relative">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-lg shadow-emerald-500/20">
-                    <Leaf className="h-[18px] w-[18px] text-white" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-lg shadow-black/10">
+                    <img src="/logo.png" alt="GreenDuty" className="h-7 w-7 object-contain" />
                   </div>
-                  <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-[1.5px] border-black/30 bg-emerald-400 shadow-sm" />
+                  <div className="gd-navbar-logo-dot absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-[1.5px] border-black/30 bg-emerald-400 shadow-sm" />
                 </div>
                 <div className="flex flex-col leading-none">
-                  <span className="text-[15px] font-bold tracking-tight text-foreground">GreenDuty</span>
-                  <span className="mt-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">{country}</span>
+                  <span className="gd-navbar-logo-title text-[15px] font-bold tracking-tight text-foreground">GreenDuty</span>
+                  <span className="gd-navbar-logo-subtitle mt-0.5 text-[9px] font-medium uppercase tracking-[0.12em] text-muted-foreground/70">{country}</span>
                 </div>
               </Link>
             </motion.div>
 
             {/* Desktop Navigation - Center pill */}
             <div className="hidden lg:flex items-center">
-              <div className="flex items-center gap-0.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-1.5 py-1">
+              <div className="gd-navbar-pill flex items-center gap-0.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-1.5 py-1">
                 {dynamicLinks.map((link) => (
                   <div
                     key={link.name}
@@ -125,6 +126,7 @@ export function Navbar() {
                     <motion.div whileTap={{ scale: 0.95 }}>
                       <Link
                         href={link.href}
+                        {...prefetch(link.href)}
                         className="flex items-center gap-1 rounded-full px-3.5 py-1.5 text-[13px] font-medium text-muted-foreground/80 transition-all duration-200 hover:bg-white/[0.08] hover:text-foreground"
                       >
                         {link.name}
@@ -142,12 +144,13 @@ export function Navbar() {
                           animate={{ opacity: 1, y: 0, scale: 1 }}
                           exit={{ opacity: 0, y: 8, scale: 0.96 }}
                           transition={{ duration: 0.18, ease: "easeOut" }}
-                          className="absolute left-1/2 top-full z-50 mt-2 w-52 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/[0.08] bg-black/60 p-1.5 shadow-[0_16px_48px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
+                          className="gd-navbar-dropdown absolute left-1/2 top-full z-50 mt-2 w-52 -translate-x-1/2 overflow-hidden rounded-2xl border border-white/[0.08] bg-black/60 p-1.5 shadow-[0_16px_48px_rgba(0,0,0,0.4)] backdrop-blur-2xl"
                         >
                           {link.dropdown.map((item) => (
                             <Link
                               key={item.name}
                               href={item.href}
+                              {...prefetch(item.href)}
                               className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] text-muted-foreground/80 transition-all duration-150 hover:bg-white/[0.08] hover:text-foreground"
                             >
                               {item.name}
@@ -164,11 +167,12 @@ export function Navbar() {
             {/* Right side controls */}
             <div className="hidden lg:flex items-center gap-2">
               {/* Quick Access Icons */}
-              <div className="flex items-center gap-0.5 rounded-full border border-white/[0.06] bg-white/[0.03] p-1">
+              <div className="gd-navbar-icons flex items-center gap-0.5 rounded-full border border-white/[0.06] bg-white/[0.03] p-1">
                 {quickAccessIcons.map((item) => (
                   <Link
                     key={item.label}
                     href={item.href}
+                    {...prefetch(item.href)}
                     className={`group rounded-full p-2 transition-all duration-200 ${item.bgColor}`}
                     title={item.label}
                   >
@@ -178,13 +182,13 @@ export function Navbar() {
               </div>
 
               {/* Divider */}
-              <div className="mx-1 h-5 w-px bg-white/[0.08]" />
+              <div className="gd-navbar-divider mx-1 h-5 w-px bg-white/[0.08]" />
 
               {/* Language toggle */}
               <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
                 <button
                   onClick={() => setLanguage(language === "EN" ? "AR" : "EN")}
-                  className="flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[12px] font-medium text-muted-foreground/70 transition-all hover:bg-white/[0.07] hover:text-foreground"
+                  className="gd-navbar-lang flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-[12px] font-medium text-muted-foreground/70 transition-all hover:bg-white/[0.07] hover:text-foreground"
                 >
                   <Globe className="h-3.5 w-3.5" />
                   {language}
@@ -195,7 +199,7 @@ export function Navbar() {
             {/* Mobile Menu Button */}
             <motion.button
               whileTap={{ scale: 0.9 }}
-              className="lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] transition-all hover:bg-white/[0.08]"
+              className="gd-navbar-mobile-btn lg:hidden flex h-9 w-9 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] transition-all hover:bg-white/[0.08]"
               onClick={() => setIsOpen(!isOpen)}
             >
               {isOpen ? (
@@ -215,14 +219,15 @@ export function Navbar() {
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="lg:hidden overflow-hidden border-t border-white/[0.06]"
+              className="gd-navbar-mobile-border lg:hidden overflow-hidden border-t border-white/[0.06]"
             >
               <div className="space-y-1 px-3 py-3">
                 {dynamicLinks.map((link) => (
                   <Link
                     key={link.name}
                     href={link.href}
-                    className="flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground/80 transition-all hover:bg-white/[0.06] hover:text-foreground"
+                    {...prefetch(link.href)}
+                    className="gd-navbar-mobile-link flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground/80 transition-all hover:bg-white/[0.06] hover:text-foreground"
                     onClick={() => setIsOpen(false)}
                   >
                     <span>{link.name}</span>
@@ -230,14 +235,15 @@ export function Navbar() {
                   </Link>
                 ))}
 
-                <div className="mt-3 border-t border-white/[0.06] pt-3">
+                <div className="gd-navbar-mobile-border mt-3 border-t border-white/[0.06] pt-3">
                   <p className="px-3 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground/50 mb-2">Quick Access</p>
                   <div className="flex items-center gap-1.5 px-1">
                     {quickAccessIcons.map((item) => (
                       <Link
                         key={item.label}
                         href={item.href}
-                        className="flex flex-1 items-center justify-center rounded-xl bg-white/[0.04] p-2.5 transition-colors hover:bg-white/[0.08]"
+                        {...prefetch(item.href)}
+                        className="gd-navbar-mobile-qa flex flex-1 items-center justify-center rounded-xl bg-white/[0.04] p-2.5 transition-colors hover:bg-white/[0.08]"
                         title={item.label}
                         onClick={() => setIsOpen(false)}
                       >
@@ -247,10 +253,10 @@ export function Navbar() {
                   </div>
                 </div>
 
-                <div className="mt-3 border-t border-white/[0.06] px-1 pt-3">
+                <div className="gd-navbar-mobile-border mt-3 border-t border-white/[0.06] px-1 pt-3">
                   <button
                     onClick={() => setLanguage(language === "EN" ? "AR" : "EN")}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] py-2 text-xs font-medium text-muted-foreground/70 transition-all hover:bg-white/[0.06]"
+                    className="gd-navbar-lang flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] py-2 text-xs font-medium text-muted-foreground/70 transition-all hover:bg-white/[0.06]"
                   >
                     <Globe className="h-3.5 w-3.5" />
                     {language === "EN" ? "English" : "العربية"}

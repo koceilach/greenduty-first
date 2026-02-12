@@ -48,14 +48,13 @@ const roles = [
 ];
 
 const panelVariants: Record<string, any> = {
-  hidden: { opacity: 0, y: 36, scale: 0.96 },
+  hidden: { opacity: 0, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    scale: 1,
     transition: {
-      delay: i * 0.08,
-      duration: 0.48,
+      delay: i * 0.06,
+      duration: 0.35,
       ease: "easeOut",
     },
   }),
@@ -93,7 +92,7 @@ export function WorkWithUs() {
   const totalBenefits = roles.reduce((sum, role) => sum + role.benefits.length, 0);
 
   return (
-    <section id="team" className="bg-transparent py-24">
+    <section id="team" className="bg-transparent py-12 sm:py-16 lg:py-24">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}

@@ -1629,7 +1629,7 @@ export default function ReportedGreenPage() {
         ) : null}
 
         <aside
-          className={`pointer-events-auto absolute left-4 top-1/2 z-30 w-[92px] -translate-y-1/2 rounded-[24px] border px-2 py-3 backdrop-blur-2xl ${leftNavShellClass}`}
+          className={`pointer-events-auto absolute left-4 top-1/2 z-30 hidden w-[92px] -translate-y-1/2 rounded-[24px] border px-2 py-3 backdrop-blur-2xl md:flex md:flex-col ${leftNavShellClass}`}
         >
           <div className="flex flex-col gap-2">
             {sidebarItems.map((item, index) => (
@@ -1731,7 +1731,7 @@ export default function ReportedGreenPage() {
         </aside>
 
         <div
-          className={`pointer-events-auto absolute left-[96px] right-4 top-4 z-30 flex items-center justify-between gap-3 sm:left-[106px] ${navShellClass}`}
+          className={`pointer-events-auto absolute left-4 right-4 top-4 z-30 flex items-center justify-between gap-3 md:left-[106px] ${navShellClass}`}
         >
           <div
             className={`group flex w-full max-w-2xl items-center gap-3 rounded-full px-5 py-2.5 transition ${searchShellClass}`}

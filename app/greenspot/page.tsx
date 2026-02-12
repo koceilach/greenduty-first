@@ -26,6 +26,7 @@ import {
   Scissors,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/context";
+import { SkeletonCard, SkeletonRow } from "@/lib/ux/skeletons";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ssr: false,
@@ -1053,8 +1054,10 @@ export default function GreenSpotPage() {
           <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-8">
             <div className="space-y-6">
               {reportsLoading ? (
-                <div className="rounded-3xl border border-emerald-400/20 bg-black/30 px-5 py-4 text-sm text-white/70">
-                  Loading recent reports...
+                <div className="space-y-4">
+                  <SkeletonCard image={false} lines={2} className="border-emerald-400/10" />
+                  <SkeletonCard image={false} lines={2} className="border-emerald-400/10" />
+                  <SkeletonCard image={false} lines={2} className="border-emerald-400/10" />
                 </div>
               ) : null}
 
@@ -1259,7 +1262,7 @@ export default function GreenSpotPage() {
                 ) : (
                   <div className="mt-6 rounded-2xl border border-white/10 bg-black/35 px-4 py-4 text-sm text-white/75">
                     {reportsLoading
-                      ? "Loading featured report..."
+                      ? <SkeletonCard image={false} lines={2} className="border-transparent bg-transparent p-0" />
                       : reportsError
                         ? "Unable to load featured report right now."
                         : "No reports available yet. Submit one from Reported Green to populate this section."}
@@ -1330,17 +1333,10 @@ export default function GreenSpotPage() {
                   asChild
                   className="border border-emerald-300/50 bg-gradient-to-r from-emerald-400 to-emerald-500 text-emerald-950 shadow-[0_10px_30px_rgba(16,185,129,0.3)] hover:from-emerald-300 hover:to-emerald-400 light:border-emerald-500/35 dark:text-emerald-950 green:text-emerald-950"
                 >
-                  <Link href="/greenspot/report">
+                  <Link href="/greenspot/reported-green">
                     {t("greenspot.community.add")}
                     <ArrowUpRight className="w-4 h-4" />
                   </Link>
-                </Button>
-                <Button
-                  asChild
-                  variant="outline"
-                  className="border-white/20 bg-white/5 text-white hover:bg-white/10 light:border-slate-300/60 light:bg-white/85 light:text-slate-900 light:hover:bg-white dark:border-white/20 dark:bg-white/5 dark:text-white green:border-emerald-300/35 green:bg-emerald-500/10 green:text-emerald-100"
-                >
-                  <Link href="/greenspot/reported-green">View Community Map</Link>
                 </Button>
               </div>
             </motion.div>
@@ -1521,7 +1517,13 @@ export default function GreenSpotPage() {
                     ))}
                   </div>
 
-                  {careLoading && <p className="mt-5 text-sm text-white/65 light:text-slate-600 dark:text-white/65 green:text-white/65">Loading care tasks...</p>}
+                  {careLoading && (
+                    <div className="mt-5 space-y-3">
+                      <SkeletonRow avatar={false} lines={2} action />
+                      <SkeletonRow avatar={false} lines={2} action />
+                      <SkeletonRow avatar={false} lines={2} action />
+                    </div>
+                  )}
                   {careError && <p className="mt-5 text-sm text-red-300 light:text-red-600 dark:text-red-300 green:text-red-300">{careError}</p>}
 
                   {!careLoading && visibleTasks.length === 0 && (

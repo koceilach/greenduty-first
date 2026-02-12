@@ -338,7 +338,7 @@ function GD_System_SidebarContent({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <GD_System_StatCard label="Total Reports" value={String(reports.length)} />
         <GD_System_StatCard
           label="Verified"
@@ -822,7 +822,7 @@ function GD_System_EcoSquadPanel({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 320, opacity: 0 }}
           transition={{ type: "spring", stiffness: 180, damping: 22 }}
-          className="pointer-events-auto fixed bottom-24 right-6 z-30 w-[320px]"
+          className="pointer-events-auto fixed bottom-24 right-6 z-30 w-full sm:w-[320px]"
         >
           <GD_System_GlassCard className="p-5">
             <div className="flex items-center justify-between">
@@ -1136,7 +1136,7 @@ function GD_System_ReportModal({
                     <div className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
                       Waste Type
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {GD_System_WASTE_TYPES.map((type) => {
                         const Icon = type.icon;
                         const active = wasteType === type.label;
@@ -1271,6 +1271,7 @@ export default function GD_System_ReportedAreaPage() {
   const [GD_System_locationModalOpen, setGD_System_locationModalOpen] = useState(false);
   const [GD_System_detectingLocation, setGD_System_detectingLocation] = useState(false);
   const [GD_System_locationPulse, setGD_System_locationPulse] = useState(false);
+  const [GD_System_locationError, setGD_System_locationError] = useState<string | null>(null);
   const [GD_System_tiltEnabled, setGD_System_tiltEnabled] = useState(false);
   const [GD_System_intelOpen, setGD_System_intelOpen] = useState(false);
   const GD_System_mapTheme: "dark" | "light" = globalTheme === "light" ? "light" : "dark";
@@ -1465,44 +1466,102 @@ export default function GD_System_ReportedAreaPage() {
     );
   }, []);
 
-  const GD_System_detectLocation = useCallback(async () => {
-    if (!navigator.geolocation) return null;
-    setGD_System_detectingLocation(true);
-    return new Promise<GD_System_ReportLocation | null>((resolve) => {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          const location = { lat: latitude, lng: longitude };
-          const nextZoom = Math.max(
-            GD_System_mapRef.current?.getZoom() ?? GD_System_viewState.zoom,
-            13
-          );
-          setGD_System_reportLocation(location);
-          setGD_System_viewState((prev) => ({
-            ...prev,
-            latitude,
-            longitude,
-            zoom: nextZoom,
-          }));
-          GD_System_mapRef.current?.flyTo([latitude, longitude], nextZoom, {
-            duration: 0.9,
-          });
-          setGD_System_detectingLocation(false);
-          GD_System_triggerLocationPulse();
-          resolve(location);
-        },
-        () => {
-          setGD_System_detectingLocation(false);
-          resolve(null);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 10000,
-        }
+  const GD_System_geoPositionSuccess = useCallback(
+    (position: GeolocationPosition): GD_System_ReportLocation => {
+      const { latitude, longitude } = position.coords;
+      const location = { lat: latitude, lng: longitude };
+      const nextZoom = Math.max(
+        GD_System_mapRef.current?.getZoom() ?? GD_System_viewState.zoom,
+        13
       );
-    });
-  }, [GD_System_triggerLocationPulse, GD_System_viewState.zoom]);
+      setGD_System_reportLocation(location);
+      setGD_System_viewState((prev) => ({
+        ...prev,
+        latitude,
+        longitude,
+        zoom: nextZoom,
+      }));
+      GD_System_mapRef.current?.flyTo([latitude, longitude], nextZoom, {
+        duration: 0.9,
+      });
+      GD_System_triggerLocationPulse();
+      return location;
+    },
+    [GD_System_triggerLocationPulse, GD_System_viewState.zoom]
+  );
+
+  const GD_System_detectLocation = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setGD_System_locationError(
+        "Your browser does not support geolocation. Please use a modern browser."
+      );
+      return null;
+    }
+
+    setGD_System_detectingLocation(true);
+    setGD_System_locationError(null);
+
+    const attemptGeo = (highAccuracy: boolean, timeoutMs: number) =>
+      new Promise<GD_System_ReportLocation | null>((resolve) => {
+        navigator.geolocation.getCurrentPosition(
+          (position) => resolve(GD_System_geoPositionSuccess(position)),
+          (error) => resolve({ _error: error } as unknown as null),
+          {
+            enableHighAccuracy: highAccuracy,
+            timeout: timeoutMs,
+            maximumAge: 30000,
+          }
+        );
+      });
+
+    /* First attempt: high accuracy (GPS) with 12s timeout */
+    let result = await attemptGeo(true, 12000);
+
+    /* If it failed but was a timeout or position-unavailable, retry with low accuracy */
+    if (
+      result &&
+      typeof (result as any)._error !== "undefined"
+    ) {
+      const err = (result as any)._error as GeolocationPositionError;
+      if (
+        err.code === GeolocationPositionError.TIMEOUT ||
+        err.code === GeolocationPositionError.POSITION_UNAVAILABLE
+      ) {
+        result = await attemptGeo(false, 15000);
+      }
+    }
+
+    setGD_System_detectingLocation(false);
+
+    /* Handle final result */
+    if (result && typeof (result as any)._error !== "undefined") {
+      const err = (result as any)._error as GeolocationPositionError;
+      switch (err.code) {
+        case GeolocationPositionError.PERMISSION_DENIED:
+          setGD_System_locationError(
+            "Location permission was denied. Please enable location access in your browser or phone settings, then try again."
+          );
+          break;
+        case GeolocationPositionError.POSITION_UNAVAILABLE:
+          setGD_System_locationError(
+            "Could not determine your position. Make sure GPS/Location Services are turned on in your phone settings."
+          );
+          break;
+        case GeolocationPositionError.TIMEOUT:
+          setGD_System_locationError(
+            "Location detection timed out. Please check that GPS is enabled and try again in an open area."
+          );
+          break;
+        default:
+          setGD_System_locationError(
+            "An unexpected error occurred while detecting location. Please try again."
+          );
+      }
+      return null;
+    }
+
+    return result;
+  }, [GD_System_geoPositionSuccess]);
 
   useEffect(() => {
     let mounted = true;
@@ -2196,21 +2255,24 @@ export default function GD_System_ReportedAreaPage() {
   }, []);
 
   const GD_System_openReportModal = async () => {
-    const permission = await GD_System_checkLocationPermission();
-    if (permission !== "granted") {
+    setGD_System_locationError(null);
+    const location = await GD_System_detectLocation();
+    if (location) {
+      setGD_System_reportModalOpen(true);
+    } else {
+      /* detectLocation already set the error message — show it in the modal */
       setGD_System_locationModalOpen(true);
-      return;
     }
-    await GD_System_detectLocation();
-    setGD_System_reportModalOpen(true);
   };
 
   const GD_System_handleLocationModalConfirm = async () => {
     const location = await GD_System_detectLocation();
     if (location) {
+      setGD_System_locationError(null);
       setGD_System_locationModalOpen(false);
       setGD_System_reportModalOpen(true);
     }
+    /* If location is null, the error message is already set by detectLocation */
   };
 
   const GD_System_handleSubmitReport = async () => {
@@ -2964,6 +3026,7 @@ export default function GD_System_ReportedAreaPage() {
                   className="flex items-center justify-between rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-2 backdrop-blur-md shadow-[0_8px_26px_rgba(0,0,0,0.2)]"
                 >
                   <button
+                    onClick={() => GD_System_detectLocation()}
                     className="flex h-11 w-11 items-center justify-center text-[var(--gd-muted)] transition hover:text-[var(--gd-ink)]"
                   >
                     <MapPin className="h-5 w-5" />
@@ -2976,7 +3039,13 @@ export default function GD_System_ReportedAreaPage() {
                   </button>
                   <div className="w-10" />
                   <button
-                    className="flex h-11 w-11 items-center justify-center text-[var(--gd-muted)] transition hover:text-[var(--gd-ink)]"
+                    onClick={() => setGD_System_showHeatmap((prev) => !prev)}
+                    className={clsx(
+                      "flex h-11 w-11 items-center justify-center transition",
+                      GD_System_showHeatmap
+                        ? "text-[var(--gd-accent)]"
+                        : "text-[var(--gd-muted)] hover:text-[var(--gd-ink)]"
+                    )}
                   >
                     <ShieldCheck className="h-5 w-5" />
                   </button>
@@ -3352,6 +3421,11 @@ export default function GD_System_ReportedAreaPage() {
               <div className="mt-3 text-sm text-[var(--gd-muted)]">
                 To pinpoint pollution precisely, please allow location access.
               </div>
+              {GD_System_locationError && (
+                <div className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-left text-xs leading-relaxed text-red-300">
+                  {GD_System_locationError}
+                </div>
+              )}
               <div className="mt-5 flex flex-col gap-2">
                 <button
                   onClick={GD_System_handleLocationModalConfirm}
@@ -3368,7 +3442,10 @@ export default function GD_System_ReportedAreaPage() {
                   )}
                 </button>
                 <button
-                  onClick={() => setGD_System_locationModalOpen(false)}
+                  onClick={() => {
+                    setGD_System_locationError(null);
+                    setGD_System_locationModalOpen(false);
+                  }}
                   className="w-full rounded-2xl border border-[var(--gd-border-soft)] bg-transparent px-4 py-3 text-sm text-[var(--gd-muted)] transition hover:text-[var(--gd-ink)]"
                 >
                   Not Now

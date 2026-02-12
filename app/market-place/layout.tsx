@@ -8,5 +8,9 @@ export default function MarketPlaceLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <MarketplaceAuthProvider>{children}</MarketplaceAuthProvider>;
+  return (
+    <MarketplaceAuthProvider>
+      <div className="gd-mp">{children}</div>
+    </MarketplaceAuthProvider>
+  );
 }

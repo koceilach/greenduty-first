@@ -318,7 +318,7 @@ export default function BuyerOrdersPage() {
 
   if (!user) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
@@ -334,7 +334,7 @@ export default function BuyerOrdersPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
@@ -343,7 +343,7 @@ export default function BuyerOrdersPage() {
 
       <div className="relative z-10 mx-auto max-w-6xl px-6 py-10">
         <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-          <aside className={`${cardBase} h-max space-y-4 p-5`}>
+          <aside className={`${cardBase} hidden h-max space-y-4 p-5 lg:block`}>
             <div className="text-xs uppercase tracking-[0.3em] text-emerald-200/70">
               Account
             </div>
@@ -411,7 +411,7 @@ export default function BuyerOrdersPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
               <div className="flex items-center justify-between text-xs text-white/60">
                 Total Orders

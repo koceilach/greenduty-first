@@ -30,7 +30,7 @@ export function Interactive3DSection() {
   }, []);
 
   return (
-    <section className="relative h-[800px] w-full overflow-hidden">
+    <section className="relative h-[500px] w-full overflow-hidden sm:h-[600px] md:h-[700px] lg:h-[800px]">
       <div className="relative h-full w-full">
         {/* Globe wrapper — pointer-events-none locks the size, CSS animation rotates it */}
         <div

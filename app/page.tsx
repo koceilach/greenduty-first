@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, type ReactNode } from "react";
-import { motion, useScroll, useSpring, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
 import { Interactive3DSection } from "@/components/interactive-3d-section";
@@ -16,56 +16,40 @@ function SectionReveal({ children }: { children: ReactNode }) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start 88%", "end 36%"],
+    offset: ["start 92%", "start 55%"],
   });
 
-  const opacity = useSpring(useTransform(scrollYProgress, [0, 0.4, 1], [0, 1, 1]), {
-    stiffness: 140,
-    damping: 28,
-    mass: 0.55,
-  });
-  const scale = useSpring(useTransform(scrollYProgress, [0, 0.4, 1], [0.95, 1, 1]), {
-    stiffness: 140,
-    damping: 28,
-    mass: 0.55,
-  });
-  const y = useSpring(useTransform(scrollYProgress, [0, 0.4], [28, 0]), {
-    stiffness: 140,
-    damping: 28,
-    mass: 0.55,
-  });
+  const opacity = useTransform(scrollYProgress, [0, 1], [0, 1]);
+  const y = useTransform(scrollYProgress, [0, 1], [32, 0]);
 
   return (
-    <motion.div ref={sectionRef} style={{ opacity, scale, y }} className="relative z-10">
+    <motion.div
+      ref={sectionRef}
+      style={{ opacity, y, willChange: "opacity, transform" }}
+      className="relative z-10"
+    >
       {children}
     </motion.div>
   );
 }
 
 function ParallaxParticles() {
-  const { scrollY } = useScroll();
-  const parallax = useSpring(useTransform(scrollY, (value) => -value * 0.3), {
-    stiffness: 40,
-    damping: 24,
-    mass: 0.9,
-  });
-
   const particles = useMemo(
     () =>
-      Array.from({ length: 44 }).map((_, index) => ({
+      Array.from({ length: 20 }).map((_, index) => ({
         id: index,
         left: ((index * 37 + 9) % 100) + 0.5,
         top: ((index * 53 + 7) % 100) + 0.5,
         size: (index % 3) + 1.8,
-        duration: 10 + (index % 7) * 1.8,
-        delay: (index % 9) * 0.6,
-        drift: ((index % 5) - 2) * 7,
+        duration: 12 + (index % 5) * 2.4,
+        delay: (index % 7) * 0.8,
+        drift: ((index % 5) - 2) * 6,
       })),
     []
   );
 
   return (
-    <motion.div style={{ y: parallax }} className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       {particles.map((particle) => (
         <motion.span
           key={particle.id}
@@ -75,11 +59,12 @@ function ParallaxParticles() {
             top: `${particle.top}%`,
             width: particle.size,
             height: particle.size,
+            willChange: "transform, opacity",
           }}
           animate={{
             y: [0, -220],
             x: [0, particle.drift, 0],
-            opacity: [0, 0.9, 0],
+            opacity: [0, 0.8, 0],
           }}
           transition={{
             duration: particle.duration,
@@ -89,7 +74,7 @@ function ParallaxParticles() {
           }}
         />
       ))}
-    </motion.div>
+    </div>
   );
 }
 

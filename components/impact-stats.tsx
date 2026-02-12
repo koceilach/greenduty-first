@@ -84,7 +84,7 @@ export function ImpactStats() {
   const [spotlightStat, ...trailStats] = stats;
 
   return (
-    <section id="events" className="relative overflow-hidden bg-transparent py-24 text-slate-100">
+    <section id="events" className="relative overflow-hidden bg-transparent py-12 sm:py-16 lg:py-24 text-slate-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -105,10 +105,10 @@ export function ImpactStats() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 34, scale: 0.97 }}
-          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.55, ease: "easeOut" }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
           className="relative overflow-hidden rounded-[30px] border border-white/12 bg-white/5 p-6 backdrop-blur-md shadow-[0_24px_58px_rgba(0,0,0,0.34)] sm:p-8"
         >
           <div className="pointer-events-none absolute inset-0">
@@ -128,8 +128,8 @@ export function ImpactStats() {
                 {spotlightStat.description}. This signal summarizes direct field outcomes.
               </p>
 
-              <div className="mt-7 flex items-center gap-6">
-                <div className="relative flex h-44 w-44 items-center justify-center rounded-full border border-white/15 bg-white/[0.06]">
+              <div className="mt-7 flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+                <div className="relative flex h-28 w-28 items-center justify-center rounded-full border border-white/15 bg-white/[0.06] sm:h-44 sm:w-44">
                   <span className="absolute inset-4 rounded-full border border-emerald-300/30" />
                   <span className="absolute inset-9 rounded-full border border-emerald-300/20" />
                   <motion.div
@@ -145,7 +145,7 @@ export function ImpactStats() {
                   <p className="text-xs uppercase tracking-[0.18em] text-slate-400">
                     Current Value
                   </p>
-                  <p className="mt-1 text-5xl font-bold sm:text-6xl">
+                  <p className="mt-1 text-3xl font-bold sm:text-5xl md:text-6xl">
                     <CountUp target={spotlightStat.value} suffix={spotlightStat.suffix} />
                   </p>
                   <p className="mt-2 text-sm text-slate-300">Continuously updated by community reports</p>

@@ -65,7 +65,7 @@ export default function VerificationPage() {
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(59,130,246,0.12),_transparent_45%),linear-gradient(180deg,_#0b0f12,_#0a0d10_55%,_#0b0f12)] text-white">
+      <main className="min-h-screen gd-page-bg--blue text-white">
         <Navbar />
         <section className="pt-28 pb-16">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -95,7 +95,7 @@ export default function VerificationPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(59,130,246,0.12),_transparent_45%),linear-gradient(180deg,_#0b0f12,_#0a0d10_55%,_#0b0f12)] text-white">
+    <main className="min-h-screen gd-page-bg--blue text-white">
       <Navbar />
 
       <section className="pt-28 pb-16">

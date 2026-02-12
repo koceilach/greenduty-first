@@ -43,7 +43,7 @@ export function Hero() {
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.18 }}
-                className="gd-home-hero-title mt-4 text-[clamp(3.9rem,11.2vw,8.6rem)] font-light leading-[0.9] tracking-[-0.04em]"
+                className="gd-home-hero-title mt-4 text-[clamp(2.2rem,11.2vw,8.6rem)] font-light leading-[0.9] tracking-[-0.04em]"
               >
                 <span className="block">New Energy</span>
                 <span className="block">for the Future</span>
@@ -62,7 +62,7 @@ export function Hero() {
                 onClick={() => {
                   window.location.href = "/login?redirect=/GreenSport";
                 }}
-                className="gd-home-hero-cta group inline-flex items-center gap-1.5 pb-1.5 text-[0.9rem] font-medium transition"
+                className="gd-home-hero-cta group inline-flex items-center gap-1.5 py-2 pb-1.5 text-[0.9rem] font-medium transition"
               >
                 Get in touch
                 <ArrowUpRight className="gd-home-hero-cta-icon h-3 w-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -73,7 +73,7 @@ export function Hero() {
                 onClick={() => {
                   window.location.href = "/login?redirect=/reported-area";
                 }}
-                className="gd-home-hero-cta group inline-flex items-center gap-1.5 pb-1.5 text-[0.9rem] font-medium transition"
+                className="gd-home-hero-cta group inline-flex items-center gap-1.5 py-2 pb-1.5 text-[0.9rem] font-medium transition"
               >
                 Our services
                 <ArrowUpRight className="gd-home-hero-cta-icon h-3 w-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -106,7 +106,7 @@ export function Hero() {
             className="relative z-20 mx-4 mb-4 mt-5 sm:absolute sm:-bottom-4 sm:left-auto sm:mb-0 sm:mr-0 sm:mt-0 sm:w-[530px] sm:right-0"
           >
             <div className="gd-home-stats-card rounded-[24px] p-5 shadow-[0_22px_56px_rgba(0,0,0,0.36)] sm:p-6">
-              <div className="gd-home-stats-grid grid grid-cols-3 divide-x">
+              <div className="gd-home-stats-grid grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-0 sm:divide-x">
                 {[
                   { value: "6 mil", label: "The company's annual net income" },
                   { value: "315", label: "Projects completed worldwide" },
@@ -131,7 +131,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 2.05 }}
-            className="-mt-1 text-4xl leading-tight tracking-tight text-white sm:-mt-2 sm:text-5xl lg:-mt-3"
+            className="-mt-1 text-2xl leading-tight tracking-tight text-white sm:-mt-2 sm:text-4xl lg:-mt-3 lg:text-5xl"
           >
             Focusing on quality, we maintain customer trust
           </motion.p>

@@ -64,7 +64,7 @@ export function GreenspotAuthLayout({
               </p>
             </div>
 
-            <div className="rounded-[32px] border border-white/60 bg-white/90 p-8 shadow-[0_25px_80px_rgba(15,23,42,0.18)] backdrop-blur dark:border-emerald-200/20 dark:bg-[#0f1d18]/90 green:border-emerald-200/20 green:bg-[#0f1d18]/90">
+            <div className="rounded-[32px] border border-white/60 bg-white/90 p-5 sm:p-8 shadow-[0_25px_80px_rgba(15,23,42,0.18)] backdrop-blur dark:border-emerald-200/20 dark:bg-[#0f1d18]/90 green:border-emerald-200/20 green:bg-[#0f1d18]/90">
               <div className="text-center">
                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/40">
                   <Leaf className="h-7 w-7" />

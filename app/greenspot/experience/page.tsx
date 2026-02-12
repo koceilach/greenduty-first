@@ -311,7 +311,7 @@ export default function GreenSpotExperiencePage() {
       : catalog.filter((item) => item.type === (cameraFilter === "Trees" ? "Tree" : "Plant"))
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(239,68,68,0.12),_transparent_45%),linear-gradient(180deg,_#0b0f12,_#0a0d10_55%,_#0b0f12)] text-white">
+    <main className="min-h-screen gd-page-bg--red text-white">
       <Navbar />
 
       {showCamera && (

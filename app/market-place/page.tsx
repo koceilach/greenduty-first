@@ -21,8 +21,10 @@ import {
   Home,
   Leaf,
   LineChart,
+  LogOut,
   MapPin,
   MessageCircle,
+  Shield,
   ImagePlus,
   NotebookPen,
   PieChart,
@@ -376,7 +378,7 @@ type GDWeatherData = {
 };
 
 export default function MarketPlacePage() {
-  const { supabase, user, profile, updateRole, refreshProfile } = useMarketplaceAuth();
+  const { supabase, user, profile, refreshProfile, signOut } = useMarketplaceAuth();
   const router = useRouter();
   const [activeAiFilter, setActiveAiFilter] = useState("All");
   const [activeFeaturedFilter, setActiveFeaturedFilter] = useState("All");
@@ -671,6 +673,7 @@ export default function MarketPlacePage() {
       }
       if (!user) {
         setToast("Please sign in to save items.");
+        router.push("/market-place/login");
         return;
       }
 
@@ -731,6 +734,7 @@ export default function MarketPlacePage() {
       if (!supabase) return;
       if (!user) {
         setToast("Please sign in to add to cart.");
+        router.push("/market-place/login");
         return;
       }
       if (item.stock_quantity <= 0) {
@@ -813,17 +817,21 @@ export default function MarketPlacePage() {
 
   const handleSwitchRole = useCallback(
     async (role: "buyer" | "seller") => {
-      setMarketMode(role);
       if (!user) {
-        setToast("Sign in to save your mode preference.");
+        setToast("Sign in to access marketplace features.");
+        router.push("/market-place/login");
         return;
       }
-      if (profile?.role === role) return;
-      await updateRole(role);
-      await refreshProfile();
+      // Only sellers/admins can switch to seller mode
+      if (role === "seller" && profile?.role !== "seller" && profile?.role !== "admin") {
+        setToast("Apply to become a seller first.");
+        router.push("/market-place/seller-onboarding");
+        return;
+      }
+      setMarketMode(role);
       setToast(role === "seller" ? "Seller mode enabled." : "Buyer mode enabled.");
     },
-    [user, profile?.role, updateRole, refreshProfile]
+    [user, profile?.role, router]
   );
 
   const discountPercent = useMemo(
@@ -905,9 +913,9 @@ export default function MarketPlacePage() {
       setToast("Switch to seller mode to list products.");
       return;
     }
-    if (profile?.role !== "seller") {
-      await updateRole("seller");
-      await refreshProfile();
+    if (profile?.role !== "seller" && profile?.role !== "admin") {
+      setToast("You must be an approved seller to list products.");
+      return;
     }
     if (!productForm.title.trim() || !productForm.description.trim()) {
       setToast("Please add a title and description.");
@@ -956,19 +964,10 @@ export default function MarketPlacePage() {
       supabase.from("marketplace_items").insert([payload]);
 
     let result = await attemptInsert();
-    if (
-      result.error &&
-      /row level|permission|policy/i.test(result.error.message || "")
-    ) {
-      await updateRole("seller");
-      await refreshProfile();
-      await new Promise((resolve) => setTimeout(resolve, 700));
-      result = await attemptInsert();
-    }
 
     if (result.error) {
       if (/row level|permission|policy/i.test(result.error.message || "")) {
-        setToast("Seller access is still syncing. Please try again.");
+        setToast("You need to be an approved seller to list products.");
       } else {
         setToast(`Product creation failed: ${result.error.message}`);
       }
@@ -990,7 +989,6 @@ export default function MarketPlacePage() {
     basePriceValue,
     discountedPriceValue,
     uploadProductImage,
-    updateRole,
     refreshProfile,
     resetProductForm,
     loadMarketplaceItems,
@@ -1231,7 +1229,7 @@ export default function MarketPlacePage() {
 
           {/* Right actions */}
           <div className="ml-auto flex items-center gap-2">
-            {/* Mode pills */}
+            {/* Mode pills — seller pill only visible to approved sellers/admins */}
             <div className="hidden items-center gap-1 rounded-full border border-gray-200 bg-gray-50 p-0.5 md:flex">
               <button
                 type="button"
@@ -1245,6 +1243,7 @@ export default function MarketPlacePage() {
                 <ShoppingCart className="h-3.5 w-3.5" />
                 Buyer
               </button>
+              {(profile?.role === "seller" || profile?.role === "admin") && (
               <button
                 type="button"
                 onClick={() => handleSwitchRole("seller")}
@@ -1257,6 +1256,7 @@ export default function MarketPlacePage() {
                 <ShoppingBag className="h-3.5 w-3.5" />
                 Seller
               </button>
+              )}
             </div>
 
             {isSeller ? (
@@ -1277,6 +1277,16 @@ export default function MarketPlacePage() {
               </Link>
             )}
 
+            {profile?.role === "admin" && (
+              <Link
+                href="/market-place/admin"
+                className="hidden items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 lg:flex"
+              >
+                <Shield className="h-3.5 w-3.5" />
+                Admin
+              </Link>
+            )}
+
             <button
               type="button"
               className="relative flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-emerald-300 hover:text-emerald-600"
@@ -1290,6 +1300,16 @@ export default function MarketPlacePage() {
             >
               <User className="h-4 w-4" />
             </button>
+            {user && (
+              <button
+                type="button"
+                onClick={async () => { await signOut(); router.push("/market-place/login"); }}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-red-300 hover:text-red-500"
+                title="Log out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -1484,7 +1504,7 @@ export default function MarketPlacePage() {
               <h2 className="text-lg font-bold text-gray-900">AI Recommendations For You</h2>
               <p className="mt-1 text-sm text-gray-500">Curated seed matches tailored to your climate</p>
             </div>
-            <div className="flex items-center gap-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
               {GD_AI_FILTERS.map((filter) => (
                 <button
                   key={filter}
@@ -1905,7 +1925,7 @@ export default function MarketPlacePage() {
             </button>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
             {weatherStats.map((stat) => {
               const Icon = stat.icon;
               return (
@@ -1967,7 +1987,7 @@ export default function MarketPlacePage() {
               Elevate planning with precision insights and intelligent automation.
             </p>
           </div>
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
             {GD_FEATURES.map((feature) => {
               const Icon = feature.icon;
               return (
@@ -2066,7 +2086,7 @@ export default function MarketPlacePage() {
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
               {GD_ANALYTICS_STATS.map((stat) => {
                 const Icon = stat.icon;
                 return (
@@ -2114,7 +2134,7 @@ export default function MarketPlacePage() {
               </Link>
             )}
           </div>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
             {GD_SELLERS.map((seller) => (
               <div key={seller.name} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md">
                 <div className="flex items-center gap-3">
@@ -2157,7 +2177,7 @@ export default function MarketPlacePage() {
               Learn from experts and grow smarter
             </p>
           </div>
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
             {GD_KNOWLEDGE.map((item) => (
               <article key={item.title} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md">
                 <div className="h-36 overflow-hidden">
@@ -2191,7 +2211,7 @@ export default function MarketPlacePage() {
             <h2 className="text-lg font-bold text-gray-900">What Our Farmers Say</h2>
             <p className="mt-1 text-sm text-gray-500">Community voices</p>
           </div>
-          <div className="grid gap-5 md:grid-cols-3">
+          <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
             {GD_TESTIMONIALS.map((item) => (
               <div key={item.name} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
                 <div className="flex items-center gap-0.5 text-amber-400">
@@ -2266,7 +2286,7 @@ export default function MarketPlacePage() {
           id="marketplace-footer"
           className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
         >
-          <div className="grid gap-6 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
+          <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-bold text-green-700">
                 <Sprout className="h-4 w-4" />
@@ -2437,14 +2457,25 @@ export default function MarketPlacePage() {
                 <div className="space-y-5">
                   {!isSeller && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                      Seller mode is required to publish products.
-                      <button
-                        type="button"
-                        onClick={() => handleSwitchRole("seller")}
-                        className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-200 px-3 py-1 text-[11px] font-semibold text-amber-900 transition hover:bg-amber-300"
-                      >
-                        Enable Seller Mode
-                      </button>
+                      {profile?.role === "seller" || profile?.role === "admin"
+                        ? "Switch to seller mode to publish products."
+                        : "You need to be an approved seller to publish products."}
+                      {profile?.role === "seller" || profile?.role === "admin" ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSwitchRole("seller")}
+                          className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-200 px-3 py-1 text-[11px] font-semibold text-amber-900 transition hover:bg-amber-300"
+                        >
+                          Enable Seller Mode
+                        </button>
+                      ) : (
+                        <Link
+                          href="/market-place/seller-onboarding"
+                          className="mt-3 inline-flex items-center gap-2 rounded-full bg-amber-200 px-3 py-1 text-[11px] font-semibold text-amber-900 transition hover:bg-amber-300"
+                        >
+                          Apply to Become a Seller
+                        </Link>
+                      )}
                     </div>
                   )}
 
@@ -2834,14 +2865,25 @@ export default function MarketPlacePage() {
           <ShoppingCart className="h-4 w-4 text-gray-500" />
           Cart
         </button>
-        <button
-          type="button"
-          onClick={() => scrollToSection("marketplace-footer")}
-          className="flex flex-col items-center gap-1"
-        >
-          <User className="h-4 w-4 text-gray-500" />
-          Account
-        </button>
+        {user ? (
+          <button
+            type="button"
+            onClick={async () => { await signOut(); router.push("/market-place/login"); }}
+            className="flex flex-col items-center gap-1"
+          >
+            <LogOut className="h-4 w-4 text-gray-500" />
+            Logout
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => router.push("/market-place/login")}
+            className="flex flex-col items-center gap-1"
+          >
+            <User className="h-4 w-4 text-gray-500" />
+            Login
+          </button>
+        )}
       </nav>
     </div>
   );

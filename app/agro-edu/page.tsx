@@ -118,7 +118,7 @@ export default function AgroEduPage() {
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(59,130,246,0.12),_transparent_45%),linear-gradient(180deg,_#0b0f12,_#0a0d10_55%,_#0b0f12)] text-white">
+      <main className="min-h-screen gd-page-bg--blue text-white">
         <Navbar />
         <section className="pt-28 pb-20">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -156,7 +156,7 @@ export default function AgroEduPage() {
 
   if (!hasAccess) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(59,130,246,0.12),_transparent_45%),linear-gradient(180deg,_#0b0f12,_#0a0d10_55%,_#0b0f12)] text-white">
+      <main className="min-h-screen gd-page-bg--blue text-white">
         <Navbar />
         <section className="pt-28 pb-20">
           <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -193,7 +193,7 @@ export default function AgroEduPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(59,130,246,0.12),_transparent_45%),linear-gradient(180deg,_#0b0f12,_#0a0d10_55%,_#0b0f12)] text-white">
+    <main className="min-h-screen gd-page-bg--blue text-white">
       <Navbar />
 
       {/* Hero */}
@@ -297,7 +297,7 @@ export default function AgroEduPage() {
               <input
                 type="text"
                 placeholder="Search crops, soil, irrigation..."
-                className="bg-transparent text-sm outline-none w-56 text-white placeholder:text-white/40"
+                className="bg-transparent text-sm outline-none w-full sm:w-56 text-white placeholder:text-white/40"
               />
             </div>
           </div>
@@ -431,7 +431,7 @@ export default function AgroEduPage() {
       {/* CTA */}
       <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-emerald-500/20 via-white/5 to-emerald-800/30 text-white px-10 py-12 grid lg:grid-cols-[1.1fr_0.9fr] gap-10 items-center shadow-[0_25px_60px_rgba(0,0,0,0.5)]">
+          <div className="rounded-[32px] border border-white/10 bg-gradient-to-br from-emerald-500/20 via-white/5 to-emerald-800/30 text-white px-4 sm:px-6 lg:px-10 py-12 grid lg:grid-cols-[1.1fr_0.9fr] gap-10 items-center shadow-[0_25px_60px_rgba(0,0,0,0.5)]">
             <div>
               <h2 className="text-3xl sm:text-4xl font-semibold">Publish trusted agro knowledge.</h2>
               <p className="mt-4 text-white/70">

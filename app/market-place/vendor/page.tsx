@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ImagePlus,
   MapPin,
@@ -63,7 +64,7 @@ const GD_formatWilayaLabel = (value?: string | null) => {
 };
 
 export default function VendorStudioPage() {
-  const { supabase, user, profile, updateRole } = useMarketplaceAuth();
+  const { supabase, user, profile } = useMarketplaceAuth();
   const [items, setItems] = useState<VendorItem[]>([]);
   const [orders, setOrders] = useState<SellerOrder[]>([]);
   const [loading, setLoading] = useState(false);
@@ -385,7 +386,7 @@ export default function VendorStudioPage() {
 
   if (!isSeller) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
@@ -400,15 +401,14 @@ export default function VendorStudioPage() {
             </div>
             <h1 className="mt-4 text-2xl font-semibold">Vendor Studio</h1>
             <p className="mt-2 text-sm text-white/60">
-              Upgrade to Seller to list products and manage inventory.
+              Apply to become a seller to list products and manage inventory.
             </p>
-            <button
-              type="button"
-              onClick={() => updateRole("seller")}
+            <Link
+              href="/market-place/seller-onboarding"
               className="mt-6 inline-flex items-center gap-2 rounded-full bg-emerald-400 px-5 py-2 text-sm font-semibold text-emerald-950"
             >
-              Become a Seller
-            </button>
+              Apply to Become a Seller
+            </Link>
           </div>
         </div>
       </div>
@@ -416,7 +416,7 @@ export default function VendorStudioPage() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />

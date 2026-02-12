@@ -147,7 +147,7 @@ export default function PricingPage() {
   }, [currency])
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(56,189,248,0.14),_transparent_45%),linear-gradient(180deg,_#0b0f12,_#0a0d10_55%,_#0b0f12)] text-white">
+    <main className="min-h-screen gd-page-bg text-white">
       <Navbar />
 
       <section className="pt-28 pb-16">
@@ -201,7 +201,7 @@ export default function PricingPage() {
             </div>
           </div>
 
-          <div className="mt-10 grid lg:grid-cols-3 gap-6">
+          <div className="mt-10 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {planData.map((plan) => {
               const price = plan.prices[currency][interval]
               const isActive = activePlan === plan.id

@@ -7,7 +7,7 @@ import { RequireRole } from "@/lib/auth/guard"
 export default function BasicDashboardPage() {
   return (
     <RequireRole roles={["basic_account", "admin"]}>
-      <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),radial-gradient(circle_at_bottom,_rgba(56,189,248,0.14),_transparent_45%),linear-gradient(180deg,_#0b0f12,_#0a0d10_55%,_#0b0f12)] text-white">
+      <main className="min-h-screen gd-page-bg text-white">
         <Navbar />
         <section className="pt-28 pb-16">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
