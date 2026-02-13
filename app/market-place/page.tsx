@@ -1280,10 +1280,11 @@ export default function MarketPlacePage() {
             {profile?.role === "admin" && (
               <Link
                 href="/market-place/admin"
-                className="hidden items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 lg:flex"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-3 lg:py-1.5 lg:text-xs lg:font-semibold"
+                title="Admin Dashboard"
               >
-                <Shield className="h-3.5 w-3.5" />
-                Admin
+                <Shield className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
+                <span className="hidden lg:inline">Admin</span>
               </Link>
             )}
 

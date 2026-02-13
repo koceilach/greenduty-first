@@ -10,7 +10,7 @@ type EduSidebarProps = {
 export function EduSidebar({ side }: EduSidebarProps) {
   if (side === "left") {
     return (
-      <aside className="sticky top-24 hidden h-fit space-y-6 lg:block">
+      <aside className="sticky top-20 hidden h-fit space-y-6 lg:block">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 dark:border-slate-800">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-800">
@@ -51,7 +51,7 @@ export function EduSidebar({ side }: EduSidebarProps) {
   }
 
   return (
-    <aside className="sticky top-24 hidden h-fit space-y-6 xl:block">
+    <aside className="sticky top-20 hidden h-fit space-y-6 xl:block">
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1E7F43]/10 text-sm font-semibold text-[#1E7F43]">

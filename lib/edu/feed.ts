@@ -101,9 +101,11 @@ export const eduProfile = {
   role: "User",
   avatar: "GD",
   stats: {
-    posts: 8,
-    likes: 124,
-    saves: 42,
+    posts: 0,
+    likes: 0,
+    saves: 0,
+    follows: 0,
+    friends: 0,
   },
   bio: "Learning agronomy and sustainability with AI-verified insights.",
 };

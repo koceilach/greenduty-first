@@ -2,6 +2,7 @@
 
 import { EduNavbar } from "@/components/edu/Navbar";
 import { EduSidebar } from "@/components/edu/Sidebar";
+import { MobileBottomNav } from "@/components/edu/MobileBottomNav";
 import { PostCard } from "@/components/edu/PostCard";
 import { supabase } from "@/lib/supabase/client";
 import type { EduFeedPost } from "@/lib/edu/feed";
@@ -255,7 +256,7 @@ export default function EducationSearchPage() {
     <div className="min-h-screen bg-[#F6F8F7] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <EduNavbar />
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 pb-24 pt-6 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:px-8">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-3 pb-24 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:px-8">
         {/* Left sidebar */}
         <aside className="hidden lg:block">
           <EduSidebar side="left" />
@@ -264,8 +265,8 @@ export default function EducationSearchPage() {
         {/* Main content */}
         <main>
           {/* Search bar */}
-          <form onSubmit={handleSubmit} className="mb-6">
-            <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-[#1E7F43]/30 dark:border-slate-800 dark:bg-slate-900">
+          <form onSubmit={handleSubmit} className="mb-4 sm:mb-6">
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-[#1E7F43]/30 dark:border-slate-800 dark:bg-slate-900 sm:rounded-2xl sm:px-4 sm:py-3">
               <Search className="h-5 w-5 shrink-0 text-slate-400" />
               <input
                 type="text"
@@ -290,7 +291,7 @@ export default function EducationSearchPage() {
           </form>
 
           {/* Category filters */}
-          <div className="mb-6 flex flex-wrap gap-2">
+          <div className="mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-none sm:mb-6 sm:flex-wrap sm:overflow-x-visible sm:pb-0">
             {CATEGORIES.map((cat) => (
               <button
                 key={cat}
@@ -320,7 +321,7 @@ export default function EducationSearchPage() {
                     <Users className="h-3.5 w-3.5" />
                     People
                   </div>
-                  <div className="flex flex-wrap gap-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
                     {userResults.map((user) => (
                       <Link
                         key={user.id}
@@ -370,7 +371,7 @@ export default function EducationSearchPage() {
             /* Landing state — trending topics + recent posts */
             <div className="space-y-6">
               {/* Trending topics */}
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                   <TrendingUp className="h-4 w-4 text-[#1E7F43]" />
                   Trending Topics
@@ -417,6 +418,8 @@ export default function EducationSearchPage() {
           <EduSidebar side="right" />
         </aside>
       </div>
+      <div className="h-20 lg:hidden" />
+      <MobileBottomNav />
     </div>
   );
 }

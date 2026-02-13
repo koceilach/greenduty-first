@@ -36,6 +36,16 @@ export function PostCard({
     Boolean(post.media.assetUrl) || (post.media.assetUrls && post.media.assetUrls.length > 0);
   const [localLiked, setLocalLiked] = useState(Boolean(liked));
   const [localSaved, setLocalSaved] = useState(Boolean(saved));
+  const initialLikeCount = useMemo(() => {
+    const n = Number(String(post.stats.likes).replace(/[^0-9.]/g, ""));
+    return Number.isFinite(n) ? Math.round(n) : 0;
+  }, [post.stats.likes]);
+  const initialSaveCount = useMemo(() => {
+    const n = Number(String(post.saves ?? "0").replace(/[^0-9.]/g, ""));
+    return Number.isFinite(n) ? Math.round(n) : 0;
+  }, [post.saves]);
+  const [likeCount, setLikeCount] = useState(initialLikeCount);
+  const [saveCount, setSaveCount] = useState(initialSaveCount);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentBusy, setCommentBusy] = useState(false);
   const [commentMessage, setCommentMessage] = useState<string | null>(null);
@@ -57,6 +67,14 @@ export function PostCard({
   useEffect(() => {
     setLocalSaved(Boolean(saved));
   }, [saved]);
+
+  useEffect(() => {
+    setLikeCount(initialLikeCount);
+  }, [initialLikeCount]);
+
+  useEffect(() => {
+    setSaveCount(initialSaveCount);
+  }, [initialSaveCount]);
 
   useEffect(() => {
     setCommentCount(initialCommentCount);
@@ -186,6 +204,7 @@ export function PostCard({
       await supabase.from("edu_likes").insert({ post_id: post.id, user_id: user.id });
     }
     setLocalLiked((prev) => !prev);
+    setLikeCount((prev) => Math.max(0, prev + (localLiked ? -1 : 1)));
   };
 
   const handleSave = async () => {
@@ -202,6 +221,7 @@ export function PostCard({
       await supabase.from("edu_saves").insert({ post_id: post.id, user_id: user.id });
     }
     setLocalSaved((prev) => !prev);
+    setSaveCount((prev) => Math.max(0, prev + (localSaved ? -1 : 1)));
   };
 
   const handleShare = async () => {
@@ -299,26 +319,26 @@ export function PostCard({
   };
 
   return (
-    <article className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900">
+    <article className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl">
       {/* Post Header */}
-      <div className="flex items-center justify-between px-5 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl bg-[#1E7F43]/10 text-sm font-semibold text-[#1E7F43]">
+      <div className="flex items-center justify-between px-3 py-3 sm:px-5 sm:py-4">
+        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#1E7F43]/10 text-xs font-semibold text-[#1E7F43] sm:h-11 sm:w-11 sm:rounded-2xl sm:text-sm">
             {post.creator.avatarUrl ? (
               <img src={post.creator.avatarUrl} alt={post.creator.name} className="h-full w-full object-cover" />
             ) : (
               post.creator.avatar
             )}
           </div>
-            <div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {post.creator.name}
-                {post.creator.verified && <CheckCircle2 className="h-4 w-4 text-[#1E7F43]" />}
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">{post.creator.handle}</div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-900 dark:text-slate-100 sm:gap-2 sm:text-sm">
+              <span className="truncate">{post.creator.name}</span>
+              {post.creator.verified && <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-[#1E7F43] sm:h-4 sm:w-4" />}
             </div>
+            <div className="truncate text-[11px] text-slate-500 dark:text-slate-400 sm:text-xs">{post.creator.handle}</div>
           </div>
-        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${post.category.badgeClass}`}>
+        </div>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold sm:px-3 sm:py-1 sm:text-xs ${post.category.badgeClass}`}>
           {post.category.label}
         </span>
       </div>
@@ -390,61 +410,61 @@ export function PostCard({
       </Link>
 
       {/* AI Badge + Actions */}
-      <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-3 sm:gap-4 sm:px-5 sm:py-4">
         <div
-          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[post.aiReport.status]}`}
+          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-semibold sm:gap-2 sm:px-3 sm:py-1 sm:text-xs ${statusStyles[post.aiReport.status]}`}
           title="Checked for accuracy, sources, and environmental impact"
         >
-          <CheckCircle2 className="h-3.5 w-3.5" />
+          <CheckCircle2 className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
           {statusLabels[post.aiReport.status]}
         </div>
-        <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400">
+        <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 sm:gap-3">
           <button
             type="button"
-            className={`flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${
+            className={`flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 sm:h-9 sm:w-9 ${
               localLiked ? "text-rose-500" : "hover:text-rose-500"
             } active:scale-110 transition`}
             aria-label="Like"
             onClick={handleLike}
           >
-            <Heart className="h-4 w-4" />
+            <Heart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
           <button
             type="button"
-            className={`flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white hover:text-[#1E7F43] dark:border-slate-800 dark:bg-slate-900 ${
+            className={`flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white hover:text-[#1E7F43] dark:border-slate-800 dark:bg-slate-900 sm:h-9 sm:w-9 ${
               commentsExpanded ? "text-[#1E7F43]" : ""
             }`}
             aria-label="Toggle comments"
             onClick={toggleComments}
           >
-            <MessageCircle className="h-4 w-4" />
+            <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
           <button
             type="button"
-            className={`flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 ${
+            className={`flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 sm:h-9 sm:w-9 ${
               localSaved ? "text-[#1E7F43]" : "hover:text-[#1E7F43]"
             } active:scale-110 transition`}
             aria-label="Save"
             onClick={handleSave}
           >
-            <Bookmark className="h-4 w-4" />
+            <Bookmark className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
           <button
             type="button"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white hover:text-[#1E7F43] dark:border-slate-800 dark:bg-slate-900"
+            className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white hover:text-[#1E7F43] dark:border-slate-800 dark:bg-slate-900 sm:h-9 sm:w-9"
             aria-label="Share"
             onClick={handleShare}
           >
-            <Share2 className="h-4 w-4" />
+            <Share2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
           </button>
         </div>
       </div>
 
       {/* Caption */}
-      <div className="px-5 pb-4 text-sm text-slate-600 dark:text-slate-300">
+      <div className="px-3 pb-3 text-[13px] leading-relaxed text-slate-600 dark:text-slate-300 sm:px-5 sm:pb-4 sm:text-sm">
         <span className="font-semibold text-slate-900 dark:text-slate-100">{post.creator.name}</span>{" "}
         {post.caption}
-        <div className="mt-2 flex flex-wrap gap-2 text-xs text-[#1E7F43]">
+        <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-[#1E7F43] sm:gap-2 sm:text-xs">
           {post.hashtags.map((tag) => (
             <span key={tag}>{tag}</span>
           ))}
@@ -454,7 +474,7 @@ export function PostCard({
       {/* Comments panel — only visible when expanded */}
       {commentsExpanded && (
         <div className="border-t border-slate-100 dark:border-slate-800">
-          <div className="px-5 pt-4 pb-2 text-xs text-slate-600 dark:text-slate-300">
+          <div className="px-3 pt-3 pb-2 text-xs text-slate-600 dark:text-slate-300 sm:px-5 sm:pt-4">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Comments</span>
               <button
@@ -523,20 +543,20 @@ export function PostCard({
           </div>
 
           {/* Comment input */}
-          <div className="px-5 pb-4">
-            <div className="flex items-center gap-3">
+          <div className="px-3 pb-3 sm:px-5 sm:pb-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <input
                 value={commentDraft}
                 onChange={(event) => setCommentDraft(event.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleComment(); } }}
-                className="flex-1 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                className="flex-1 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:px-4"
                 placeholder="Add a comment..."
               />
               <button
                 type="button"
                 disabled={commentBusy}
                 onClick={handleComment}
-                className="rounded-full bg-[#1E7F43] px-4 py-2 text-xs font-semibold text-white hover:bg-[#166536] disabled:opacity-60"
+                className="shrink-0 rounded-full bg-[#1E7F43] px-3 py-2 text-xs font-semibold text-white hover:bg-[#166536] disabled:opacity-60 sm:px-4"
               >
                 Post
               </button>
@@ -547,14 +567,14 @@ export function PostCard({
       )}
 
       {/* Stats */}
-        <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          <span>{post.stats.likes} likes</span>
-          <span>{commentCount} comments</span>
-          <span>{post.saves ?? "0"} saves</span>
-        </div>
+      <div className="flex items-center justify-between border-t border-slate-100 px-3 py-2.5 text-[11px] text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:px-5 sm:py-3 sm:text-xs">
+        <span>{likeCount} likes</span>
+        <span>{commentCount} comments</span>
+        <span>{saveCount} saves</span>
+      </div>
 
       {/* Sources */}
-      <details className="border-t border-slate-100 px-5 py-4 text-sm text-slate-600 dark:border-slate-800 dark:text-slate-300">
+      <details className="border-t border-slate-100 px-3 py-3 text-[13px] text-slate-600 dark:border-slate-800 dark:text-slate-300 sm:px-5 sm:py-4 sm:text-sm">
         <summary className="cursor-pointer text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
           Sources
         </summary>

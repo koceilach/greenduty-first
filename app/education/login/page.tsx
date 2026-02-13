@@ -193,7 +193,7 @@ function EduLoginPage() {
   };
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center px-4 py-10">
+    <div className="relative flex min-h-svh items-center justify-center px-3 py-6 sm:px-4 sm:py-10">
       <AnimatedBackground />
 
       <div className="relative z-10 w-full max-w-md">
@@ -201,17 +201,17 @@ function EduLoginPage() {
         <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-emerald-400/15 via-teal-300/10 to-emerald-400/15 blur-2xl" />
 
         {/* Card */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/70 shadow-2xl shadow-emerald-900/10 backdrop-blur-2xl dark:border-slate-800/60 dark:bg-slate-900/70">
+        <div className="relative overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-2xl shadow-emerald-900/10 backdrop-blur-2xl dark:border-slate-800/60 dark:bg-slate-900/70 sm:rounded-3xl">
           {/* Top accent */}
           <div className="h-1.5 bg-gradient-to-r from-[#1E7F43] via-emerald-400 to-teal-500" />
 
-          <div className="px-8 pb-8 pt-8 sm:px-10 sm:pb-10 sm:pt-10">
+          <div className="px-5 pb-6 pt-6 sm:px-10 sm:pb-10 sm:pt-10">
             {/* Header */}
-            <div className="mb-8 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1E7F43] to-emerald-500 shadow-lg shadow-emerald-500/30">
-                <BookOpen className="h-8 w-8 text-white" />
+            <div className="mb-6 text-center sm:mb-8">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#1E7F43] to-emerald-500 shadow-lg shadow-emerald-500/30 sm:mb-4 sm:h-16 sm:w-16">
+                <BookOpen className="h-7 w-7 text-white sm:h-8 sm:w-8" />
               </div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 sm:text-2xl">
                 Welcome to EDU
               </h1>
               <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">

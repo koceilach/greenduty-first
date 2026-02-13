@@ -144,7 +144,7 @@ function GD_System_GlassCard({
   return (
     <div
       className={clsx(
-        "rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] backdrop-blur-md shadow-[0_10px_30px_rgba(0,0,0,0.25)]",
+        "rounded-3xl border border-[var(--gd-border)] bg-[var(--gd-surface)] backdrop-blur-xl shadow-lg",
         className
       )}
     >
@@ -247,13 +247,13 @@ function GD_System_StatChip({
     >
       <div
         className={clsx(
-          "gd-tilt-surface rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-1 text-xs shadow-[0_12px_30px_rgba(5,28,24,0.45)]",
+          "gd-tilt-surface rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3.5 py-1.5 text-xs shadow-md",
           toneClassName
         )}
       >
         <div className="gd-3d-layer-sm flex items-center gap-2">
           <span className={toneClassName}>{label}</span>
-          <span className={toneClassName}>{value}</span>
+          <span className={clsx(toneClassName, "font-medium")}>{value}</span>
         </div>
       </div>
     </GD_System_TiltCard>
@@ -272,13 +272,13 @@ function GD_System_StatCard({
   tiltEnabled?: boolean;
 }) {
   const card = (
-    <div className="gd-tilt-surface rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface)] p-4 shadow-[0_14px_30px_rgba(5,28,24,0.45)]">
-      <div className="gd-3d-layer-sm text-xs uppercase tracking-[0.28em] text-[var(--gd-muted-2)]">
+    <div className="gd-tilt-surface rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] p-4 shadow-md transition-all duration-200 hover:shadow-lg">
+      <div className="gd-3d-layer-sm text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
         {label}
       </div>
       <div
         className={clsx(
-          "gd-3d-layer mt-2 text-2xl font-medium text-[var(--gd-ink)]",
+          "gd-3d-layer mt-2.5 text-2xl font-semibold tabular-nums text-[var(--gd-ink)]",
           accent
         )}
       >
@@ -317,22 +317,22 @@ function GD_System_SidebarContent({
   mapReady: boolean;
 }) {
   return (
-    <div className="flex h-full flex-col gap-6 p-6 text-[var(--gd-ink)]">
+    <div className="flex h-full flex-col gap-5 p-5 text-[var(--gd-ink)]">
       <div>
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.45em] text-[var(--gd-muted-2)]">
+            <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
               GreenDuty
             </div>
-            <div className="gd-system-title mt-2 text-xl font-semibold">
-              Pollution Reporting Dashboard
+            <div className="gd-system-title mt-2 text-lg font-semibold">
+              Pollution Dashboard
             </div>
           </div>
-          <div className="rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] px-3 py-1 text-xs text-[var(--gd-muted)]">
-            {mapReady ? "Map Synced" : "Map Loading"}
+          <div className="rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] px-3 py-1.5 text-[11px] font-medium text-[var(--gd-muted)]">
+            {mapReady ? "Synced" : "Loading"}
           </div>
         </div>
-        <div className="mt-3 text-sm text-[var(--gd-muted)]">
+        <div className="mt-3 text-sm leading-relaxed text-[var(--gd-muted)]">
           Live intelligence for rapid response squads. Tap the map to drop a
           report pin.
         </div>
@@ -353,21 +353,21 @@ function GD_System_SidebarContent({
         />
       </div>
 
-      <div className="rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-4">
+      <div className="rounded-2xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-4">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs uppercase tracking-[0.24em] text-[var(--gd-muted-2)]">
+            <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
               Ranger XP
             </div>
-            <div className="mt-1 text-lg font-semibold">Level {level}</div>
+            <div className="mt-1.5 text-lg font-semibold">Level {level}</div>
           </div>
-          <div className="rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-1 text-sm text-[var(--gd-ink)]">
+          <div className="rounded-xl border border-[var(--gd-accent)]/20 bg-[var(--gd-accent)]/10 px-3 py-1.5 text-sm font-semibold text-[var(--gd-accent)]">
             {xp} XP
           </div>
         </div>
-        <div className="mt-3 h-2 rounded-full bg-[var(--gd-surface-strong)]">
+        <div className="mt-3 h-2 rounded-full bg-[var(--gd-surface)]">
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[var(--gd-accent)] to-[var(--gd-muted)]"
+            className="h-full rounded-full bg-gradient-to-r from-[var(--gd-accent)] to-emerald-300 transition-all duration-500"
             style={{ width: `${Math.min(100, (xp % 500) / 5)}%` }}
           />
         </div>
@@ -376,18 +376,18 @@ function GD_System_SidebarContent({
       <div className="flex-1 overflow-y-auto">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold">Recent Reports</div>
-          <div className="text-xs text-[var(--gd-muted-2)]">
+          <div className="text-[11px] text-[var(--gd-muted-2)]">
             {reports.length} signals
           </div>
         </div>
-        <div className="mt-3 space-y-3">
+        <div className="mt-3 space-y-2.5">
           {reports.slice(0, 8).map((report) => (
             <motion.button
               key={report.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
               onClick={() => onFocusReport(report)}
-              className="w-full rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-3 text-left transition hover:border-[var(--gd-border)] hover:bg-[var(--gd-surface)]"
+              className="w-full rounded-2xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-3.5 text-left transition-all hover:border-[var(--gd-border)] hover:bg-[var(--gd-surface)] hover:shadow-sm active:scale-[0.98]"
             >
               <div className="flex items-center justify-between">
                 <div className="text-sm font-semibold text-[var(--gd-ink)]">
@@ -402,13 +402,13 @@ function GD_System_SidebarContent({
               <div className="mt-1 text-xs text-[var(--gd-muted)]">
                 {report.user_name ?? "Anonymous Ranger"}
               </div>
-              <div className="mt-2 text-xs text-[var(--gd-muted-2)]">
+              <div className="mt-2 text-[11px] text-[var(--gd-muted-2)] line-clamp-1">
                 {report.notes ?? "No notes"}
               </div>
             </motion.button>
           ))}
           {reports.length === 0 && (
-            <div className="rounded-xl border border-dashed border-[var(--gd-border-soft)] p-6 text-center text-sm text-[var(--gd-muted)]">
+            <div className="rounded-2xl border border-dashed border-[var(--gd-border-soft)] p-6 text-center text-sm text-[var(--gd-muted)]">
               No reports yet. Be the first to deploy a signal.
             </div>
           )}
@@ -438,16 +438,16 @@ function GD_System_ActivityFeed({
 }) {
   const displayCount = loading ? "--" : totalCount ?? reports.length;
   const itemCardClassName =
-    "rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-3";
+    "rounded-2xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-3.5 transition-all duration-200 hover:border-[var(--gd-border)]";
   const emptyCardClassName =
-    "rounded-xl border border-dashed border-[var(--gd-border-soft)] p-4 text-center text-xs text-[var(--gd-muted)]";
+    "rounded-2xl border border-dashed border-[var(--gd-border-soft)] p-5 text-center text-xs text-[var(--gd-muted)]";
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between">
-        <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--gd-muted-2)] md:text-xs">
+        <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
           Activity Feed
         </div>
-        <div className="text-[9px] text-[var(--gd-muted-2)] md:text-[10px]">
+        <div className="rounded-full bg-[var(--gd-surface)] px-2.5 py-1 text-[10px] font-medium text-[var(--gd-muted-2)]">
           {displayCount} updates
         </div>
       </div>
@@ -458,38 +458,39 @@ function GD_System_ActivityFeed({
           ? Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={`activity-skeleton-${index}`}
-                className="h-20 rounded-xl border border-dashed border-[var(--gd-border-soft)] bg-[var(--gd-surface)] animate-pulse"
+                className="h-20 rounded-2xl border border-dashed border-[var(--gd-border-soft)] bg-[var(--gd-surface)] animate-pulse"
               />
             ))
           : reports.map((report, index) => (
               <motion.div
                 key={`${report.id}-${report.created_at ?? "na"}-${index}`}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
                 className={itemCardClassName}
               >
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-[11px] font-semibold text-[var(--gd-ink)] md:text-xs">
+                    <div className="text-[12px] font-semibold text-[var(--gd-ink)]">
                       {report.waste_type ?? "Unspecified"}
                     </div>
-                    <div className="text-[9px] uppercase tracking-[0.2em] text-[var(--gd-muted-2)] md:text-[10px]">
+                    <div className="text-[10px] text-[var(--gd-muted-2)]">
                       {report.created_at
-                        ? new Date(report.created_at).toLocaleTimeString()
+                        ? new Date(report.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                         : "--"}
                     </div>
                   </div>
                   <div className="flex items-center justify-between gap-2">
-                    <div className="text-[10px] text-[var(--gd-muted)] md:text-[11px]">
+                    <div className="text-[11px] text-[var(--gd-muted)]">
                       {report.user_name ?? "Anonymous Ranger"}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => onFocusReport(report)}
                         aria-label="View on Map"
-                        className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1 rounded-full border border-[var(--gd-border)] bg-transparent px-2.5 py-1 text-[9px] uppercase tracking-[0.2em] text-[var(--gd-ink)] transition hover:border-[var(--gd-border)] hover:bg-[var(--gd-surface-strong)]"
+                        className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-1.5 text-[10px] font-medium text-[var(--gd-ink)] transition-all hover:bg-[var(--gd-surface-strong)] hover:shadow-sm active:scale-95"
                       >
-                        <MapPin className="h-3 w-3" />
+                        <MapPin className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">View on Map</span>
                         <span className="sm:hidden">View</span>
                       </button>
@@ -500,7 +501,7 @@ function GD_System_ActivityFeed({
                         <button
                           onClick={() => onDeleteReport(report.id)}
                           aria-label="Delete report"
-                          className="rounded-md p-1 text-slate-400 transition-colors hover:bg-red-500/10 hover:text-red-500"
+                          className="rounded-xl p-2 text-[var(--gd-muted)] transition-colors hover:bg-red-500/10 hover:text-red-400"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -566,20 +567,20 @@ function GD_System_IntelContent({
   const leaderCount = stats.leaderCount ?? 0;
   const leaderCountLabel = `${leaderCount} Reports - Current Leader`;
   const sectionCardClassName =
-    "rounded-2xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-4";
+    "rounded-2xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-5";
   const hotspotCardClassName =
-    "rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-4 py-3";
+    "rounded-2xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-4 py-3.5";
   const densityBadgeClassName =
-    "rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--gd-ink)] shadow-[0_0_12px_rgba(16,185,129,0.35)]";
+    "rounded-xl border border-[var(--gd-accent)]/20 bg-[var(--gd-accent)]/10 px-3 py-1.5 text-[10px] font-semibold tracking-wide text-[var(--gd-accent)]";
   const smartStatCardClassName =
-    "rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface)] p-4 min-h-[120px] md:min-h-[140px]";
+    "rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] p-4 min-h-[110px] md:min-h-[130px] transition-all hover:shadow-md";
   const headerClassName =
-    "sticky top-0 z-20 flex items-center justify-between gap-3 rounded-xl border-b border-[var(--gd-border)] bg-[var(--gd-surface-strong)]/80 px-2 py-3 backdrop-blur-md";
+    "sticky top-0 z-20 flex items-center justify-between gap-3 rounded-2xl border-b border-[var(--gd-border)] bg-[var(--gd-surface-strong)]/90 px-3 py-3.5 backdrop-blur-xl";
   const intelTextTone = "text-[var(--gd-ink)]";
   const scrollContainerClassName =
     "h-full max-h-[calc(100vh-120px)] overflow-y-auto pr-1 scrollbar-hide touch-pan-y";
   const emptyStateClassName =
-    "rounded-xl border border-dashed border-[var(--gd-border-soft)] p-3 text-center text-xs text-[var(--gd-muted)]";
+    "rounded-2xl border border-dashed border-[var(--gd-border-soft)] p-4 text-center text-xs text-[var(--gd-muted)]";;
 
   return (
     <div className="flex h-full min-h-0 flex-col text-[11px] md:text-xs">
@@ -587,7 +588,7 @@ function GD_System_IntelContent({
         <div className={headerClassName}>
           <div
             className={clsx(
-              "text-[10px] font-medium uppercase tracking-[0.4em] md:text-xs",
+              "text-[11px] font-semibold uppercase tracking-widest md:text-xs",
               intelTextTone
             )}
           >
@@ -596,7 +597,7 @@ function GD_System_IntelContent({
           {onClose && (
             <button
               onClick={onClose}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] p-2 text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface-strong)]"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface)] p-2 text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface-strong)] active:scale-95"
             >
               <X className="h-4 w-4" />
             </button>
@@ -605,48 +606,48 @@ function GD_System_IntelContent({
 
         <div className="mt-4 flex flex-col gap-6 pb-6">
           <div className={sectionCardClassName}>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--gd-muted-2)] md:text-xs">
+            <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
               Smart Stats
             </div>
-            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <div className={smartStatCardClassName}>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                <div className="text-[10px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                   Total Recovered
                 </div>
-                <div className="mt-2 text-sm font-semibold leading-tight text-[var(--gd-ink)]">
+                <div className="mt-2.5 text-lg font-semibold leading-tight text-[var(--gd-ink)]">
                   {totalRecoveredLabel}
                 </div>
               </div>
               <div className={smartStatCardClassName}>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                <div className="text-[10px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                   Most Polluted City
                 </div>
-                <div className="mt-2 text-sm font-semibold leading-tight break-words text-[var(--gd-ink)]">
+                <div className="mt-2.5 text-lg font-semibold leading-tight break-words text-[var(--gd-ink)]">
                   {mostPollutedLabel}
                 </div>
               </div>
               <div className={smartStatCardClassName}>
-                <div className="text-[10px] uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                <div className="text-[10px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                   User of the Month
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--gd-ink)]">
+                <div className="mt-2.5 flex flex-wrap items-center gap-2 text-lg font-semibold text-[var(--gd-ink)]">
                   <span role="img" aria-label="Trophy">
                     🏆
                   </span>
                   <span className="break-words">{leaderName}</span>
                 </div>
-                <div className="mt-2 text-[10px] text-[var(--gd-muted-2)]">
+                <div className="mt-2 text-[11px] text-[var(--gd-muted-2)]">
                   {leaderCountLabel}
                 </div>
-                <div className="mt-1 text-[10px] text-[var(--gd-muted)]">
+                <div className="mt-1 text-[11px] text-[var(--gd-muted)]">
                   Keep it up! You are saving the environment.
                 </div>
               </div>
             </div>
           </div>
 
-          <div className={clsx("flex max-h-[250px] flex-col overflow-hidden", sectionCardClassName)}>
-            <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--gd-muted-2)] md:text-xs">
+          <div className={clsx("flex max-h-[280px] flex-col overflow-hidden", sectionCardClassName)}>
+            <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
               Predicted Hotspots
             </div>
             <div className="mt-3 flex-1 min-h-0 space-y-3 overflow-y-auto pr-1 scrollbar-hide touch-pan-y">
@@ -661,10 +662,10 @@ function GD_System_IntelContent({
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-[var(--gd-surface-strong)] text-[10px] font-semibold text-[var(--gd-muted-2)]">
                           {index + 1}
                         </span>
-                        <span className="text-sm font-semibold leading-tight text-[var(--gd-ink)] md:text-base">
+                        <span className="text-sm font-semibold leading-tight text-[var(--gd-ink)]">
                           {hotspot.label}
                         </span>
                         {hotspot.score > 5 && (
@@ -673,7 +674,7 @@ function GD_System_IntelContent({
                           </span>
                         )}
                       </div>
-                      <span className="mt-1 block text-[10px] uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                      <span className="mt-1 block text-[10px] font-medium tracking-wide text-[var(--gd-muted-2)]">
                         {hotspot.count} reports
                       </span>
                     </div>
@@ -777,10 +778,10 @@ function GD_System_ActivityPanel({
                 if (info.offset.y > 25) setExpanded(false);
               }}
               onClick={() => setExpanded((prev) => !prev)}
-              className="mx-auto mb-3 flex h-11 w-20 items-center justify-center rounded-full"
+              className="mx-auto mb-4 flex h-8 w-16 items-center justify-center rounded-full"
               aria-label="Toggle intelligence panel"
             >
-              <span className="h-1.5 w-12 rounded-full bg-[var(--gd-muted)]" />
+              <span className="h-1 w-10 rounded-full bg-[var(--gd-muted)]/60" />
             </motion.button>
             <div className="flex h-full flex-col gap-4 overflow-hidden">
               <GD_System_IntelContent
@@ -822,33 +823,33 @@ function GD_System_EcoSquadPanel({
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 320, opacity: 0 }}
           transition={{ type: "spring", stiffness: 180, damping: 22 }}
-          className="pointer-events-auto fixed bottom-24 right-6 z-30 w-full sm:w-[320px]"
+          className="pointer-events-auto fixed bottom-24 right-4 z-30 w-full max-w-[340px] sm:right-6 sm:w-[320px]"
         >
           <GD_System_GlassCard className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs uppercase tracking-[0.3em] text-[var(--gd-muted-2)]">
+                <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                   Eco-Squad
                 </div>
-                <div className="gd-system-title mt-1 text-lg font-semibold">
+                <div className="gd-system-title mt-1.5 text-lg font-semibold">
                   Live Rangers
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-2 text-[var(--gd-ink)] transition hover:border-[var(--gd-border)]"
+                className="rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-2.5 text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface)] active:scale-95"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="mt-4 rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-4">
+            <div className="mt-4 rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-4">
               <div className="flex items-center justify-between">
                 <div className="gd-3d-layer-sm">
-                  <div className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                  <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                     Active Users
                   </div>
-                  <div className="mt-2 text-2xl font-semibold">{activeUsers}</div>
+                  <div className="mt-2 text-3xl font-semibold tabular-nums">{activeUsers}</div>
                 </div>
                 <div className="relative flex h-12 w-12 items-center justify-center">
                   <div className="absolute h-12 w-12 animate-ping rounded-full bg-[var(--gd-accent)]/20" />
@@ -858,24 +859,24 @@ function GD_System_EcoSquadPanel({
             </div>
 
             <div className="mt-4">
-              <div className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                 Top Rangers
               </div>
               <div className="mt-3 space-y-2">
                 {topRangers.map((ranger, index) => (
                   <div
                     key={`${ranger.name}-${index}`}
-                    className="flex items-center justify-between rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] px-3 py-2"
+                    className="flex items-center justify-between rounded-2xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] px-3 py-2.5 transition-all hover:border-[var(--gd-border)]"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--gd-surface)] text-sm font-semibold text-[var(--gd-ink)]">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--gd-accent)]/10 text-sm font-semibold text-[var(--gd-accent)]">
                         {index + 1}
                       </div>
                       <div>
                         <div className="text-sm font-medium text-[var(--gd-ink)]">
                           {ranger.name}
                         </div>
-                        <div className="text-xs text-[var(--gd-muted-2)]">
+                        <div className="text-[11px] text-[var(--gd-muted-2)]">
                           {ranger.count} reports
                         </div>
                       </div>
@@ -884,7 +885,7 @@ function GD_System_EcoSquadPanel({
                   </div>
                 ))}
                 {topRangers.length === 0 && (
-                  <div className="rounded-xl border border-dashed border-[var(--gd-border-soft)] p-4 text-center text-sm text-[var(--gd-muted)]">
+                  <div className="rounded-2xl border border-dashed border-[var(--gd-border-soft)] p-5 text-center text-sm text-[var(--gd-muted)]">
                     No ranger activity yet.
                   </div>
                 )}
@@ -999,47 +1000,47 @@ function GD_System_ReportModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="pointer-events-auto fixed inset-0 z-50 flex items-center justify-center bg-[#041a18]/70"
+          className="pointer-events-auto fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
         >
           <motion.div
             initial={{ y: 40, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 40, opacity: 0, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 200, damping: 24 }}
-            className="relative w-full max-w-5xl"
+            className="relative w-full max-w-4xl sm:mx-4"
           >
             <GD_System_TiltCard
               enabled={tiltEnabled}
-              className="mx-4"
-              glareClassName="rounded-3xl"
+              className="mx-0 sm:mx-4"
+              glareClassName="rounded-t-[28px] sm:rounded-[28px]"
             >
-              <GD_System_GlassCard className="gd-tilt-surface max-h-[90vh] overflow-y-auto rounded-3xl border border-[var(--gd-border)] bg-[var(--gd-surface)] p-6 shadow-[0_20px_60px_rgba(6,26,23,0.55)]">
+              <GD_System_GlassCard className="gd-tilt-surface max-h-[92vh] overflow-y-auto rounded-t-[28px] sm:rounded-[28px] border border-[var(--gd-border)] bg-[var(--gd-surface)] p-5 sm:p-6 shadow-2xl">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="text-xs uppercase tracking-[0.3em] text-[var(--gd-muted-2)]">
-                    Report Hub
+                  <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                    New Report
                   </div>
-                  <div className="gd-system-title mt-1 text-2xl font-semibold">
-                    Instagram-Style Capture
+                  <div className="gd-system-title mt-1.5 text-xl sm:text-2xl font-semibold">
+                    Capture & Report
                   </div>
                 </div>
                 <button
                   onClick={onClose}
-                  className="gd-3d-layer-sm rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-2 text-[var(--gd-ink)] transition hover:border-[var(--gd-border)]"
+                  className="gd-3d-layer-sm rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-2.5 text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface)] active:scale-95"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="mt-5 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="space-y-4">
                   <div className="gd-3d-layer-sm flex gap-3">
                     <button
                       onClick={() => setCameraMode("live")}
                       className={clsx(
-                        "flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition",
+                        "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all",
                         cameraMode === "live"
-                          ? "border-[var(--gd-accent)] bg-[var(--gd-accent)]/15 text-[var(--gd-ink)]"
+                          ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/15 text-[var(--gd-ink)] shadow-sm"
                           : "border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[var(--gd-muted)]"
                       )}
                     >
@@ -1049,9 +1050,9 @@ function GD_System_ReportModal({
                     <button
                       onClick={() => setCameraMode("upload")}
                       className={clsx(
-                        "flex items-center gap-2 rounded-full border px-4 py-2 text-sm transition",
+                        "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all",
                         cameraMode === "upload"
-                          ? "border-[var(--gd-accent)] bg-[var(--gd-accent)]/15 text-[var(--gd-ink)]"
+                          ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/15 text-[var(--gd-ink)] shadow-sm"
                           : "border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[var(--gd-muted)]"
                       )}
                     >
@@ -1060,9 +1061,9 @@ function GD_System_ReportModal({
                     </button>
                   </div>
 
-                  <div className="gd-3d-layer relative overflow-hidden rounded-3xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] shadow-[0_18px_40px_rgba(5,28,24,0.45)]">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-[var(--gd-accent)]/15" />
-                    <div className="relative flex min-h-[320px] items-center justify-center">
+                  <div className="gd-3d-layer relative overflow-hidden rounded-[22px] border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] shadow-lg">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-[var(--gd-accent)]/10" />
+                    <div className="relative flex min-h-[260px] sm:min-h-[320px] items-center justify-center">
                       {!capturedImage && cameraMode === "live" && (
                         <video
                           ref={GD_System_videoRef}
@@ -1131,12 +1132,12 @@ function GD_System_ReportModal({
                   <canvas ref={GD_System_canvasRef} className="hidden" />
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-4">
                   <div className="gd-3d-layer-sm">
-                    <div className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                    <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                       Waste Type
                     </div>
-                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-2">
                       {GD_System_WASTE_TYPES.map((type) => {
                         const Icon = type.icon;
                         const active = wasteType === type.label;
@@ -1145,16 +1146,24 @@ function GD_System_ReportModal({
                             key={type.id}
                             onClick={() => setWasteType(type.label)}
                             className={clsx(
-                              "flex items-center gap-3 rounded-2xl border px-3 py-3 text-left transition",
+                              "flex items-center gap-2.5 rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.97]",
                               active
-                                ? "border-[var(--gd-accent)] bg-[var(--gd-accent)]/15 shadow-[0_0_16px_rgba(49,242,178,0.25)]"
-                                : "border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)]"
+                                ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/12 shadow-sm"
+                                : "border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] hover:border-[var(--gd-border)]"
                             )}
                           >
-                            <div className="rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] p-2">
-                              <Icon className="h-4 w-4 text-[var(--gd-ink)]" />
+                            <div className={clsx(
+                              "rounded-xl border p-2 transition-colors",
+                              active
+                                ? "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/10"
+                                : "border-[var(--gd-border-soft)] bg-[var(--gd-surface)]"
+                            )}>
+                              <Icon className={clsx(
+                                "h-4 w-4",
+                                active ? "text-[var(--gd-accent)]" : "text-[var(--gd-ink)]"
+                              )} />
                             </div>
-                            <div className="text-sm text-[var(--gd-ink)]">
+                            <div className="text-[13px] font-medium text-[var(--gd-ink)]">
                               {type.label}
                             </div>
                           </button>
@@ -1164,16 +1173,16 @@ function GD_System_ReportModal({
                   </div>
 
                   <div className="gd-3d-layer-sm">
-                    <div className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                    <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                       Location
                     </div>
-                    <div className="mt-2 rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3 text-sm text-[var(--gd-ink)]">
+                    <div className="mt-2 rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5 text-sm text-[var(--gd-ink)]">
                       <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs text-[var(--gd-muted-2)]">
+                        <div className="min-w-0">
+                          <div className="text-[11px] text-[var(--gd-muted-2)]">
                             {reportLocation ? "Coordinates" : "Location"}
                           </div>
-                          <div className="mt-1 text-sm font-medium">
+                          <div className="mt-1 text-sm font-medium truncate">
                             {reportLocation
                               ? `${reportLocation.lat.toFixed(5)}, ${reportLocation.lng.toFixed(5)}`
                               : "Tap the map or detect location."}
@@ -1181,7 +1190,7 @@ function GD_System_ReportModal({
                         </div>
                         <button
                           onClick={onDetectLocation}
-                          className="inline-flex items-center gap-2 rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-1 text-xs text-[var(--gd-ink)]"
+                          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-2 text-xs font-medium text-[var(--gd-ink)] transition-all hover:bg-[var(--gd-surface-strong)] active:scale-95"
                           disabled={detectingLocation}
                         >
                           {detectingLocation && (
@@ -1194,15 +1203,15 @@ function GD_System_ReportModal({
                   </div>
 
                   <div className="gd-3d-layer-sm">
-                    <div className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                    <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                       Ranger Notes
                     </div>
                     <textarea
                       value={notes}
                       onChange={(event) => setNotes(event.target.value)}
                       rows={3}
-                      className="mt-2 w-full rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3 text-sm text-[var(--gd-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--gd-accent)]/40"
-                      placeholder="Add a brief note (optional)."
+                      className="mt-2 w-full rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5 text-sm text-[var(--gd-ink)] placeholder:text-[var(--gd-muted-2)] focus:outline-none focus:ring-2 focus:ring-[var(--gd-accent)]/30 focus:border-[var(--gd-accent)]/30 transition-all"
+                      placeholder="Add a brief note (optional)"
                     />
                   </div>
 
@@ -1210,10 +1219,10 @@ function GD_System_ReportModal({
                     onClick={onSubmit}
                     disabled={!reportLocation || isSubmitting}
                     className={clsx(
-                      "gd-3d-layer w-full rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-3 text-sm font-semibold text-[var(--gd-ink)] shadow-[0_14px_30px_rgba(5,28,24,0.5)] transition",
+                      "gd-3d-layer w-full rounded-2xl border px-4 py-3.5 text-sm font-semibold shadow-md transition-all",
                       !reportLocation || isSubmitting
-                        ? "cursor-not-allowed opacity-60"
-                        : "hover:border-[var(--gd-accent)]/60 hover:bg-[var(--gd-accent)]/10"
+                        ? "cursor-not-allowed border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-muted)] opacity-50"
+                        : "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/15 text-[var(--gd-ink)] hover:bg-[var(--gd-accent)]/25 hover:shadow-lg active:scale-[0.98]"
                     )}
                   >
                     {isSubmitting ? (
@@ -1617,12 +1626,12 @@ export default function GD_System_ReportedAreaPage() {
   const GD_System_isDarkMode = GD_System_mapTheme === "dark";
   const GD_System_navTextTone = "text-[var(--gd-ink)]";
   const GD_System_navBadgeClassName = clsx(
-    "inline-flex items-center gap-1 whitespace-nowrap rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.2em]",
+    "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-3 py-1.5 text-[11px] font-medium tracking-wide",
     "border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-ink)]"
   );
   const GD_System_navButtonClassName = clsx(
-    "inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-full border px-2.5 py-2 text-[11px] font-medium transition-all duration-200 hover:scale-105 active:scale-[0.98] md:px-3",
-    "border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-ink)] shadow-[0_10px_24px_rgba(0,0,0,0.2)] hover:bg-[var(--gd-surface-strong)]"
+    "inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-[11px] font-medium transition-all duration-200 hover:scale-[1.03] active:scale-[0.97] md:px-3.5",
+    "border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-ink)] shadow-sm hover:bg-[var(--gd-surface-strong)] hover:shadow-md"
   );
 
   const GD_System_totalRecoveredKg = useMemo(() => {
@@ -2755,11 +2764,11 @@ export default function GD_System_ReportedAreaPage() {
           style={{ backgroundImage: "var(--gd-bg-gradient)" }}
         />
         <div
-          className="absolute -top-32 -left-24 h-[420px] w-[420px] rounded-full blur-[180px]"
+          className="absolute -top-40 -left-20 h-[480px] w-[480px] rounded-full blur-[200px]"
           style={{ backgroundColor: "var(--gd-glow-1)" }}
         />
         <div
-          className="absolute -bottom-32 -right-24 h-[420px] w-[420px] rounded-full blur-[200px]"
+          className="absolute -bottom-40 -right-20 h-[480px] w-[480px] rounded-full blur-[220px]"
           style={{ backgroundColor: "var(--gd-glow-2)" }}
         />
       </div>
@@ -2767,15 +2776,15 @@ export default function GD_System_ReportedAreaPage() {
       <div className="relative z-10 flex min-h-screen w-screen">
         <aside
           className={clsx(
-            "hidden h-screen shrink-0 overflow-hidden transition-[width] duration-300 md:flex",
-            GD_System_intelOpen ? "w-64 lg:w-[350px]" : "w-0"
+            "hidden h-screen shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out md:flex",
+            GD_System_intelOpen ? "w-72 lg:w-[380px]" : "w-0"
           )}
         >
           <div
             className={clsx(
-              "flex h-full w-full flex-col overflow-hidden px-4 py-5",
+              "flex h-full w-full flex-col overflow-hidden px-4 py-5 transition-opacity duration-200",
               GD_System_intelOpen ? "opacity-100" : "opacity-0 pointer-events-none",
-              "border-r border-[var(--gd-border)] bg-[var(--gd-surface-strong)] backdrop-blur-xl text-[var(--gd-ink)]"
+              "border-r border-[var(--gd-border)] bg-[var(--gd-surface-strong)]/90 backdrop-blur-2xl text-[var(--gd-ink)]"
             )}
           >
             <GD_System_IntelContent
@@ -2813,8 +2822,8 @@ export default function GD_System_ReportedAreaPage() {
           <div className="absolute inset-0 z-20 pointer-events-none">
             <div
               className={clsx(
-                "pointer-events-auto fixed top-4 left-4 right-4 z-[1000] transition-[left] duration-300",
-                GD_System_intelOpen && "md:left-[calc(1rem+16rem)] lg:left-[calc(1rem+350px)]"
+                "pointer-events-auto fixed top-3 left-3 right-3 z-[1000] transition-[left] duration-300 ease-in-out sm:top-4 sm:left-4 sm:right-4",
+                GD_System_intelOpen && "md:left-[calc(1rem+18rem)] lg:left-[calc(1rem+380px)]"
               )}
             >
               <motion.div
@@ -2822,66 +2831,70 @@ export default function GD_System_ReportedAreaPage() {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 180, damping: 20 }}
                 style={{ fontFamily: "Inter, system-ui, sans-serif" }}
-                className="relative flex h-14 items-center rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-2 backdrop-blur-2xl shadow-[0_18px_48px_rgba(0,0,0,0.2)] md:h-16 md:px-4 overflow-visible"
+                className="relative flex h-14 items-center rounded-[20px] border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 backdrop-blur-2xl shadow-lg md:h-[60px] md:px-5 overflow-visible"
               >
                 <div
-                  className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-[var(--gd-surface-strong)] via-[var(--gd-surface)] to-transparent"
+                  className="pointer-events-none absolute inset-0 rounded-[20px] bg-gradient-to-r from-[var(--gd-surface-strong)]/60 via-transparent to-transparent"
                 />
                 <div className="relative flex w-full items-center gap-3 md:gap-4">
-                  <div className="flex min-w-0 flex-col">
-                    <span
-                      className={clsx(
-                        "text-sm font-medium uppercase tracking-[0.35em]",
-                        GD_System_navTextTone
-                      )}
-                    >
-                      GREENDUTY
-                    </span>
-                    <span
-                      className={clsx(
-                        "hidden text-xs font-medium md:block",
-                        GD_System_navTextTone
-                      )}
-                    >
-                      Pollution Dashboard
-                    </span>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--gd-accent)]/15">
+                      <Leaf className="h-4 w-4 text-[var(--gd-accent)]" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span
+                        className={clsx(
+                          "text-sm font-semibold tracking-wide",
+                          GD_System_navTextTone
+                        )}
+                      >
+                        GreenDuty
+                      </span>
+                      <span
+                        className={clsx(
+                          "hidden text-[11px] text-[var(--gd-muted)] md:block"
+                        )}
+                      >
+                        Pollution Dashboard
+                      </span>
+                    </div>
                   </div>
 
                   <div className="hidden md:flex flex-1 items-center justify-center gap-2">
                     <div className={GD_System_navBadgeClassName}>
                       <span
                         className={clsx(
-                          "h-1.5 w-1.5 rounded-full",
-                          GD_System_mapReady ? "bg-emerald-400" : "bg-amber-300"
+                          "h-2 w-2 rounded-full",
+                          GD_System_mapReady ? "bg-emerald-400" : "bg-amber-400 animate-pulse"
                         )}
                       />
-                      <span>{GD_System_mapReady ? "Map Synced" : "Map Loading"}</span>
+                      <span>{GD_System_mapReady ? "Synced" : "Loading"}</span>
                     </div>
                     <div className={GD_System_navBadgeClassName}>
-                      <span>Reports</span>
-                      <span className="tabular-nums">{GD_System_reports.length}</span>
+                      <span>{GD_System_reports.length}</span>
+                      <span className="text-[var(--gd-muted)]">reports</span>
                     </div>
                     <div className={GD_System_navBadgeClassName}>
                       <span
                         className={clsx(
-                          "h-1.5 w-1.5 rounded-full",
+                          "h-2 w-2 rounded-full",
                           GD_System_syncLabel === "Live"
                             ? "bg-emerald-400"
-                            : "bg-amber-300"
+                            : "bg-amber-400 animate-pulse"
                         )}
                       />
                       <span>{GD_System_syncLabel}</span>
                     </div>
                   </div>
 
-                  <div className="ml-auto flex items-center gap-2">
+                  <div className="ml-auto flex items-center gap-1.5 md:gap-2">
                     <button
                       onClick={() => setGD_System_profileModalOpen(true)}
-                      className="hidden max-w-[170px] items-center gap-2 rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] px-2.5 py-1 text-[11px] font-medium text-[var(--gd-ink)] transition hover:scale-[1.02] hover:bg-[var(--gd-surface-strong)] md:flex"
+                      className="hidden max-w-[180px] items-center gap-2 rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-1.5 text-[11px] font-medium text-[var(--gd-ink)] transition hover:scale-[1.02] hover:bg-[var(--gd-surface-strong)] hover:shadow-md md:flex"
                       aria-label="Open profile settings"
                       type="button"
                     >
-                      <div className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] text-[10px] font-semibold">
+                      <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[10px] font-semibold">
                         {GD_System_userAvatar ? (
                           <img
                             src={GD_System_userAvatar}
@@ -2941,36 +2954,36 @@ export default function GD_System_ReportedAreaPage() {
               </motion.div>
             </div>
 
-            <div className="pointer-events-auto absolute bottom-6 left-1/2 z-20 hidden -translate-x-1/2 md:flex flex-col items-center">
+            <div className="pointer-events-auto absolute bottom-8 left-1/2 z-20 hidden -translate-x-1/2 md:flex flex-col items-center">
               <button
                 onClick={GD_System_openReportModal}
-                className="group relative flex h-16 w-16 items-center justify-center rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] shadow-[0_10px_30px_rgba(0,0,0,0.2)]"
+                className="group relative flex h-[60px] w-[60px] items-center justify-center rounded-[22px] border border-[var(--gd-accent)]/30 bg-[var(--gd-surface)] shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105 active:scale-95"
               >
-                <div className="absolute inset-0 rounded-full bg-[var(--gd-accent)]/15 blur-xl transition group-hover:bg-[var(--gd-accent)]/25" />
-                <Plus className="relative h-6 w-6 text-[var(--gd-ink)]" />
+                <div className="absolute inset-0 rounded-[22px] bg-[var(--gd-accent)]/10 blur-xl transition group-hover:bg-[var(--gd-accent)]/20" />
+                <Plus className="relative h-6 w-6 text-[var(--gd-accent)]" />
               </button>
-              <div className="mt-2 text-center text-xs uppercase tracking-[0.35em] text-[var(--gd-muted-2)]">
-                Report
+              <div className="mt-2.5 text-center text-[11px] font-medium tracking-wide text-[var(--gd-muted)]">
+                New Report
               </div>
             </div>
 
             <button
               onClick={() => setGD_System_ecoSquadOpen(true)}
-              className="pointer-events-auto absolute right-6 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[var(--gd-ink)] shadow-[0_8px_22px_rgba(0,0,0,0.2)] backdrop-blur-md md:flex"
+              className="pointer-events-auto absolute right-6 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-ink)] shadow-lg backdrop-blur-xl transition-all hover:scale-105 hover:shadow-xl md:flex"
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4.5 w-4.5" />
             </button>
 
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: "spring", stiffness: 140, damping: 18 }}
-              className="pointer-events-auto absolute bottom-24 left-6 z-20 w-56 md:bottom-6"
+              className="pointer-events-auto absolute bottom-28 left-4 z-20 w-52 md:bottom-8 md:left-6"
             >
               <GD_System_GlassCard
-                className="rounded-2xl p-3"
+                className="rounded-2xl p-3.5"
               >
-                <div className="text-[10px] uppercase tracking-[0.3em] text-[var(--gd-muted-2)]">
+                <div className="text-[10px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                   {GD_System_showHeatmap ? "Density Scale" : "Legend"}
                 </div>
                 {GD_System_showHeatmap ? (
@@ -2991,21 +3004,21 @@ export default function GD_System_ReportedAreaPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-3 space-y-1.5">
                     {GD_System_LEGEND_ITEMS.map((item) => (
                       <motion.div
                         key={item.label}
-                        whileHover={{ x: 3 }}
-                        className="flex items-center justify-between rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-2 py-1 text-xs"
+                        whileHover={{ x: 2 }}
+                        className="flex items-center justify-between rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-2.5 py-1.5 text-xs transition-all"
                       >
                         <div className="flex items-center gap-2 text-[var(--gd-ink)]">
                           <span
-                            className="h-2.5 w-2.5 rounded-full"
+                            className="h-2.5 w-2.5 rounded-full shadow-sm"
                             style={{ backgroundColor: item.color }}
                           />
-                          {item.label}
+                          <span className="font-medium">{item.label}</span>
                         </div>
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
+                        <span className="text-[10px] tracking-wide text-[var(--gd-muted-2)]">
                           {item.detail}
                         </span>
                       </motion.div>
@@ -3017,50 +3030,50 @@ export default function GD_System_ReportedAreaPage() {
 
             <div
               className={clsx(
-                "pointer-events-auto absolute left-1/2 z-30 w-[min(92vw,420px)] -translate-x-1/2 transition-[bottom] duration-300 md:hidden",
-                GD_System_intelOpen ? "bottom-[calc(30vh+16px)]" : "bottom-5"
+                "pointer-events-auto absolute left-1/2 z-30 w-[min(92vw,400px)] -translate-x-1/2 transition-[bottom] duration-300 md:hidden",
+                GD_System_intelOpen ? "bottom-[calc(30vh+20px)]" : "bottom-6"
               )}
             >
               <div className="relative">
                 <div
-                  className="flex items-center justify-between rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-2 backdrop-blur-md shadow-[0_8px_26px_rgba(0,0,0,0.2)]"
+                  className="flex items-center justify-between rounded-[22px] border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-2.5 backdrop-blur-xl shadow-lg"
                 >
                   <button
                     onClick={() => GD_System_detectLocation()}
-                    className="flex h-11 w-11 items-center justify-center text-[var(--gd-muted)] transition hover:text-[var(--gd-ink)]"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
                   >
                     <MapPin className="h-5 w-5" />
                   </button>
                   <button
                     onClick={GD_System_toggleIntel}
-                    className="flex h-11 w-11 items-center justify-center text-[var(--gd-muted)] transition hover:text-[var(--gd-ink)]"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
                   >
                     <Sparkles className="h-5 w-5" />
                   </button>
-                  <div className="w-10" />
+                  <div className="w-12" />
                   <button
                     onClick={() => setGD_System_showHeatmap((prev) => !prev)}
                     className={clsx(
-                      "flex h-11 w-11 items-center justify-center transition",
+                      "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
                       GD_System_showHeatmap
-                        ? "text-[var(--gd-accent)]"
-                        : "text-[var(--gd-muted)] hover:text-[var(--gd-ink)]"
+                        ? "text-[var(--gd-accent)] bg-[var(--gd-accent)]/10"
+                        : "text-[var(--gd-muted)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
                     )}
                   >
                     <ShieldCheck className="h-5 w-5" />
                   </button>
                   <button
                     onClick={() => setGD_System_ecoSquadOpen(true)}
-                    className="flex h-11 w-11 items-center justify-center text-[var(--gd-muted)] transition hover:text-[var(--gd-ink)]"
+                    className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
                   >
                     <Users className="h-5 w-5" />
                   </button>
                 </div>
                 <button
                   onClick={GD_System_openReportModal}
-                  className="absolute left-1/2 top-0 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] shadow-[0_10px_26px_rgba(0,0,0,0.25)]"
+                  className="absolute left-1/2 top-0 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[18px] border border-[var(--gd-accent)]/30 bg-[var(--gd-surface)] shadow-lg transition-all active:scale-90"
                 >
-                  <Plus className="h-6 w-6 text-[var(--gd-ink)]" />
+                  <Plus className="h-6 w-6 text-[var(--gd-accent)]" />
                 </button>
               </div>
             </div>
@@ -3095,29 +3108,28 @@ export default function GD_System_ReportedAreaPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+            className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.96, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 220, damping: 18 }}
-              className="w-full max-w-md rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-6 text-center shadow-2xl backdrop-blur-xl"
+              className="w-full max-w-md rounded-t-[28px] sm:rounded-[28px] border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-6 sm:p-8 text-center shadow-2xl backdrop-blur-xl"
             >
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-                <Trash2 className="h-5 w-5" />
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-400">
+                <Trash2 className="h-6 w-6" />
               </div>
-              <h3 className="mt-4 text-lg font-semibold text-[var(--gd-ink)]">
-                Confirm Deletion
+              <h3 className="mt-5 text-lg font-semibold text-[var(--gd-ink)]">
+                Delete Report?
               </h3>
-              <p className="mt-2 text-sm text-[var(--gd-muted)]">
-                Are you sure you want to permanently delete this report? This action
-                cannot be undone.
+              <p className="mt-2 text-sm leading-relaxed text-[var(--gd-muted)]">
+                This action is permanent and cannot be undone.
               </p>
-              <div className="mt-6 flex items-center justify-center gap-3">
+              <div className="mt-6 flex flex-col-reverse sm:flex-row items-center justify-center gap-3">
                 <button
                   onClick={() => setGD_System_reportToDelete(null)}
-                  className="rounded-lg border border-[var(--gd-border)] bg-transparent px-5 py-2 text-sm font-medium text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface)]"
+                  className="w-full sm:w-auto rounded-xl border border-[var(--gd-border)] bg-transparent px-6 py-2.5 text-sm font-medium text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface)] active:scale-95"
                 >
                   Cancel
                 </button>
@@ -3127,7 +3139,7 @@ export default function GD_System_ReportedAreaPage() {
                       GD_System_handleDeleteReport(GD_System_reportToDelete);
                     }
                   }}
-                  className="rounded-lg bg-red-600 px-6 py-2 text-sm font-bold text-white transition hover:bg-red-700"
+                  className="w-full sm:w-auto rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 active:scale-95"
                 >
                   Delete
                 </button>
@@ -3143,17 +3155,17 @@ export default function GD_System_ReportedAreaPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4"
+            className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
           >
             <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.96, opacity: 0 }}
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 20 }}
               transition={{ type: "spring", stiffness: 220, damping: 18 }}
-              className="w-full max-w-md rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-6 text-[var(--gd-ink)] shadow-2xl backdrop-blur-xl"
+              className="w-full max-w-md rounded-t-[28px] sm:rounded-[28px] border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-6 text-[var(--gd-ink)] shadow-2xl backdrop-blur-xl"
             >
               <div className="text-center">
-                <div className="text-sm uppercase tracking-[0.3em] text-[var(--gd-muted)]">
+                <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted)]">
                   Profile
                 </div>
                 <h3 className="mt-2 text-xl font-semibold">Edit Profile</h3>
@@ -3163,7 +3175,7 @@ export default function GD_System_ReportedAreaPage() {
                   <button
                     type="button"
                     onClick={GD_System_handleProfileAvatarPick}
-                    className="relative h-20 w-20 overflow-hidden rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)]"
+                    className="relative h-22 w-22 overflow-hidden rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] transition-all hover:shadow-md active:scale-95"
                   >
                   {GD_System_profileDraftAvatar ? (
                     <img
@@ -3197,11 +3209,11 @@ export default function GD_System_ReportedAreaPage() {
 
                 {GD_System_cropSource && (
                   <div className="mt-2 w-full">
-                    <div className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted)]">
+                    <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted)]">
                       Crop Avatar
                     </div>
                     <div
-                      className="relative mt-3 flex items-center justify-center rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] p-4"
+                      className="relative mt-3 flex items-center justify-center rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] p-5"
                     >
                       <div
                         className="relative h-[220px] w-[220px] overflow-hidden rounded-full border border-[var(--gd-border)]"
@@ -3257,7 +3269,7 @@ export default function GD_System_ReportedAreaPage() {
                       </div>
                     </div>
                     <div className="mt-4">
-                      <label className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted)]">
+                      <label className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted)]">
                         Zoom
                       </label>
                       <input
@@ -3276,14 +3288,14 @@ export default function GD_System_ReportedAreaPage() {
                       <button
                         type="button"
                         onClick={GD_System_cancelCrop}
-                        className="rounded-lg border border-[var(--gd-border)] bg-transparent px-4 py-2 text-xs font-medium text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface)]"
+                        className="rounded-xl border border-[var(--gd-border)] bg-transparent px-5 py-2.5 text-xs font-medium text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface)] active:scale-95"
                       >
                         Cancel
                       </button>
                       <button
                         type="button"
                         onClick={GD_System_confirmCrop}
-                        className="rounded-lg bg-emerald-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-600"
+                        className="rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-600 active:scale-95"
                       >
                         Confirm Crop
                       </button>
@@ -3292,7 +3304,7 @@ export default function GD_System_ReportedAreaPage() {
                 )}
 
                 <div className="w-full">
-                  <label className="text-xs uppercase tracking-[0.2em] text-[var(--gd-muted)]">
+                  <label className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted)]">
                     Full Name
                   </label>
                   <input
@@ -3300,17 +3312,17 @@ export default function GD_System_ReportedAreaPage() {
                     onChange={(event) =>
                       setGD_System_profileDraftName(event.target.value)
                     }
-                    className="mt-2 w-full rounded-xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-3 text-sm text-[var(--gd-ink)] placeholder:text-[var(--gd-muted)] focus:outline-none focus:ring-2 focus:ring-emerald-400/40"
+                    className="mt-2 w-full rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-3.5 text-sm text-[var(--gd-ink)] placeholder:text-[var(--gd-muted-2)] focus:outline-none focus:ring-2 focus:ring-emerald-400/30 focus:border-emerald-400/30 transition-all"
                     placeholder="Enter your full name"
                   />
                 </div>
               </div>
 
-              <div className="mt-6 flex items-center justify-center gap-3">
+              <div className="mt-6 flex flex-col-reverse sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
                   onClick={() => setGD_System_profileModalOpen(false)}
-                  className="rounded-lg border border-[var(--gd-border)] bg-transparent px-5 py-2 text-sm font-medium text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface)]"
+                  className="w-full sm:w-auto rounded-xl border border-[var(--gd-border)] bg-transparent px-6 py-2.5 text-sm font-medium text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface)] active:scale-95"
                 >
                   Cancel
                 </button>
@@ -3322,7 +3334,7 @@ export default function GD_System_ReportedAreaPage() {
                     GD_System_profileUploading ||
                     Boolean(GD_System_cropSource)
                   }
-                  className="inline-flex items-center justify-center rounded-lg bg-emerald-500 px-6 py-2 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-emerald-500 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
                 >
                   {GD_System_profileSaving ? (
                     <span className="flex items-center gap-2">
@@ -3371,11 +3383,11 @@ export default function GD_System_ReportedAreaPage() {
             exit={{ opacity: 0, scale: 0.9 }}
             className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center"
           >
-            <div className="rounded-3xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] px-10 py-6 text-center shadow-[0_12px_30px_rgba(0,0,0,0.4)] backdrop-blur-md">
-              <div className="text-xs uppercase tracking-[0.3em] text-[var(--gd-muted-2)]">
+            <div className="rounded-[26px] border border-[var(--gd-accent)]/20 bg-[var(--gd-surface-strong)] px-10 py-7 text-center shadow-2xl backdrop-blur-xl">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                 Level Up
               </div>
-              <div className="gd-system-title mt-2 text-3xl font-semibold text-[var(--gd-ink)]">
+              <div className="gd-system-title mt-3 text-3xl font-bold text-[var(--gd-accent)]">
                 +{GD_System_REPORT_XP} XP
               </div>
               <div className="mt-2 text-sm text-[var(--gd-muted)]">
@@ -3395,7 +3407,7 @@ export default function GD_System_ReportedAreaPage() {
             className="pointer-events-none fixed left-1/2 top-6 z-[70] w-full -translate-x-1/2 px-4"
           >
             <div className="pointer-events-auto mx-auto w-full max-w-sm">
-              <GD_System_GlassCard className="rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-3 text-center text-sm text-[var(--gd-ink)] shadow-[0_12px_30px_rgba(0,0,0,0.35)]">
+              <GD_System_GlassCard className="rounded-2xl border border-[var(--gd-accent)]/20 bg-[var(--gd-surface)] px-5 py-3.5 text-center text-sm font-medium text-[var(--gd-ink)] shadow-lg">
                 {GD_System_deployToast}
               </GD_System_GlassCard>
             </div>
@@ -3409,27 +3421,27 @@ export default function GD_System_ReportedAreaPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[55] flex items-center justify-center bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
           >
-            <GD_System_GlassCard className="mx-6 max-w-md p-6 text-center">
-              <div className="text-xs uppercase tracking-[0.3em] text-[var(--gd-muted-2)]">
+            <GD_System_GlassCard className="mx-0 sm:mx-6 w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] p-6 sm:p-8 text-center">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                 Location Access Required
               </div>
-              <div className="gd-system-title mt-3 text-xl font-medium text-[var(--gd-ink)]">
+              <div className="gd-system-title mt-3 text-xl font-semibold text-[var(--gd-ink)]">
                 Enable GPS to report accurately
               </div>
-              <div className="mt-3 text-sm text-[var(--gd-muted)]">
+              <div className="mt-3 text-sm leading-relaxed text-[var(--gd-muted)]">
                 To pinpoint pollution precisely, please allow location access.
               </div>
               {GD_System_locationError && (
-                <div className="mt-3 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-left text-xs leading-relaxed text-red-300">
+                <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-left text-xs leading-relaxed text-red-300">
                   {GD_System_locationError}
                 </div>
               )}
-              <div className="mt-5 flex flex-col gap-2">
+              <div className="mt-6 flex flex-col gap-2.5">
                 <button
                   onClick={GD_System_handleLocationModalConfirm}
-                  className="w-full rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-3 text-sm font-semibold text-[var(--gd-ink)] transition hover:border-[var(--gd-accent)]/60 hover:bg-[var(--gd-accent)]/10"
+                  className="w-full rounded-2xl border border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/15 px-4 py-3.5 text-sm font-semibold text-[var(--gd-ink)] transition-all hover:bg-[var(--gd-accent)]/25 active:scale-[0.98]"
                   disabled={GD_System_detectingLocation}
                 >
                   {GD_System_detectingLocation ? (
@@ -3446,7 +3458,7 @@ export default function GD_System_ReportedAreaPage() {
                     setGD_System_locationError(null);
                     setGD_System_locationModalOpen(false);
                   }}
-                  className="w-full rounded-2xl border border-[var(--gd-border-soft)] bg-transparent px-4 py-3 text-sm text-[var(--gd-muted)] transition hover:text-[var(--gd-ink)]"
+                  className="w-full rounded-2xl border border-[var(--gd-border-soft)] bg-transparent px-4 py-3 text-sm font-medium text-[var(--gd-muted)] transition hover:text-[var(--gd-ink)] active:scale-[0.98]"
                 >
                   Not Now
                 </button>
@@ -3462,21 +3474,21 @@ export default function GD_System_ReportedAreaPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70"
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
           >
-            <GD_System_GlassCard className="mx-6 max-w-md p-8 text-center">
-              <div className="text-xs uppercase tracking-[0.3em] text-[var(--gd-muted-2)]">
+            <GD_System_GlassCard className="mx-0 sm:mx-6 w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] p-7 sm:p-8 text-center">
+              <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
                 Access Restricted
               </div>
               <div className="gd-system-title mt-3 text-2xl font-semibold">
-                Ranger authentication required
+                Authentication required
               </div>
-              <div className="mt-3 text-sm text-[var(--gd-muted)]">
-                Redirecting to secure login...
+              <div className="mt-3 text-sm leading-relaxed text-[var(--gd-muted)]">
+                Sign in to access the pollution dashboard.
               </div>
               <button
                 onClick={() => GD_System_router.push("/login")}
-                className="mt-5 w-full rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-3 text-sm font-semibold text-[var(--gd-ink)]"
+                className="mt-6 w-full rounded-2xl border border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/15 px-4 py-3.5 text-sm font-semibold text-[var(--gd-ink)] transition-all hover:bg-[var(--gd-accent)]/25 active:scale-[0.98]"
               >
                 Go to Login
               </button>
@@ -3488,68 +3500,69 @@ export default function GD_System_ReportedAreaPage() {
       <style jsx global>{`
         :root,
         .green {
-          --gd-ink: #e6f5f0;
-          --gd-muted: rgba(230, 245, 240, 0.7);
-          --gd-muted-2: rgba(230, 245, 240, 0.45);
-          --gd-accent: #31f2b2;
-          --gd-surface: rgba(6, 14, 22, 0.55);
-          --gd-surface-strong: rgba(6, 14, 22, 0.7);
-          --gd-border: rgba(255, 255, 255, 0.1);
-          --gd-border-soft: rgba(255, 255, 255, 0.06);
-          --gd-bg: #020b13;
+          --gd-ink: #e8faf3;
+          --gd-muted: rgba(232, 250, 243, 0.65);
+          --gd-muted-2: rgba(232, 250, 243, 0.4);
+          --gd-accent: #34d399;
+          --gd-surface: rgba(10, 20, 30, 0.5);
+          --gd-surface-strong: rgba(10, 20, 30, 0.65);
+          --gd-border: rgba(255, 255, 255, 0.08);
+          --gd-border-soft: rgba(255, 255, 255, 0.05);
+          --gd-bg: #050e18;
           --gd-bg-gradient: radial-gradient(
-              circle at top,
-              rgba(49, 242, 178, 0.14),
-              transparent 50%
+              ellipse at 30% 0%,
+              rgba(52, 211, 153, 0.12),
+              transparent 55%
             ),
             radial-gradient(
-              circle at 80% 20%,
-              rgba(255, 255, 255, 0.04),
-              transparent 45%
+              ellipse at 80% 20%,
+              rgba(56, 189, 248, 0.06),
+              transparent 50%
             ),
-            linear-gradient(140deg, #020b13, #06141f 55%, #020b13);
-          --gd-glow-1: rgba(13, 62, 63, 0.45);
-          --gd-glow-2: rgba(7, 28, 38, 0.7);
-          --gd-overlay-top: rgba(2, 11, 19, 0.15);
-          --gd-overlay-bottom: rgba(2, 11, 19, 0.7);
+            linear-gradient(160deg, #050e18, #0a1628 50%, #050e18);
+          --gd-glow-1: rgba(16, 185, 129, 0.18);
+          --gd-glow-2: rgba(14, 165, 233, 0.12);
+          --gd-overlay-top: rgba(5, 14, 24, 0.1);
+          --gd-overlay-bottom: rgba(5, 14, 24, 0.65);
         }
         .light {
-          --gd-ink: #0f172a;
-          --gd-muted: rgba(15, 23, 42, 0.65);
-          --gd-muted-2: rgba(15, 23, 42, 0.45);
-          --gd-accent: #0f766e;
-          --gd-surface: rgba(255, 255, 255, 0.7);
-          --gd-surface-strong: rgba(255, 255, 255, 0.85);
-          --gd-border: rgba(15, 23, 42, 0.16);
-          --gd-border-soft: rgba(15, 23, 42, 0.1);
-          --gd-bg: #f5f8f6;
+          --gd-ink: #1e293b;
+          --gd-muted: rgba(30, 41, 59, 0.6);
+          --gd-muted-2: rgba(30, 41, 59, 0.4);
+          --gd-accent: #059669;
+          --gd-surface: rgba(255, 255, 255, 0.8);
+          --gd-surface-strong: rgba(255, 255, 255, 0.92);
+          --gd-border: rgba(15, 23, 42, 0.1);
+          --gd-border-soft: rgba(15, 23, 42, 0.06);
+          --gd-bg: #f8faf9;
           --gd-bg-gradient: radial-gradient(
-              circle at top,
-              rgba(16, 185, 129, 0.1),
-              transparent 50%
+              ellipse at 30% 0%,
+              rgba(16, 185, 129, 0.08),
+              transparent 55%
             ),
             radial-gradient(
-              circle at 80% 20%,
-              rgba(15, 23, 42, 0.03),
-              transparent 45%
+              ellipse at 80% 20%,
+              rgba(14, 165, 233, 0.04),
+              transparent 50%
             ),
-            linear-gradient(140deg, #f5f8f6, #e8f0eb 55%, #f5f8f6);
-          --gd-glow-1: rgba(16, 185, 129, 0.08);
-          --gd-glow-2: rgba(14, 165, 233, 0.06);
-          --gd-overlay-top: rgba(245, 248, 246, 0.1);
-          --gd-overlay-bottom: rgba(245, 248, 246, 0.5);
+            linear-gradient(160deg, #f8faf9, #ecf5ef 50%, #f8faf9);
+          --gd-glow-1: rgba(16, 185, 129, 0.06);
+          --gd-glow-2: rgba(14, 165, 233, 0.04);
+          --gd-overlay-top: rgba(248, 250, 249, 0.08);
+          --gd-overlay-bottom: rgba(248, 250, 249, 0.45);
         }
         .gd-light-scope {
-          --gd-ink: #0f172a;
-          --gd-muted: rgba(15, 23, 42, 0.65);
-          --gd-muted-2: rgba(15, 23, 42, 0.45);
-          --gd-surface: rgba(255, 255, 255, 0.7);
-          --gd-surface-strong: rgba(255, 255, 255, 0.85);
-          --gd-border: rgba(15, 23, 42, 0.16);
-          --gd-border-soft: rgba(15, 23, 42, 0.1);
+          --gd-ink: #1e293b;
+          --gd-muted: rgba(30, 41, 59, 0.6);
+          --gd-muted-2: rgba(30, 41, 59, 0.4);
+          --gd-surface: rgba(255, 255, 255, 0.8);
+          --gd-surface-strong: rgba(255, 255, 255, 0.92);
+          --gd-border: rgba(15, 23, 42, 0.1);
+          --gd-border-soft: rgba(15, 23, 42, 0.06);
         }
         * {
           scrollbar-width: none;
+          -webkit-tap-highlight-color: transparent;
         }
         *::-webkit-scrollbar {
           width: 0px;
@@ -3572,9 +3585,11 @@ export default function GD_System_ReportedAreaPage() {
             "Helvetica Neue", Arial, sans-serif;
           color: var(--gd-ink);
           font-weight: 400;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
         }
         .gd-system-title {
-          letter-spacing: 0.08em;
+          letter-spacing: 0.04em;
           font-weight: 600;
         }
         .gd-tilt-surface {

@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { Bookmark, Briefcase, CheckCircle2, GraduationCap, MapPin, Pencil, Phone } from "lucide-react";
+import {
+  Bookmark,
+  Briefcase,
+  CheckCircle2,
+  GraduationCap,
+  MapPin,
+  Pencil,
+  Phone,
+} from "lucide-react";
 import { EduNavbar } from "@/components/edu/Navbar";
 import { Button } from "@/components/ui/button";
 import type { ProfileState } from "@/lib/profile/useProfileData";
@@ -24,143 +32,172 @@ const tabs = [
   { id: "saved", label: "Saved", href: "/profile/saved", icon: Bookmark },
 ] as const;
 
+const statsConfig = [
+  { key: "posts", label: "Posts" },
+  { key: "likes", label: "Likes" },
+  { key: "saves", label: "Saves" },
+  { key: "follows", label: "Following" },
+  { key: "friends", label: "Friends" },
+] as const;
+
 export function ProfileShell({ profile, loading, activeTab, headerRight, children }: ProfileShellProps) {
   const avatarFallback = useMemo(() => profile.avatar.slice(0, 2).toUpperCase(), [profile.avatar]);
 
+  const visibleStats = useMemo(
+    () => statsConfig.filter((s) => typeof profile.stats[s.key as keyof typeof profile.stats] === "number"),
+    [profile.stats],
+  );
+
   return (
-    <div className="min-h-screen bg-[#F6F8F7] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div className="min-h-screen bg-white dark:bg-[#0a0f14]">
       <EduNavbar />
 
-      <div className="mx-auto max-w-6xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="relative">
-            <div className="h-56 bg-gradient-to-br from-emerald-200 via-emerald-50 to-white dark:from-emerald-900/30 dark:via-slate-900 dark:to-slate-950">
-              {profile.coverUrl ? (
-                <img src={profile.coverUrl} alt="Cover" className="h-full w-full object-cover" />
+      {/* ═══ COVER ═══ */}
+      <div className="relative">
+        <div className="h-52 sm:h-64 md:h-72 lg:h-80 w-full overflow-hidden">
+          {profile.coverUrl ? (
+            <img src={profile.coverUrl} alt="Cover" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 dark:from-emerald-900 dark:via-emerald-800 dark:to-teal-900" />
+          )}
+          {/* Bottom fade into page */}
+          <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white dark:from-[#0a0f14]" />
+        </div>
+      </div>
+
+      {/* ═══ PROFILE CONTENT ═══ */}
+      <div className="relative mx-auto max-w-4xl px-5 sm:px-8">
+
+        {/* ── Avatar + Identity ── */}
+        <div className="-mt-20 sm:-mt-24 flex flex-col items-center sm:flex-row sm:items-end sm:gap-6">
+          {/* Avatar */}
+          <div className="relative shrink-0">
+            <div className="h-36 w-36 overflow-hidden rounded-full border-[6px] border-white shadow-2xl shadow-black/10 dark:border-[#0a0f14] sm:h-40 sm:w-40">
+              {profile.avatarUrl ? (
+                <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs uppercase tracking-[0.3em] text-slate-400">
-                  Cover
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-emerald-50 to-emerald-100 text-3xl font-bold text-emerald-700 dark:from-emerald-950 dark:to-emerald-900 dark:text-emerald-300 sm:text-4xl">
+                  {avatarFallback}
                 </div>
               )}
             </div>
-            <div className="absolute left-1/2 -bottom-12 -translate-x-1/2 sm:left-8 sm:translate-x-0">
-              <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-[#1E7F43]/10 text-2xl font-semibold text-[#1E7F43] shadow-lg dark:border-slate-900">
-                {profile.avatarUrl ? (
-                  <img src={profile.avatarUrl} alt={profile.name} className="h-full w-full object-cover" />
-                ) : (
-                  <span>{avatarFallback}</span>
-                )}
+            {profile.role === "Expert" && (
+              <div className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 ring-[3px] ring-white dark:ring-[#0a0f14]">
+                <CheckCircle2 className="h-4 w-4 text-white" />
               </div>
-            </div>
+            )}
           </div>
 
-          <div className="px-6 pb-6 pt-16">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex flex-col items-center text-center sm:items-start sm:text-left sm:pl-32">
-                <div className="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {profile.name}
-                  {profile.role === "Expert" && <CheckCircle2 className="h-4 w-4 text-[#1E7F43]" />}
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400">{profile.handle}</div>
-                <div className="mt-2 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
-                  {profile.role}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-600 dark:text-slate-300 lg:justify-end">
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center dark:border-slate-800 dark:bg-slate-950/60">
-                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Posts</div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">{profile.stats.posts}</div>
-                </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center dark:border-slate-800 dark:bg-slate-950/60">
-                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Likes</div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">{profile.stats.likes}</div>
-                </div>
-                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center dark:border-slate-800 dark:bg-slate-950/60">
-                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Saves</div>
-                  <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">{profile.stats.saves}</div>
-                </div>
-                {typeof profile.stats.follows === "number" && (
-                  <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-center dark:border-slate-800 dark:bg-slate-950/60">
-                    <div className="text-xs uppercase tracking-[0.2em] text-slate-400">Follows</div>
-                    <div className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                      {profile.stats.follows}
-                    </div>
-                  </div>
-                )}
-                <Button asChild size="sm" className="rounded-full bg-[#1E7F43] text-white hover:bg-[#166536]">
-                  <Link href="/profile/edit">
-                    <Pencil className="h-4 w-4" />
-                    Edit Profile
-                  </Link>
-                </Button>
-              </div>
+          {/* Name + Actions */}
+          <div className="mt-4 flex flex-1 flex-col items-center gap-4 sm:mt-0 sm:flex-row sm:items-end sm:justify-between sm:pb-2">
+            <div className="text-center sm:text-left">
+              <h1 className="text-2xl font-bold text-slate-900 dark:text-white sm:text-3xl">
+                {profile.name}
+              </h1>
+              <p className="mt-1 text-[15px] text-slate-500 dark:text-slate-400">{profile.handle}</p>
             </div>
-
-            <div className="mt-6 flex flex-wrap items-center justify-center gap-2 border-t border-slate-100 pt-4 text-sm text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:justify-start">
-              {tabs.map((tab) => (
-                <Link
-                  key={tab.id}
-                  href={tab.href}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-semibold transition ${
-                    activeTab === tab.id
-                      ? "bg-slate-900 text-white shadow-sm dark:bg-slate-100 dark:text-slate-900"
-                      : "text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  {"icon" in tab && tab.icon && <tab.icon className="h-3.5 w-3.5" />}
-                  {tab.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <div className="mt-6 grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
-          <aside className="space-y-6">
-            <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Intro</div>
-              <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
-                {loading ? "Loading profile..." : profile.bio}
-              </p>
-              <div className="mt-4 space-y-2 text-sm text-slate-500 dark:text-slate-400">
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-emerald-600" />
-                  <span>{profile.location || "Add location"}</span>
-                </div>
-                {profile.phone && (
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-emerald-600" />
-                    <span>{profile.phone}</span>
-                  </div>
-                )}
-                {profile.education && (
-                  <div className="flex items-center gap-2">
-                    <GraduationCap className="h-4 w-4 text-emerald-600" />
-                    <span>{profile.education}</span>
-                  </div>
-                )}
-                {profile.work && (
-                  <div className="flex items-center gap-2">
-                    <Briefcase className="h-4 w-4 text-emerald-600" />
-                    <span>{profile.work}</span>
-                  </div>
-                )}
-              </div>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-xs font-semibold text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-400">
+                {profile.role}
+              </span>
               <Button
                 asChild
                 size="sm"
-                className="mt-4 w-full rounded-full border border-slate-200 bg-white text-slate-600 hover:text-[#1E7F43] dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+                className="h-9 rounded-full border border-slate-200 bg-white px-5 text-[13px] font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:shadow dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                <Link href="/profile/edit">Edit Details</Link>
+                <Link href="/profile/edit">
+                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                  Edit Profile
+                </Link>
               </Button>
             </div>
-          </aside>
+          </div>
+        </div>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex flex-wrap items-center justify-between gap-3">{headerRight}</div>
-            <div className="mt-5">{children}</div>
-          </section>
+        {/* ── Bio bar ── */}
+        {(profile.bio || loading) && (
+          <p className="mt-6 max-w-xl text-[15px] leading-relaxed text-slate-600 dark:text-slate-300 sm:pl-2 text-center sm:text-left">
+            {loading ? (
+              <span className="inline-block h-4 w-64 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+            ) : (
+              profile.bio
+            )}
+          </p>
+        )}
+
+        {/* ── Info chips ── */}
+        <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-[13px] text-slate-500 dark:text-slate-400 sm:pl-2 justify-center sm:justify-start">
+          {profile.location && (
+            <span className="inline-flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" /> {profile.location}
+            </span>
+          )}
+          {profile.phone && (
+            <span className="inline-flex items-center gap-1.5">
+              <Phone className="h-3.5 w-3.5" /> {profile.phone}
+            </span>
+          )}
+          {profile.education && (
+            <span className="inline-flex items-center gap-1.5">
+              <GraduationCap className="h-3.5 w-3.5" /> {profile.education}
+            </span>
+          )}
+          {profile.work && (
+            <span className="inline-flex items-center gap-1.5">
+              <Briefcase className="h-3.5 w-3.5" /> {profile.work}
+            </span>
+          )}
+        </div>
+
+        {/* ── Stats ── */}
+        <div className="mt-8 flex justify-center gap-10 sm:justify-start sm:gap-12 sm:pl-2">
+          {visibleStats.map((stat) => {
+            const val = profile.stats[stat.key as keyof typeof profile.stats] ?? 0;
+            return (
+              <button key={stat.key} type="button" className="group text-center">
+                <div className="text-2xl font-bold tabular-nums text-slate-900 transition-colors group-hover:text-emerald-600 dark:text-white dark:group-hover:text-emerald-400">
+                  {val}
+                </div>
+                <div className="mt-0.5 text-[13px] text-slate-500 dark:text-slate-400">
+                  {stat.label}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Tabs ── */}
+        <div className="mt-8 border-b border-slate-200 dark:border-slate-800">
+          <nav className="-mb-px flex gap-0 overflow-x-auto scrollbar-none">
+            {tabs.map((tab) => {
+              const active = activeTab === tab.id;
+              return (
+                <Link
+                  key={tab.id}
+                  href={tab.href}
+                  className={`relative inline-flex shrink-0 items-center gap-1.5 px-5 py-3.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "text-slate-900 dark:text-white"
+                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                  }`}
+                >
+                  {"icon" in tab && tab.icon && <tab.icon className="h-4 w-4" />}
+                  {tab.label}
+                  {active && (
+                    <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-slate-900 dark:bg-white" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* ═══ BODY ═══ */}
+        <div className="mt-8 pb-24">
+          {headerRight && (
+            <div className="mb-6 flex flex-wrap items-center justify-between gap-3">{headerRight}</div>
+          )}
+          {children}
         </div>
       </div>
     </div>

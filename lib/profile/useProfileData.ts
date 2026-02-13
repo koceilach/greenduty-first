@@ -32,6 +32,8 @@ export type ProfileState = {
 
 type ProfileEduCategoryJoin = { name: string };
 
+type ProfileEduPostStatsJoin = { likes: number | null; saves: number | null; comments: number | null };
+
 type ProfileEduPostRow = {
   id: string;
   title: string;
@@ -41,6 +43,7 @@ type ProfileEduPostRow = {
   status: string;
   created_at: string;
   edu_categories: ProfileEduCategoryJoin | ProfileEduCategoryJoin[] | null;
+  edu_post_stats: ProfileEduPostStatsJoin | ProfileEduPostStatsJoin[] | null;
 };
 
 const firstOf = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -110,7 +113,7 @@ export function useProfileData() {
 
       setCurrentUserId(user.id);
 
-      const [{ data: profileRow }, { data: postRows }, { count: followCount }] = await Promise.all([
+      const [{ data: profileRow }, { data: postRows }, { count: followCount }, { count: friendCount }] = await Promise.all([
         supabase
           .from("profiles")
           .select("full_name, username, role, bio, avatar_url, cover_url, location, phone, website, education, work, date_of_birth, gender")
@@ -129,12 +132,14 @@ export function useProfileData() {
               created_at,
               edu_categories:category_id (
                 name
-              )
+              ),
+              edu_post_stats (likes, saves, comments)
             `
           )
           .eq("user_id", user.id)
           .order("created_at", { ascending: false }),
         supabase.from("profile_follows").select("id", { count: "exact", head: true }).eq("follower_id", user.id),
+        supabase.from("friendships").select("id", { count: "exact", head: true }).or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
       ]);
 
       const postIds = (postRows ?? []).map((row) => row.id);
@@ -173,6 +178,7 @@ export function useProfileData() {
         const mediaUrls = normalizeMediaUrls(row.media_urls);
         const isCarousel = row.media_type?.toLowerCase?.() === "carousel";
         const isVideo = row.media_type?.toLowerCase?.() === "video";
+        const postStats = firstOf(row.edu_post_stats as ProfileEduPostStatsJoin | ProfileEduPostStatsJoin[] | null);
         return {
           id: row.id,
           creatorUserId: user.id,
@@ -203,10 +209,10 @@ export function useProfileData() {
           hashtags: ["#Agronomy", "#GreenDuty", "#Sustainability"],
           sources: [],
           stats: {
-            likes: "0",
-            comments: "0",
+            likes: String(postStats?.likes ?? 0),
+            comments: String(postStats?.comments ?? 0),
           },
-          saves: "0",
+          saves: String(postStats?.saves ?? 0),
           aiReport: {
             status: "VERIFIED",
             accuracy: 0.95,
@@ -242,6 +248,7 @@ export function useProfileData() {
           likes: likeCount,
           saves: saveCount,
           follows: followCount ?? 0,
+          friends: friendCount ?? 0,
         },
       }));
       setUserPosts(mappedPosts);

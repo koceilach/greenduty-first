@@ -5,6 +5,38 @@
 @custom-variant green (&:is(.green *));
 @custom-variant light (&:is(.light *));
 
+/* ── Global responsive resets ──────────────────────── */
+html,
+body {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Utility: hide scrollbar */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+/* Safe-area padding for bottom nav on notched phones */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 :root {
   --background: oklch(0.985 0.002 106);
   --foreground: oklch(0.145 0.02 150);

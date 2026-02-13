@@ -1,6 +1,7 @@
 "use client";
 
 import { EduNavbar } from "@/components/edu/Navbar";
+import { MobileBottomNav } from "@/components/edu/MobileBottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/lib/supabase/client";
@@ -169,23 +170,23 @@ export default function CreatePostPage() {
     <div className="min-h-screen bg-[#F6F8F7] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <EduNavbar />
 
-      <div className="mx-auto max-w-3xl px-4 pb-24 pt-6 sm:px-6">
+      <div className="mx-auto max-w-3xl px-3 pb-24 pt-4 sm:px-6 sm:pt-6">
         {/* Back */}
         <Link
           href="/education"
-          className="mb-6 inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-[#1E7F43]"
+          className="mb-4 inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-[#1E7F43] sm:mb-6"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to feed
         </Link>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-            <h1 className="text-lg font-semibold">Create Post</h1>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl">
+          <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-6 sm:py-4">
+            <h1 className="text-base font-semibold sm:text-lg">Create Post</h1>
             <p className="mt-1 text-xs text-slate-400">Share your knowledge with the community</p>
           </div>
 
-          <div className="space-y-6 p-6">
+          <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
             {error && (
               <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-400">
                 {error}
@@ -248,12 +249,12 @@ export default function CreatePostPage() {
                 <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-slate-400">
                   Media Type
                 </label>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-1.5 sm:flex-nowrap sm:gap-2">
                   {(["image", "video", "carousel", "infographic"] as const).map((type) => (
                     <button
                       key={type}
                       onClick={() => setMediaType(type)}
-                      className={`flex-1 rounded-xl px-2 py-2 text-xs font-semibold capitalize transition ${
+                      className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] font-semibold capitalize transition sm:rounded-xl sm:px-2 sm:py-2 sm:text-xs ${
                         mediaType === type
                           ? "bg-[#1E7F43] text-white"
                           : "bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400"
@@ -294,7 +295,7 @@ export default function CreatePostPage() {
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-8 text-sm text-slate-400 transition hover:border-[#1E7F43] hover:bg-emerald-50/50 hover:text-[#1E7F43] dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-emerald-700"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 py-6 text-xs text-slate-400 transition hover:border-[#1E7F43] hover:bg-emerald-50/50 hover:text-[#1E7F43] dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-emerald-700 sm:py-8 sm:text-sm"
               >
                 <Upload className="h-5 w-5" />
                 Click to upload images or videos
@@ -338,7 +339,7 @@ export default function CreatePostPage() {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center gap-3 border-t border-slate-100 pt-5 dark:border-slate-800">
+            <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-800 sm:flex-row sm:items-center sm:pt-5">
               <Button
                 onClick={handlePublish}
                 disabled={publishing || !title.trim()}
@@ -360,6 +361,8 @@ export default function CreatePostPage() {
           </div>
         </div>
       </div>
+      <div className="h-20 lg:hidden" />
+      <MobileBottomNav />
     </div>
   );
 }

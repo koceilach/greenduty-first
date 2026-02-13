@@ -258,7 +258,7 @@ function EduRegisterPage() {
   };
 
   return (
-    <div className="relative flex min-h-svh items-center justify-center px-4 py-10">
+    <div className="relative flex min-h-svh items-center justify-center px-3 py-6 sm:px-4 sm:py-10">
       <AnimatedBackground />
 
       <div className="relative z-10 w-full max-w-md">
@@ -266,11 +266,11 @@ function EduRegisterPage() {
         <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-emerald-400/15 via-teal-300/10 to-emerald-400/15 blur-2xl" />
 
         {/* Card */}
-        <div className="relative overflow-hidden rounded-3xl border border-white/60 bg-white/70 shadow-2xl shadow-emerald-900/10 backdrop-blur-2xl dark:border-slate-800/60 dark:bg-slate-900/70">
+        <div className="relative overflow-hidden rounded-2xl border border-white/60 bg-white/70 shadow-2xl shadow-emerald-900/10 backdrop-blur-2xl dark:border-slate-800/60 dark:bg-slate-900/70 sm:rounded-3xl">
           {/* Top accent */}
           <div className="h-1.5 bg-gradient-to-r from-[#1E7F43] via-emerald-400 to-teal-500" />
 
-          <div className="px-8 pb-8 pt-8 sm:px-10 sm:pb-10 sm:pt-10">
+          <div className="px-5 pb-6 pt-6 sm:px-10 sm:pb-10 sm:pt-10">
             {success ? (
               <SuccessScreen email={email.trim()} />
             ) : (

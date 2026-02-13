@@ -2,6 +2,7 @@
 
 import { EduNavbar } from "@/components/edu/Navbar";
 import { EduSidebar } from "@/components/edu/Sidebar";
+import { MobileBottomNav } from "@/components/edu/MobileBottomNav";
 import { useNotifications } from "@/lib/notifications/useNotifications";
 import {
   Bell,
@@ -62,7 +63,7 @@ export default function NotificationsPage() {
     <div className="min-h-screen bg-[#F6F8F7] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <EduNavbar />
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 pb-24 pt-6 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:px-8">
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-3 pb-24 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:px-8">
         {/* Left sidebar */}
         <aside className="hidden lg:block">
           <EduSidebar side="left" />
@@ -70,12 +71,12 @@ export default function NotificationsPage() {
 
         {/* Main */}
         <main>
-          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl">
             {/* Header */}
-            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <div className="flex items-center gap-3">
-                <Bell className="h-5 w-5 text-[#1E7F43]" />
-                <h1 className="text-lg font-semibold">Notifications</h1>
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 dark:border-slate-800 sm:px-6 sm:py-4">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Bell className="h-4 w-4 text-[#1E7F43] sm:h-5 sm:w-5" />
+                <h1 className="text-base font-semibold sm:text-lg">Notifications</h1>
                 {unreadCount > 0 && (
                   <span className="flex h-5 items-center justify-center rounded-full bg-[#1E7F43] px-2 text-[10px] font-bold text-white">
                     {unreadCount}
@@ -97,8 +98,8 @@ export default function NotificationsPage() {
             <div className="divide-y divide-slate-50 dark:divide-slate-800/50">
               {loading ? (
                 Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="flex animate-pulse items-center gap-3 px-6 py-4">
-                    <div className="h-10 w-10 rounded-full bg-slate-200 dark:bg-slate-700" />
+                  <div key={i} className="flex animate-pulse items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
+                    <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-700 sm:h-10 sm:w-10" />
                     <div className="flex-1 space-y-2">
                       <div className="h-3 w-48 rounded bg-slate-200 dark:bg-slate-700" />
                       <div className="h-2 w-24 rounded bg-slate-100 dark:bg-slate-800" />
@@ -126,7 +127,7 @@ export default function NotificationsPage() {
                       onClick={() => {
                         if (!notif.read) markAsRead(notif.id);
                       }}
-                      className={`flex items-start gap-3 px-6 py-4 transition hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                      className={`flex items-start gap-2.5 px-4 py-3 transition hover:bg-slate-50 dark:hover:bg-slate-800/50 sm:gap-3 sm:px-6 sm:py-4 ${
                         !notif.read ? "bg-emerald-50/30 dark:bg-emerald-900/5" : ""
                       }`}
                     >
@@ -156,7 +157,7 @@ export default function NotificationsPage() {
 
                       {/* Content */}
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm text-slate-700 dark:text-slate-200">
+                        <p className="text-xs text-slate-700 dark:text-slate-200 sm:text-sm">
                           {notif.actor?.fullName && (
                             <span className="font-semibold">{notif.actor.fullName} </span>
                           )}
@@ -185,6 +186,8 @@ export default function NotificationsPage() {
           <EduSidebar side="right" />
         </aside>
       </div>
+      <div className="h-20 lg:hidden" />
+      <MobileBottomNav />
     </div>
   );
 }
