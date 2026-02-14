@@ -23,6 +23,25 @@ body {
   width: 100%;
 }
 
+/* Mobile form controls: prevent iOS/Android focus-zoom on inputs */
+@media (hover: none) and (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Reduce double-tap zoom delay on touch devices */
+a,
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  touch-action: manipulation;
+}
+
 /* Utility: hide scrollbar */
 .scrollbar-none {
   -ms-overflow-style: none;
@@ -127,6 +146,8 @@ body {
   --gd-home-hero-title: rgba(255, 255, 255, 0.94);
   --gd-home-cta-color: rgba(255, 255, 255, 0.95);
   --gd-home-cta-border: rgba(255, 255, 255, 0.55);
+  --gd-home-cta-mobile-bg: rgba(6, 16, 28, 0.34);
+  --gd-home-cta-mobile-bg-hover: rgba(6, 16, 28, 0.5);
   --gd-home-preview-bg: rgba(255, 255, 255, 0.14);
   --gd-home-preview-border: rgba(255, 255, 255, 0.2);
   --gd-home-preview-dots: rgba(255, 255, 255, 0.85);
@@ -160,6 +181,8 @@ body {
   --gd-home-hero-title: rgba(248, 250, 252, 0.96);
   --gd-home-cta-color: rgba(248, 250, 252, 0.96);
   --gd-home-cta-border: rgba(248, 250, 252, 0.58);
+  --gd-home-cta-mobile-bg: rgba(248, 250, 252, 0.16);
+  --gd-home-cta-mobile-bg-hover: rgba(248, 250, 252, 0.26);
   --gd-home-preview-bg: rgba(250, 252, 253, 0.2);
   --gd-home-preview-border: rgba(250, 252, 253, 0.36);
   --gd-home-preview-dots: rgba(250, 252, 253, 0.9);
@@ -273,12 +296,33 @@ body {
 
 .gd-home-hero-cta {
   color: var(--gd-home-cta-color);
-  border-bottom: 1px solid var(--gd-home-cta-border);
+  border: 1px solid var(--gd-home-cta-border);
+  border-radius: 9999px;
+  background: var(--gd-home-cta-mobile-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .gd-home-hero-cta:hover {
   color: var(--gd-home-cta-color);
-  border-bottom-color: var(--gd-home-cta-color);
+  background: var(--gd-home-cta-mobile-bg-hover);
+  border-color: var(--gd-home-cta-color);
+}
+
+@media (min-width: 640px) {
+  .gd-home-hero-cta {
+    border: 0;
+    border-bottom: 1px solid var(--gd-home-cta-border);
+    border-radius: 0;
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .gd-home-hero-cta:hover {
+    border-bottom-color: var(--gd-home-cta-color);
+    background: transparent;
+  }
 }
 
 .gd-home-hero-cta-icon {

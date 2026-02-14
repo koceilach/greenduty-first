@@ -4,37 +4,39 @@ import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 
-const heroImage =
-  "/images/hero-hills-user.jpg";
+const heroImage = "/images/hero-hills-user.jpg";
 const previewImage =
   "https://images.unsplash.com/photo-1466611653911-95081537e5b7?auto=format&fit=crop&w=700&q=80";
+const heroStats = [
+  { value: "6 mil", label: "Annual net income" },
+  { value: "315", label: "Projects completed" },
+  { value: "120K", label: "Team members globally" },
+];
 
 export function Hero() {
   return (
-    <section
-      id="home"
-      className="relative overflow-hidden pb-10 pt-24 sm:pb-14 sm:pt-28"
-    >
-      <div className="mx-auto max-w-[1220px] px-4 sm:px-6 lg:px-8">
-        <div className="relative overflow-hidden rounded-[28px] border border-white/20 shadow-[0_28px_80px_rgba(0,0,0,0.48)]">
+    <section id="home" className="relative overflow-hidden pb-8 pt-20 sm:pb-14 sm:pt-28">
+      <div className="mx-auto max-w-[1220px] px-3 sm:px-6 lg:px-8">
+        <div className="relative overflow-hidden rounded-[24px] border border-white/20 shadow-[0_28px_80px_rgba(0,0,0,0.48)] sm:rounded-[28px]">
           <Image
             src={heroImage}
             alt="Rolling green hills with trees in soft natural light"
             fill
             priority
-            sizes="(min-width: 1280px) 1220px, (min-width: 640px) calc(100vw - 48px), calc(100vw - 32px)"
-            className="object-cover object-[38%_45%] sm:object-[46%_45%] lg:object-[50%_48%]"
+            sizes="(min-width: 1280px) 1220px, (min-width: 640px) calc(100vw - 48px), calc(100vw - 24px)"
+            className="object-cover object-[34%_42%] sm:object-[46%_45%] lg:object-[50%_48%]"
           />
           <div className="gd-home-hero-overlay absolute inset-0" />
           <div className="gd-home-hero-sheen absolute inset-0" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[72%] bg-gradient-to-t from-black/75 via-black/40 to-transparent sm:hidden" />
 
-          <div className="relative z-10 flex min-h-[400px] flex-col justify-between p-6 sm:min-h-[520px] sm:p-10 lg:min-h-[600px] lg:p-12">
-            <div className="max-w-[42rem] pt-2 sm:pt-5">
+          <div className="relative z-10 flex min-h-[500px] flex-col justify-between p-5 pb-6 sm:min-h-[520px] sm:p-10 lg:min-h-[600px] lg:p-12">
+            <div className="max-w-[44rem] pt-3 sm:pt-5">
               <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.45 }}
-                className="gd-home-hero-eyebrow text-[0.88rem] font-normal tracking-[0.01em] sm:text-[1.05rem]"
+                className="gd-home-hero-eyebrow inline-flex w-fit items-center rounded-full border border-white/25 bg-black/25 px-3 py-1 text-[0.7rem] font-medium uppercase tracking-[0.11em] backdrop-blur-sm sm:text-[0.78rem]"
               >
                 #1 Energy provider in the world
               </motion.p>
@@ -43,11 +45,20 @@ export function Hero() {
                 initial={{ opacity: 0, y: 24 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.18 }}
-                className="gd-home-hero-title mt-4 text-[clamp(2.2rem,11.2vw,8.6rem)] font-light leading-[0.9] tracking-[-0.04em]"
+                className="gd-home-hero-title mt-4 text-[clamp(2.25rem,12.4vw,8.6rem)] font-light leading-[0.92] tracking-[-0.04em]"
               >
                 <span className="block">New Energy</span>
                 <span className="block">for the Future</span>
               </motion.h1>
+
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.55, delay: 0.28 }}
+                className="mt-4 max-w-[34rem] text-sm leading-relaxed text-white/80 sm:text-base"
+              >
+                Reliable clean-energy infrastructure, practical digital tools, and measurable impact for every community.
+              </motion.p>
             </div>
 
             {/* CTAs */}
@@ -55,14 +66,14 @@ export function Hero() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 1.5 }}
-              className="mt-8 flex flex-wrap items-center gap-7 sm:gap-8"
+              className="mt-7 grid w-full gap-2.5 sm:mt-8 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:gap-8"
             >
               <button
                 type="button"
                 onClick={() => {
                   window.location.href = "/login?redirect=/GreenSport";
                 }}
-                className="gd-home-hero-cta group inline-flex items-center gap-1.5 py-2 pb-1.5 text-[0.9rem] font-medium transition"
+                className="gd-home-hero-cta group inline-flex h-11 w-full items-center justify-center gap-1.5 px-4 text-[0.9rem] font-medium transition sm:h-auto sm:w-auto sm:justify-start sm:px-0 sm:py-2 sm:pb-1.5"
               >
                 Get in touch
                 <ArrowUpRight className="gd-home-hero-cta-icon h-3 w-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -73,7 +84,7 @@ export function Hero() {
                 onClick={() => {
                   window.location.href = "/login?redirect=/reported-area";
                 }}
-                className="gd-home-hero-cta group inline-flex items-center gap-1.5 py-2 pb-1.5 text-[0.9rem] font-medium transition"
+                className="gd-home-hero-cta group inline-flex h-11 w-full items-center justify-center gap-1.5 px-4 text-[0.9rem] font-medium transition sm:h-auto sm:w-auto sm:justify-start sm:px-0 sm:py-2 sm:pb-1.5"
               >
                 Our services
                 <ArrowUpRight className="gd-home-hero-cta-icon h-3 w-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
@@ -103,20 +114,21 @@ export function Hero() {
             initial={{ opacity: 0, y: 22 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 1.8 }}
-            className="relative z-20 mx-4 mb-4 mt-5 sm:absolute sm:-bottom-4 sm:left-auto sm:mb-0 sm:mr-0 sm:mt-0 sm:w-[530px] sm:right-0"
+            className="relative z-20 mx-3 mb-3 mt-4 sm:absolute sm:-bottom-4 sm:right-0 sm:mx-0 sm:mb-0 sm:mt-0 sm:w-[530px]"
           >
-            <div className="gd-home-stats-card rounded-[24px] p-5 shadow-[0_22px_56px_rgba(0,0,0,0.36)] sm:p-6">
-              <div className="gd-home-stats-grid grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-0 sm:divide-x">
-                {[
-                  { value: "6 mil", label: "The company's annual net income" },
-                  { value: "315", label: "Projects completed worldwide" },
-                  { value: "120K", label: "Employees work in all parts of the world" },
-                ].map((stat) => (
-                  <div key={stat.label} className="px-2 first:pl-0 last:pr-0 sm:px-4 sm:first:pl-0 sm:last:pr-0">
-                    <p className="gd-home-stats-value text-3xl font-semibold leading-none tracking-tight sm:text-[3rem] sm:font-medium">
+            <div className="gd-home-stats-card rounded-[20px] p-4 shadow-[0_22px_56px_rgba(0,0,0,0.36)] sm:rounded-[24px] sm:p-6">
+              <div className="gd-home-stats-grid grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-0 sm:divide-x">
+                {heroStats.map((stat, index) => (
+                  <div
+                    key={stat.label}
+                    className={`rounded-2xl border border-white/10 bg-white/[0.03] p-3.5 ${
+                      index === heroStats.length - 1 ? "col-span-2 sm:col-span-1" : ""
+                    } sm:rounded-none sm:border-0 sm:bg-transparent sm:px-4 sm:py-0`}
+                  >
+                    <p className="gd-home-stats-value text-[1.65rem] font-semibold leading-none tracking-tight sm:text-[3rem] sm:font-medium">
                       {stat.value}
                     </p>
-                    <p className="gd-home-stats-label mt-2 max-w-[10.5rem] text-[0.68rem] leading-[1.25] sm:text-[0.72rem]">
+                    <p className="gd-home-stats-label mt-1.5 max-w-[12.5rem] text-[0.67rem] leading-[1.3] sm:mt-2 sm:max-w-[10.5rem] sm:text-[0.72rem]">
                       {stat.label}
                     </p>
                   </div>
@@ -126,12 +138,12 @@ export function Hero() {
           </motion.div>
         </div>
 
-        <div className="mt-12 grid gap-8 lg:mt-16 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="mt-10 grid gap-5 sm:mt-12 sm:gap-8 lg:mt-16 lg:grid-cols-[1.1fr_0.9fr]">
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 2.05 }}
-            className="-mt-1 text-2xl leading-tight tracking-tight text-white sm:-mt-2 sm:text-4xl lg:-mt-3 lg:text-5xl"
+            className="text-[1.55rem] leading-[1.12] tracking-tight text-white sm:-mt-2 sm:text-4xl lg:-mt-3 lg:text-5xl"
           >
             Focusing on quality, we maintain customer trust
           </motion.p>
@@ -139,7 +151,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.55, delay: 2.2 }}
-            className="max-w-xl text-base text-slate-300 sm:text-lg"
+            className="max-w-xl text-[0.95rem] text-slate-300 sm:text-lg"
           >
             We ensure every initiative we build has measurable outcomes and long-term
             community value through transparent tools and verified data.
@@ -150,12 +162,12 @@ export function Hero() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 2.35 }}
-          className="mb-12 mt-10 grid grid-cols-2 gap-4 sm:mb-14 sm:grid-cols-5"
+          className="mb-10 mt-8 grid grid-cols-2 gap-3 sm:mb-14 sm:mt-10 sm:grid-cols-5 sm:gap-4"
         >
           {["Trend Micro", "Telia Cygate", "Business", "Headspace", "Medtronic"].map((brand) => (
             <div
               key={brand}
-              className="flex h-20 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] text-sm font-medium text-slate-300 backdrop-blur-sm"
+              className="flex h-14 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.04] px-2 text-center text-[0.76rem] font-medium text-slate-300 backdrop-blur-sm sm:h-20 sm:rounded-full sm:text-sm"
             >
               {brand}
             </div>

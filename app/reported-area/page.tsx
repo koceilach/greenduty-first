@@ -3030,51 +3030,72 @@ export default function GD_System_ReportedAreaPage() {
 
             <div
               className={clsx(
-                "pointer-events-auto absolute left-1/2 z-30 w-[min(92vw,400px)] -translate-x-1/2 transition-[bottom] duration-300 md:hidden",
-                GD_System_intelOpen ? "bottom-[calc(30vh+20px)]" : "bottom-6"
+                "pointer-events-auto fixed bottom-0 left-0 w-full z-50 transition-transform duration-300 md:hidden",
+                GD_System_intelOpen ? "-translate-y-[calc(30vh+12px)]" : "translate-y-0"
               )}
             >
-              <div className="relative">
-                <div
-                  className="flex items-center justify-between rounded-[22px] border border-[var(--gd-border)] bg-[var(--gd-surface)] px-3 py-2.5 backdrop-blur-xl shadow-lg"
-                >
+              <div className="px-2 pb-[env(safe-area-inset-bottom)] pt-2">
+                <div className="grid grid-cols-5 items-center gap-1 rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)]/95 p-1.5 text-[var(--gd-ink)] shadow-[0_-14px_26px_rgba(0,0,0,0.22)] backdrop-blur-xl">
                   <button
                     onClick={() => GD_System_detectLocation()}
-                    className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                    className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)] active:scale-95"
+                    aria-label="Detect location"
+                    type="button"
                   >
-                    <MapPin className="h-5 w-5" />
+                    <MapPin className="h-6 w-6 shrink-0" />
+                    <span className="max-w-full truncate text-[10px] leading-tight">Locate</span>
                   </button>
+
                   <button
                     onClick={GD_System_toggleIntel}
-                    className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                    className={clsx(
+                      "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-colors active:scale-95",
+                      GD_System_intelOpen
+                        ? "bg-[var(--gd-accent)]/10 text-[var(--gd-accent)]"
+                        : "text-[var(--gd-muted)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                    )}
+                    aria-label="Toggle intelligence panel"
+                    type="button"
                   >
-                    <Sparkles className="h-5 w-5" />
+                    <Sparkles className="h-6 w-6 shrink-0" />
+                    <span className="max-w-full truncate text-[10px] leading-tight">Intel</span>
                   </button>
-                  <div className="w-12" />
+
+                  <button
+                    onClick={GD_System_openReportModal}
+                    className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/12 px-1 py-1.5 text-[var(--gd-accent)] transition-colors hover:bg-[var(--gd-accent)]/20 active:scale-95"
+                    aria-label="Create new report"
+                    type="button"
+                  >
+                    <Plus className="h-6 w-6 shrink-0" />
+                    <span className="max-w-full truncate text-[10px] font-medium leading-tight">Report</span>
+                  </button>
+
                   <button
                     onClick={() => setGD_System_showHeatmap((prev) => !prev)}
                     className={clsx(
-                      "flex h-11 w-11 items-center justify-center rounded-xl transition-colors",
+                      "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-colors active:scale-95",
                       GD_System_showHeatmap
-                        ? "text-[var(--gd-accent)] bg-[var(--gd-accent)]/10"
+                        ? "bg-[var(--gd-accent)]/10 text-[var(--gd-accent)]"
                         : "text-[var(--gd-muted)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
                     )}
+                    aria-label="Toggle heatmap"
+                    type="button"
                   >
-                    <ShieldCheck className="h-5 w-5" />
+                    <ShieldCheck className="h-6 w-6 shrink-0" />
+                    <span className="max-w-full truncate text-[10px] leading-tight">Heatmap</span>
                   </button>
+
                   <button
                     onClick={() => setGD_System_ecoSquadOpen(true)}
-                    className="flex h-11 w-11 items-center justify-center rounded-xl text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                    className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)] active:scale-95"
+                    aria-label="Open eco squad panel"
+                    type="button"
                   >
-                    <Users className="h-5 w-5" />
+                    <Users className="h-6 w-6 shrink-0" />
+                    <span className="max-w-full truncate text-[10px] leading-tight">Squad</span>
                   </button>
                 </div>
-                <button
-                  onClick={GD_System_openReportModal}
-                  className="absolute left-1/2 top-0 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[18px] border border-[var(--gd-accent)]/30 bg-[var(--gd-surface)] shadow-lg transition-all active:scale-90"
-                >
-                  <Plus className="h-6 w-6 text-[var(--gd-accent)]" />
-                </button>
               </div>
             </div>
           </div>

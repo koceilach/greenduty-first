@@ -15,8 +15,8 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 5,
-  viewportFit: 'cover',
+  maximumScale: 1,
+  userScalable: false,
 }
 
 export const metadata: Metadata = {
