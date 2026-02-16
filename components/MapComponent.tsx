@@ -96,6 +96,8 @@ export default function MapComponent({
   tileMode = 'standard',
   showControls = true,
   viewportMode = 'regional',
+  lowPowerMode = false,
+  minZoomOverride,
 }: {
   reports: MapReport[];
   externalMapRef?: { current: L.Map | null };
@@ -111,6 +113,8 @@ export default function MapComponent({
   tileMode?: 'standard' | 'satellite' | 'leaf';
   showControls?: boolean;
   viewportMode?: 'regional' | 'global';
+  lowPowerMode?: boolean;
+  minZoomOverride?: number;
 }) {
   const mapNodeRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -128,7 +132,8 @@ export default function MapComponent({
   const mapId = mapIdRef.current;
   const markerRootsRef = useRef<Root[]>([]);
   const heatmapActive =
-    typeof heatmapEnabled === 'boolean' ? heatmapEnabled : showHeatmap;
+    !lowPowerMode &&
+    (typeof heatmapEnabled === 'boolean' ? heatmapEnabled : showHeatmap);
   const tileUrl =
     tileMode === 'satellite'
       ? GD_SATELLITE_TILES
@@ -141,7 +146,7 @@ export default function MapComponent({
     () =>
       viewportMode === 'global'
         ? {
-            minZoom: 2,
+            minZoom: minZoomOverride ?? 2,
             initialCenter: [20, 0] as L.LatLngTuple,
             initialZoom: 2,
             maxBounds: GD_WORLD_BOUNDS,
@@ -149,24 +154,25 @@ export default function MapComponent({
             worldCopyJump: true,
           }
         : {
-            minZoom: 8,
+            minZoom: minZoomOverride ?? 8,
             initialCenter: [36.75, 3.05] as L.LatLngTuple,
             initialZoom: 12,
             maxBounds: GD_MAP_BOUNDS,
             maxBoundsViscosity: 0.9,
             worldCopyJump: false,
           },
-    [viewportMode]
+    [viewportMode, minZoomOverride]
   );
 
   const handleHeatmapToggle = useCallback(() => {
+    if (lowPowerMode) return;
     const next = !heatmapActive;
     if (onHeatmapToggle) {
       onHeatmapToggle(next);
     } else {
       setShowHeatmap(next);
     }
-  }, [heatmapActive, onHeatmapToggle]);
+  }, [heatmapActive, onHeatmapToggle, lowPowerMode]);
 
   const handleHeatFocus = useCallback(
     (lat: number, lng: number) => {
@@ -268,6 +274,10 @@ export default function MapComponent({
 
   useEffect(() => {
     const loadClusterPlugin = async () => {
+      if (lowPowerMode) {
+        setClusterReady(true);
+        return;
+      }
       try {
         await import('leaflet.markercluster');
       } catch (error) {
@@ -277,7 +287,7 @@ export default function MapComponent({
       }
     };
     loadClusterPlugin();
-  }, []);
+  }, [lowPowerMode]);
 
 
   useEffect(() => {
@@ -436,7 +446,7 @@ export default function MapComponent({
       return;
     }
 
-    const shouldCluster = (reports ?? []).length > 48;
+    const shouldCluster = !lowPowerMode && (reports ?? []).length > 48;
     const clusterFactory = (L as unknown as { markerClusterGroup?: (opts?: any) => L.LayerGroup })
       .markerClusterGroup;
     const wantsCluster = shouldCluster && typeof clusterFactory === 'function';
@@ -493,50 +503,72 @@ export default function MapComponent({
       const markerNode = document.createElement('div');
       const markerRoot = createRoot(markerNode);
       markerRootsRef.current.push(markerRoot);
-      markerRoot.render(
-        <motion.div
-          initial={{ opacity: 0, scale: 0.7 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 16 }}
-          className="relative flex h-9 w-9 items-center justify-center"
-        >
-          {report.created_at &&
-            Date.now() - new Date(report.created_at).getTime() <
-              24 * 60 * 60 * 1000 && (
-              <motion.span
-                className="absolute h-10 w-10 rounded-full"
-                style={{
-                  border: `1px solid ${toRgba(color, 0.7)}`,
-                  boxShadow: `0 0 18px ${toRgba(color, 0.55)}`,
-                }}
-                animate={{ scale: [1, 1.6], opacity: [0.7, 0] }}
-                transition={{
-                  duration: 2.1,
-                  repeat: Infinity,
-                  ease: 'easeOut',
-                }}
-              />
-            )}
-          <span
-            className="absolute h-9 w-9 rounded-full opacity-70"
-            style={{
-              background: toRgba(color, 0.22),
-              boxShadow: `0 0 10px rgba(0,0,0,0.45), 0 0 24px ${toRgba(
-                color,
-                0.6
-              )}`,
-            }}
-          />
-          <span
-            className="absolute h-4 w-4 rounded-full"
-            style={{
-              background: color,
-              boxShadow: `0 0 14px ${toRgba(color, 0.8)}`,
-            }}
-          />
-          <span className="absolute h-1.5 w-1.5 rounded-full bg-white/80" />
-        </motion.div>
-      );
+      if (lowPowerMode) {
+        markerRoot.render(
+          <div className="relative flex h-9 w-9 items-center justify-center">
+            <span
+              className="absolute h-8 w-8 rounded-full opacity-60"
+              style={{
+                background: toRgba(color, 0.22),
+                boxShadow: `0 0 8px rgba(0,0,0,0.35)`,
+              }}
+            />
+            <span
+              className="absolute h-4 w-4 rounded-full"
+              style={{
+                background: color,
+                boxShadow: `0 0 10px ${toRgba(color, 0.55)}`,
+              }}
+            />
+            <span className="absolute h-1.5 w-1.5 rounded-full bg-white/80" />
+          </div>
+        );
+      } else {
+        markerRoot.render(
+          <motion.div
+            initial={{ opacity: 0, scale: 0.7 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 200, damping: 16 }}
+            className="relative flex h-9 w-9 items-center justify-center"
+          >
+            {report.created_at &&
+              Date.now() - new Date(report.created_at).getTime() <
+                24 * 60 * 60 * 1000 && (
+                <motion.span
+                  className="absolute h-10 w-10 rounded-full"
+                  style={{
+                    border: `1px solid ${toRgba(color, 0.7)}`,
+                    boxShadow: `0 0 18px ${toRgba(color, 0.55)}`,
+                  }}
+                  animate={{ scale: [1, 1.6], opacity: [0.7, 0] }}
+                  transition={{
+                    duration: 2.1,
+                    repeat: Infinity,
+                    ease: 'easeOut',
+                  }}
+                />
+              )}
+            <span
+              className="absolute h-9 w-9 rounded-full opacity-70"
+              style={{
+                background: toRgba(color, 0.22),
+                boxShadow: `0 0 10px rgba(0,0,0,0.45), 0 0 24px ${toRgba(
+                  color,
+                  0.6
+                )}`,
+              }}
+            />
+            <span
+              className="absolute h-4 w-4 rounded-full"
+              style={{
+                background: color,
+                boxShadow: `0 0 14px ${toRgba(color, 0.8)}`,
+              }}
+            />
+            <span className="absolute h-1.5 w-1.5 rounded-full bg-white/80" />
+          </motion.div>
+        );
+      }
 
       const icon = L.divIcon({
         html: markerNode,
@@ -577,17 +609,15 @@ export default function MapComponent({
         const wrapper = document.createElement('div');
         const root = createRoot(wrapper);
         popupRootsRef.current.push(root);
-        root.render(
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-            className={[
-              'w-[min(80vw,19rem)] overflow-hidden rounded-[22px] border border-white/14',
-              'bg-[linear-gradient(158deg,rgba(9,14,27,0.96),rgba(25,38,56,0.92))] text-white shadow-[0_24px_55px_rgba(3,10,24,0.55)]',
-              'backdrop-blur-xl',
-            ].join(' ')}
-          >
+        const popupContainerClassName = [
+          'w-[min(80vw,19rem)] overflow-hidden rounded-[22px] border border-white/14',
+          'bg-[linear-gradient(158deg,rgba(9,14,27,0.96),rgba(25,38,56,0.92))] text-white shadow-[0_24px_55px_rgba(3,10,24,0.55)]',
+          lowPowerMode ? '' : 'backdrop-blur-xl',
+        ]
+          .filter(Boolean)
+          .join(' ');
+        const popupBody = (
+          <div className={popupContainerClassName}>
             <div
               className="h-1.5 w-full"
               style={{
@@ -706,8 +736,21 @@ export default function MapComponent({
                 </a>
               </div>
             </div>
-          </motion.div>
+          </div>
         );
+        if (lowPowerMode) {
+          root.render(popupBody);
+        } else {
+          root.render(
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 18 }}
+            >
+              {popupBody}
+            </motion.div>
+          );
+        }
 
         const popup = L.popup({
           className: 'gd-system-popup gd-system-popup-dark',
@@ -750,6 +793,7 @@ export default function MapComponent({
     canConfirmReport,
     confirmingReportId,
     confirmButtonLabel,
+    lowPowerMode,
   ]);
 
   useEffect(() => {
@@ -833,6 +877,7 @@ export default function MapComponent({
       <div
         className={[
           'relative z-10 h-full w-full gd-map-tilt',
+          lowPowerMode ? 'gd-map-low-power' : '',
           mapTheme === 'light' ? 'gd-map-theme-light' : 'gd-map-theme-dark',
         ].join(' ')}
       >
@@ -841,11 +886,11 @@ export default function MapComponent({
           ref={mapNodeRef}
           className="gd-leaflet-map gd-map-tilt-surface"
           style={{
-            height: '110%',
-            width: '110%',
+            height: lowPowerMode ? '100%' : '110%',
+            width: lowPowerMode ? '100%' : '110%',
             position: 'absolute',
-            top: '-5%',
-            left: '-5%',
+            top: lowPowerMode ? '0%' : '-5%',
+            left: lowPowerMode ? '0%' : '-5%',
           }}
         />
       </div>
@@ -853,15 +898,17 @@ export default function MapComponent({
         <div className="pointer-events-auto absolute bottom-24 right-4 z-20 flex flex-col gap-2 md:bottom-16 md:right-6">
           <button
             onClick={handleHeatmapToggle}
+            disabled={lowPowerMode}
             className={[
               'flex h-11 w-11 items-center justify-center rounded-full border',
               'shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md transition',
               mapTheme === 'dark'
                 ? 'border-white/10 bg-white/10 text-white hover:bg-white/20'
                 : 'border-black/10 bg-slate-200/50 text-slate-900 hover:bg-slate-300/80',
+              lowPowerMode ? 'cursor-not-allowed opacity-50 hover:bg-transparent' : '',
               heatmapActive ? 'ring-2 ring-emerald-300/70' : '',
             ].join(' ')}
-            aria-label="Toggle heatmap"
+            aria-label={lowPowerMode ? 'Heatmap disabled in low power mode' : 'Toggle heatmap'}
             aria-pressed={heatmapActive}
           >
             <Flame className="h-4 w-4" />
@@ -914,6 +961,18 @@ export default function MapComponent({
         .gd-map-tilt .gd-leaflet-map .leaflet-tooltip-pane {
           transform: rotateX(-10deg);
           transform-origin: center center;
+        }
+        .gd-map-low-power .gd-leaflet-map.leaflet-container {
+          transform: none !important;
+        }
+        .gd-map-low-power .gd-leaflet-map .leaflet-marker-pane,
+        .gd-map-low-power .gd-leaflet-map .leaflet-popup-pane,
+        .gd-map-low-power .gd-leaflet-map .leaflet-shadow-pane,
+        .gd-map-low-power .gd-leaflet-map .leaflet-tooltip-pane {
+          transform: none !important;
+        }
+        .gd-map-low-power .gd-leaflet-map .leaflet-tile-pane {
+          filter: none !important;
         }
         @media (max-width: 768px) {
           .gd-map-tilt .gd-leaflet-map.leaflet-container {

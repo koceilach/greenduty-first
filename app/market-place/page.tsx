@@ -1268,13 +1268,24 @@ export default function MarketPlacePage() {
                 Vendor Studio
               </Link>
             ) : (
-              <Link
-                href="/market-place/buyer"
-                className="hidden items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-semibold text-gray-600 transition hover:border-emerald-300 hover:text-emerald-700 lg:flex"
-              >
-                <ShoppingCart className="h-3.5 w-3.5" />
-                Dashboard
-              </Link>
+              <>
+                <Link
+                  href="/market-place/buyer"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-emerald-300 hover:text-emerald-700 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-3 lg:py-1.5 lg:text-xs lg:font-semibold"
+                  title="Buyer Dashboard"
+                >
+                  <Gauge className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
+                  <span className="hidden lg:inline">Dashboard</span>
+                </Link>
+                <Link
+                  href="/market-place/orders"
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-emerald-300 hover:text-emerald-700 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-3 lg:py-1.5 lg:text-xs lg:font-semibold"
+                  title="My Orders"
+                >
+                  <CalendarCheck className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
+                  <span className="hidden lg:inline">Orders</span>
+                </Link>
+              </>
             )}
 
             {profile?.role === "admin" && (
@@ -2342,7 +2353,13 @@ export default function MarketPlacePage() {
       </div>
 
       {toast && (
-        <div className="fixed bottom-24 right-6 z-40 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-medium text-green-700 shadow-lg">
+        <div
+          className="fixed z-40 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-medium text-green-700 shadow-lg"
+          style={{
+            right: "max(env(safe-area-inset-right), 24px)",
+            bottom: "calc(env(safe-area-inset-bottom) + 78px)",
+          }}
+        >
           {toast}
         </div>
       )}
@@ -2350,7 +2367,11 @@ export default function MarketPlacePage() {
       {!isSeller && (
         <Link
           href="/market-place/seller-onboarding"
-          className="fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition hover:bg-green-700"
+          className="fixed z-40 flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition hover:bg-green-700"
+          style={{
+            right: "max(env(safe-area-inset-right), 24px)",
+            bottom: "calc(env(safe-area-inset-bottom) + 12px)",
+          }}
           aria-label="Become a seller"
         >
           <ShoppingBag className="h-4 w-4" />
@@ -2831,7 +2852,10 @@ export default function MarketPlacePage() {
         </div>
       )}
 
-      <nav className="fixed bottom-6 left-1/2 z-20 flex -translate-x-1/2 items-center gap-6 rounded-full border border-gray-200 bg-white px-6 py-3 text-[10px] uppercase tracking-wider text-gray-500 shadow-lg">
+      <nav
+        className="fixed left-1/2 z-20 flex -translate-x-1/2 items-center gap-6 rounded-full border border-gray-200 bg-white px-6 py-3 text-[10px] uppercase tracking-wider text-gray-500 shadow-lg max-[360px]:gap-4 max-[360px]:px-4 max-[360px]:text-[9px]"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+      >
         <button
           type="button"
           onClick={() => scrollToSection("marketplace-home")}
@@ -2858,14 +2882,25 @@ export default function MarketPlacePage() {
             <Plus className="h-5 w-5" />
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => scrollToSection("featured-marketplace")}
-          className="flex flex-col items-center gap-1"
-        >
-          <ShoppingCart className="h-4 w-4 text-gray-500" />
-          Cart
-        </button>
+        {isSeller ? (
+          <button
+            type="button"
+            onClick={() => scrollToSection("featured-marketplace")}
+            className="flex flex-col items-center gap-1"
+          >
+            <ShoppingCart className="h-4 w-4 text-gray-500" />
+            Market
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => router.push("/market-place/buyer")}
+            className="flex flex-col items-center gap-1"
+          >
+            <Gauge className="h-4 w-4 text-gray-500" />
+            Dashboard
+          </button>
+        )}
         {user ? (
           <button
             type="button"

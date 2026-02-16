@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import {
+  MotionConfig,
   motion,
   AnimatePresence,
   useMotionTemplate,
@@ -43,6 +44,8 @@ const GD_System_disableAuthRedirect = false;
 const GD_System_STORAGE_BUCKET = "pollution_images";
 const GD_System_AVATAR_BUCKET = "avatars";
 const GD_System_LOCATION_PULSE_MS = 1600;
+const GD_System_LOW_POWER_MAX_DEVICE_MEMORY_GB = 4;
+const GD_System_LOW_POWER_MAX_CPU_CORES = 6;
 const GD_System_MapComponent = dynamic(
   () => import("@/components/MapComponent"),
   { ssr: false }
@@ -100,7 +103,47 @@ const GD_System_formatHotspotLabel = (lat: number, lng: number) => {
   const city = GD_System_getNearestCity(lat, lng);
   const latKey = (Math.round(lat * 100) / 100).toFixed(2);
   const lngKey = (Math.round(lng * 100) / 100).toFixed(2);
-  return `${city} • Sector ${latKey}, ${lngKey}`;
+  return `${city} - Sector ${latKey}, ${lngKey}`;
+};
+
+const GD_System_isLowPowerPhone = () => {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+  const nav = navigator as Navigator & {
+    deviceMemory?: number;
+    hardwareConcurrency?: number;
+    connection?: { saveData?: boolean; effectiveType?: string };
+  };
+  const ua = nav.userAgent ?? "";
+  const likelyPhone =
+    /android|iphone|mobile/i.test(ua) ||
+    Math.min(window.innerWidth, window.innerHeight) <= 900;
+  if (!likelyPhone) {
+    return false;
+  }
+  const memoryWeak =
+    typeof nav.deviceMemory === "number" &&
+    nav.deviceMemory <= GD_System_LOW_POWER_MAX_DEVICE_MEMORY_GB;
+  const cpuWeak =
+    typeof nav.hardwareConcurrency === "number" &&
+    nav.hardwareConcurrency <= GD_System_LOW_POWER_MAX_CPU_CORES;
+  const saveData = Boolean(nav.connection?.saveData);
+  const slowNetwork = ["slow-2g", "2g", "3g"].includes(
+    nav.connection?.effectiveType ?? ""
+  );
+  const reducedMotion = window.matchMedia(
+    "(prefers-reduced-motion: reduce)"
+  ).matches;
+  const explicitLowTierUA = /(condor|android go|itel|tecno)/i.test(ua);
+  return (
+    memoryWeak ||
+    cpuWeak ||
+    saveData ||
+    slowNetwork ||
+    reducedMotion ||
+    explicitLowTierUA
+  );
 };
 
 type GD_System_Report = {
@@ -1306,6 +1349,9 @@ export default function GD_System_ReportedAreaPage() {
 
   const [GD_System_syncLabel, setGD_System_syncLabel] = useState("Idle");
   const [GD_System_mapReady, setGD_System_mapReady] = useState(false);
+  const [GD_System_lowPowerMode, setGD_System_lowPowerMode] = useState(false);
+  const [GD_System_isMobileViewport, setGD_System_isMobileViewport] = useState(false);
+  const GD_System_mapFlyDuration = GD_System_lowPowerMode ? 0 : 0.9;
   const GD_System_currentUserId = GD_System_authState.user?.id ?? null;
   const [GD_System_reportToDelete, setGD_System_reportToDelete] = useState<
     string | number | null
@@ -1365,8 +1411,38 @@ export default function GD_System_ReportedAreaPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
-    const update = () => setGD_System_tiltEnabled(media.matches);
+    const nav = navigator as Navigator & {
+      connection?: { addEventListener?: (type: string, listener: () => void) => void; removeEventListener?: (type: string, listener: () => void) => void };
+    };
+    const evaluate = () => {
+      setGD_System_lowPowerMode(GD_System_isLowPowerPhone());
+    };
+    evaluate();
+    window.addEventListener("resize", evaluate);
+    const reducedMotionMedia = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    );
+    if (reducedMotionMedia.addEventListener) {
+      reducedMotionMedia.addEventListener("change", evaluate);
+    } else {
+      reducedMotionMedia.addListener(evaluate);
+    }
+    nav.connection?.addEventListener?.("change", evaluate);
+    return () => {
+      window.removeEventListener("resize", evaluate);
+      if (reducedMotionMedia.removeEventListener) {
+        reducedMotionMedia.removeEventListener("change", evaluate);
+      } else {
+        reducedMotionMedia.removeListener(evaluate);
+      }
+      nav.connection?.removeEventListener?.("change", evaluate);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(max-width: 767px)");
+    const update = () => setGD_System_isMobileViewport(media.matches);
     update();
     if (media.addEventListener) {
       media.addEventListener("change", update);
@@ -1375,6 +1451,26 @@ export default function GD_System_ReportedAreaPage() {
     media.addListener(update);
     return () => media.removeListener(update);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const media = window.matchMedia("(hover: hover) and (pointer: fine)");
+    const update = () =>
+      setGD_System_tiltEnabled(media.matches && !GD_System_lowPowerMode);
+    update();
+    if (media.addEventListener) {
+      media.addEventListener("change", update);
+      return () => media.removeEventListener("change", update);
+    }
+    media.addListener(update);
+    return () => media.removeListener(update);
+  }, [GD_System_lowPowerMode]);
+
+  useEffect(() => {
+    if (!GD_System_lowPowerMode) return;
+    setGD_System_showHeatmap(false);
+    setGD_System_cameraMode("upload");
+  }, [GD_System_lowPowerMode]);
 
   const GD_System_getAudioContext = useCallback(() => {
     if (typeof window === "undefined") return null;
@@ -1388,6 +1484,7 @@ export default function GD_System_ReportedAreaPage() {
   }, []);
 
   const GD_System_playBreezeSound = useCallback(() => {
+    if (GD_System_lowPowerMode) return;
     const ctx = GD_System_getAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
@@ -1411,9 +1508,10 @@ export default function GD_System_ReportedAreaPage() {
     source.connect(filter).connect(gain).connect(ctx.destination);
     source.start();
     source.stop(ctx.currentTime + duration);
-  }, [GD_System_getAudioContext]);
+  }, [GD_System_getAudioContext, GD_System_lowPowerMode]);
 
   const GD_System_playSuccessChime = useCallback(() => {
+    if (GD_System_lowPowerMode) return;
     const ctx = GD_System_getAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
@@ -1442,7 +1540,7 @@ export default function GD_System_ReportedAreaPage() {
     osc2.start(now + 0.05);
     osc1.stop(now + 0.8);
     osc2.stop(now + 0.9);
-  }, [GD_System_getAudioContext]);
+  }, [GD_System_getAudioContext, GD_System_lowPowerMode]);
 
   const GD_System_toggleIntel = useCallback(() => {
     setGD_System_intelOpen((prev) => {
@@ -1491,12 +1589,16 @@ export default function GD_System_ReportedAreaPage() {
         zoom: nextZoom,
       }));
       GD_System_mapRef.current?.flyTo([latitude, longitude], nextZoom, {
-        duration: 0.9,
+        duration: GD_System_mapFlyDuration,
       });
       GD_System_triggerLocationPulse();
       return location;
     },
-    [GD_System_triggerLocationPulse, GD_System_viewState.zoom]
+    [
+      GD_System_triggerLocationPulse,
+      GD_System_viewState.zoom,
+      GD_System_mapFlyDuration,
+    ]
   );
 
   const GD_System_detectLocation = useCallback(async () => {
@@ -2025,7 +2127,7 @@ export default function GD_System_ReportedAreaPage() {
         .from("reports")
         .select("*")
         .order("created_at", { ascending: false })
-        .limit(250);
+        .limit(GD_System_lowPowerMode ? 120 : 250);
 
       if (error) {
         console.error("Report fetch failed:", error);
@@ -2046,7 +2148,12 @@ export default function GD_System_ReportedAreaPage() {
       setGD_System_syncLabel("Syncing");
       setGD_System_reportsLoading(true);
     }
-  }, [GD_System_supabase, GD_System_normalizeReport, GD_System_enrichReportsWithProfiles]);
+  }, [
+    GD_System_supabase,
+    GD_System_normalizeReport,
+    GD_System_enrichReportsWithProfiles,
+    GD_System_lowPowerMode,
+  ]);
 
   useEffect(() => {
     if (!GD_System_supabase) {
@@ -2136,14 +2243,20 @@ export default function GD_System_ReportedAreaPage() {
       GD_System_fetchReports();
       const interval = setInterval(() => {
         GD_System_fetchReports();
-      }, 30000);
+      }, GD_System_lowPowerMode ? 90000 : 30000);
       return () => clearInterval(interval);
     }
     return;
-  }, [GD_System_authState.user, GD_System_fetchReports]);
+  }, [GD_System_authState.user, GD_System_fetchReports, GD_System_lowPowerMode]);
 
   useEffect(() => {
-    if (!GD_System_supabase) return;
+    if (
+      !GD_System_supabase ||
+      GD_System_authState.loading ||
+      GD_System_authState.user
+    ) {
+      return;
+    }
     let active = true;
     const loadReports = async () => {
       setGD_System_reportsLoading(true);
@@ -2179,6 +2292,8 @@ export default function GD_System_ReportedAreaPage() {
     };
   }, [
     GD_System_supabase,
+    GD_System_authState.loading,
+    GD_System_authState.user,
     GD_System_normalizeReport,
     GD_System_enrichReportsWithProfiles,
   ]);
@@ -2341,7 +2456,7 @@ export default function GD_System_ReportedAreaPage() {
     GD_System_mapRef.current?.flyTo(
       [GD_System_reportLocation.lat, GD_System_reportLocation.lng],
       14.5,
-      { duration: 0.9 }
+      { duration: GD_System_mapFlyDuration }
     );
 
     let imageUrl: string | null = null;
@@ -2753,27 +2868,39 @@ export default function GD_System_ReportedAreaPage() {
       longitude: lng,
       zoom: Math.max(prev.zoom, 13),
     }));
-    GD_System_mapRef.current?.flyTo([lat, lng], 14.5, { duration: 0.9 });
-  }, [GD_System_selectedReport]);
+    GD_System_mapRef.current?.flyTo([lat, lng], 14.5, {
+      duration: GD_System_mapFlyDuration,
+    });
+  }, [GD_System_selectedReport, GD_System_mapFlyDuration]);
 
   return (
-    <div className="relative min-h-screen w-screen overflow-hidden overflow-x-hidden bg-[var(--gd-bg)] text-[var(--gd-ink)]">
-      <div className="pointer-events-none absolute inset-0">
+    <MotionConfig reducedMotion={GD_System_lowPowerMode ? "always" : "never"}>
+      <div
+        className={clsx(
+          "relative min-h-screen w-screen overflow-hidden overflow-x-hidden bg-[var(--gd-bg)] text-[var(--gd-ink)]",
+          GD_System_lowPowerMode && "gd-low-power"
+        )}
+      >
+        <div className="pointer-events-none absolute inset-0">
         <div
           className="absolute inset-0"
           style={{ backgroundImage: "var(--gd-bg-gradient)" }}
         />
-        <div
-          className="absolute -top-40 -left-20 h-[480px] w-[480px] rounded-full blur-[200px]"
-          style={{ backgroundColor: "var(--gd-glow-1)" }}
-        />
-        <div
-          className="absolute -bottom-40 -right-20 h-[480px] w-[480px] rounded-full blur-[220px]"
-          style={{ backgroundColor: "var(--gd-glow-2)" }}
-        />
-      </div>
+        {!GD_System_lowPowerMode ? (
+          <>
+            <div
+              className="absolute -top-40 -left-20 h-[480px] w-[480px] rounded-full blur-[200px]"
+              style={{ backgroundColor: "var(--gd-glow-1)" }}
+            />
+            <div
+              className="absolute -bottom-40 -right-20 h-[480px] w-[480px] rounded-full blur-[220px]"
+              style={{ backgroundColor: "var(--gd-glow-2)" }}
+            />
+          </>
+        ) : null}
+        </div>
 
-      <div className="relative z-10 flex min-h-screen w-screen">
+        <div className="relative z-10 flex min-h-screen w-screen">
         <aside
           className={clsx(
             "hidden h-screen shrink-0 overflow-hidden transition-[width] duration-300 ease-in-out md:flex",
@@ -2815,6 +2942,9 @@ export default function GD_System_ReportedAreaPage() {
                 }
                 heatmapEnabled={GD_System_showHeatmap}
                 onHeatmapToggle={setGD_System_showHeatmap}
+                lowPowerMode={GD_System_lowPowerMode}
+                showControls={!GD_System_isMobileViewport}
+                minZoomOverride={4}
               />
             </div>
           </div>
@@ -2885,6 +3015,12 @@ export default function GD_System_ReportedAreaPage() {
                       />
                       <span>{GD_System_syncLabel}</span>
                     </div>
+                    {GD_System_lowPowerMode ? (
+                      <div className={GD_System_navBadgeClassName}>
+                        <span className="h-2 w-2 rounded-full bg-cyan-400" />
+                        <span>Lite Mode</span>
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="ml-auto flex items-center gap-1.5 md:gap-2">
@@ -2927,7 +3063,7 @@ export default function GD_System_ReportedAreaPage() {
                       onClick={() =>
                         setGlobalTheme(globalTheme === "light" ? "green" : "light")
                       }
-                      className={GD_System_navButtonClassName}
+                      className={clsx(GD_System_navButtonClassName, "hidden md:inline-flex")}
                       aria-label="Toggle theme"
                     >
                       {GD_System_isDarkMode ? (
@@ -2978,38 +3114,46 @@ export default function GD_System_ReportedAreaPage() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: "spring", stiffness: 140, damping: 18 }}
-              className="pointer-events-auto absolute bottom-28 left-4 z-20 w-52 md:bottom-8 md:left-6"
+              className={clsx(
+                "gd-mobile-legend pointer-events-auto z-20",
+                "fixed right-2 top-[calc(env(safe-area-inset-top)+74px)] w-[min(72vw,248px)] max-h-[42vh] overflow-y-auto md:absolute md:bottom-8 md:left-6 md:top-auto md:right-auto md:w-56 md:max-h-none md:overflow-visible"
+              )}
             >
               <GD_System_GlassCard
-                className="rounded-2xl p-3.5"
+                className="rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)]/95 p-3 shadow-[0_14px_34px_rgba(0,0,0,0.22)]"
               >
-                <div className="text-[10px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
-                  {GD_System_showHeatmap ? "Density Scale" : "Legend"}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--gd-muted-2)]">
+                    {GD_System_showHeatmap ? "Density Scale" : "Legend"}
+                  </div>
+                  <span className="rounded-full border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-[var(--gd-muted)]">
+                    Live
+                  </span>
                 </div>
                 {GD_System_showHeatmap ? (
-                  <div className="mt-3 space-y-3">
-                    <div className="text-xs text-[var(--gd-ink)]">
+                  <div className="mt-2.5 space-y-2.5">
+                    <div className="text-[11px] text-[var(--gd-ink)]">
                       Pollution density by concentration.
                     </div>
                     <div
-                      className="h-2 w-full rounded-full"
+                      className="h-2.5 w-full rounded-full"
                       style={{
                         background:
                           "linear-gradient(90deg, #4cc9f0 0%, #ff5f6d 100%)",
                       }}
                     />
-                    <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.25em] text-[var(--gd-muted-2)]">
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.2em] text-[var(--gd-muted-2)]">
                       <span>Low</span>
                       <span>High</span>
                     </div>
                   </div>
                 ) : (
-                  <div className="mt-3 space-y-1.5">
+                  <div className="mt-2.5 space-y-1.5">
                     {GD_System_LEGEND_ITEMS.map((item) => (
                       <motion.div
                         key={item.label}
                         whileHover={{ x: 2 }}
-                        className="flex items-center justify-between rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-2.5 py-1.5 text-xs transition-all"
+                        className="flex items-center justify-between rounded-xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-2.5 py-1.5 text-[11px] transition-all"
                       >
                         <div className="flex items-center gap-2 text-[var(--gd-ink)]">
                           <span
@@ -3018,7 +3162,7 @@ export default function GD_System_ReportedAreaPage() {
                           />
                           <span className="font-medium">{item.label}</span>
                         </div>
-                        <span className="text-[10px] tracking-wide text-[var(--gd-muted-2)]">
+                        <span className="text-[10px] tracking-[0.08em] text-[var(--gd-muted-2)]">
                           {item.detail}
                         </span>
                       </motion.div>
@@ -3029,71 +3173,109 @@ export default function GD_System_ReportedAreaPage() {
             </motion.div>
 
             <div
-              className={clsx(
-                "pointer-events-auto fixed bottom-0 left-0 w-full z-50 transition-transform duration-300 md:hidden",
-                GD_System_intelOpen ? "-translate-y-[calc(30vh+12px)]" : "translate-y-0"
-              )}
+              className="gd-mobile-left-dock pointer-events-auto fixed top-1/2 z-50 -translate-y-1/2 md:hidden"
+              style={{
+                left: "max(env(safe-area-inset-left), 8px)",
+              }}
             >
-              <div className="px-2 pb-[env(safe-area-inset-bottom)] pt-2">
-                <div className="grid grid-cols-5 items-center gap-1 rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)]/95 p-1.5 text-[var(--gd-ink)] shadow-[0_-14px_26px_rgba(0,0,0,0.22)] backdrop-blur-xl">
+              <div className="relative inline-flex flex-col items-center gap-1.5 overflow-hidden rounded-[24px] border border-[var(--gd-border)] bg-[var(--gd-surface)]/96 px-1.5 py-1.5 shadow-[0_18px_36px_rgba(0,0,0,0.3)] backdrop-blur-2xl">
+                <div className="pointer-events-none absolute -left-7 top-1/2 h-28 w-20 -translate-y-1/2 rounded-full bg-[var(--gd-accent)]/14 blur-3xl" />
+                <div className="relative flex flex-col items-center gap-1.5">
                   <button
                     onClick={() => GD_System_detectLocation()}
-                    className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)] active:scale-95"
+                    className={clsx(
+                      "flex h-10 w-10 items-center justify-center rounded-[13px] border transition-all active:scale-95",
+                      GD_System_reportLocation
+                        ? "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/10 text-[var(--gd-accent)]"
+                        : "border-transparent text-[var(--gd-muted)] hover:border-[var(--gd-border-soft)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                    )}
                     aria-label="Detect location"
                     type="button"
                   >
-                    <MapPin className="h-6 w-6 shrink-0" />
-                    <span className="max-w-full truncate text-[10px] leading-tight">Locate</span>
+                    <MapPin className="h-4.5 w-4.5 shrink-0" />
                   </button>
 
                   <button
                     onClick={GD_System_toggleIntel}
                     className={clsx(
-                      "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-colors active:scale-95",
+                      "flex h-10 w-10 items-center justify-center rounded-[13px] border transition-all active:scale-95",
                       GD_System_intelOpen
-                        ? "bg-[var(--gd-accent)]/10 text-[var(--gd-accent)]"
-                        : "text-[var(--gd-muted)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                        ? "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/12 text-[var(--gd-accent)]"
+                        : "border-transparent text-[var(--gd-muted)] hover:border-[var(--gd-border-soft)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
                     )}
                     aria-label="Toggle intelligence panel"
                     type="button"
                   >
-                    <Sparkles className="h-6 w-6 shrink-0" />
-                    <span className="max-w-full truncate text-[10px] leading-tight">Intel</span>
+                    <Sparkles className="h-4.5 w-4.5 shrink-0" />
                   </button>
 
                   <button
                     onClick={GD_System_openReportModal}
-                    className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl border border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/12 px-1 py-1.5 text-[var(--gd-accent)] transition-colors hover:bg-[var(--gd-accent)]/20 active:scale-95"
+                    className={clsx(
+                      "relative translate-x-0.5 flex h-11 w-11 items-center justify-center rounded-[15px] border transition-all active:scale-95",
+                      GD_System_reportModalOpen
+                        ? "border-[var(--gd-accent)]/50 bg-[var(--gd-accent)]/24 text-[var(--gd-accent)] shadow-[0_12px_26px_rgba(16,185,129,0.33)]"
+                        : "border-[var(--gd-accent)]/35 bg-[var(--gd-accent)]/14 text-[var(--gd-accent)] shadow-[0_8px_20px_rgba(16,185,129,0.24)] hover:bg-[var(--gd-accent)]/24"
+                    )}
                     aria-label="Create new report"
                     type="button"
                   >
-                    <Plus className="h-6 w-6 shrink-0" />
-                    <span className="max-w-full truncate text-[10px] font-medium leading-tight">Report</span>
+                    <Plus className="h-5.5 w-5.5 shrink-0" />
                   </button>
 
                   <button
                     onClick={() => setGD_System_showHeatmap((prev) => !prev)}
+                    disabled={GD_System_lowPowerMode}
                     className={clsx(
-                      "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 transition-colors active:scale-95",
+                      "flex h-10 w-10 items-center justify-center rounded-[13px] border transition-all active:scale-95",
+                      GD_System_lowPowerMode &&
+                        "cursor-not-allowed opacity-50 hover:bg-transparent hover:text-[var(--gd-muted)]",
                       GD_System_showHeatmap
-                        ? "bg-[var(--gd-accent)]/10 text-[var(--gd-accent)]"
-                        : "text-[var(--gd-muted)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                        ? "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/10 text-[var(--gd-accent)]"
+                        : "border-transparent text-[var(--gd-muted)] hover:border-[var(--gd-border-soft)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
                     )}
-                    aria-label="Toggle heatmap"
+                    aria-label={
+                      GD_System_lowPowerMode
+                        ? "Heatmap disabled in lite mode"
+                        : "Toggle heatmap"
+                    }
                     type="button"
                   >
-                    <ShieldCheck className="h-6 w-6 shrink-0" />
-                    <span className="max-w-full truncate text-[10px] leading-tight">Heatmap</span>
+                    <ShieldCheck className="h-4.5 w-4.5 shrink-0" />
                   </button>
 
                   <button
                     onClick={() => setGD_System_ecoSquadOpen(true)}
-                    className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-[var(--gd-muted)] transition-colors hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)] active:scale-95"
+                    className={clsx(
+                      "flex h-10 w-10 items-center justify-center rounded-[13px] border transition-all active:scale-95",
+                      GD_System_ecoSquadOpen
+                        ? "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/10 text-[var(--gd-accent)]"
+                        : "border-transparent text-[var(--gd-muted)] hover:border-[var(--gd-border-soft)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                    )}
                     aria-label="Open eco squad panel"
                     type="button"
                   >
-                    <Users className="h-6 w-6 shrink-0" />
-                    <span className="max-w-full truncate text-[10px] leading-tight">Squad</span>
+                    <Users className="h-4.5 w-4.5 shrink-0" />
+                  </button>
+
+                  <button
+                    onClick={() =>
+                      setGlobalTheme(globalTheme === "light" ? "green" : "light")
+                    }
+                    className={clsx(
+                      "flex h-10 w-10 items-center justify-center rounded-[13px] border transition-all active:scale-95",
+                      globalTheme === "light"
+                        ? "border-sky-300/35 bg-sky-400/15 text-sky-300"
+                        : "border-transparent text-[var(--gd-muted)] hover:border-[var(--gd-border-soft)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
+                    )}
+                    aria-label="Toggle theme mode"
+                    type="button"
+                  >
+                    {GD_System_isDarkMode ? (
+                      <Sun className="h-4.5 w-4.5 shrink-0" />
+                    ) : (
+                      <Moon className="h-4.5 w-4.5 shrink-0" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -3622,6 +3804,23 @@ export default function GD_System_ReportedAreaPage() {
         .gd-3d-layer-sm {
           transform: translateZ(10px);
         }
+        .gd-low-power .gd-3d-layer,
+        .gd-low-power .gd-3d-layer-sm {
+          transform: none !important;
+        }
+        .gd-low-power .gd-tilt-surface {
+          transform-style: flat;
+        }
+        .gd-low-power .backdrop-blur-sm,
+        .gd-low-power .backdrop-blur-md,
+        .gd-low-power .backdrop-blur-xl,
+        .gd-low-power .backdrop-blur-2xl {
+          backdrop-filter: none !important;
+        }
+        .gd-low-power .animate-ping,
+        .gd-low-power .animate-pulse {
+          animation: none !important;
+        }
         .leaflet-container {
           background: var(--gd-bg);
           font-family: inherit;
@@ -3683,7 +3882,21 @@ export default function GD_System_ReportedAreaPage() {
         .leaflet-marker-shadow {
           z-index: 20;
         }
+        @media (max-width: 767px) and (max-height: 520px) {
+          .gd-mobile-left-dock {
+            top: auto !important;
+            bottom: calc(env(safe-area-inset-bottom) + 8px) !important;
+            transform: none !important;
+          }
+          .gd-mobile-legend {
+            top: calc(env(safe-area-inset-top) + 8px) !important;
+            right: 8px !important;
+            width: min(62vw, 220px) !important;
+            max-height: 44vh !important;
+          }
+        }
       `}</style>
-    </div>
+      </div>
+    </MotionConfig>
   );
 }

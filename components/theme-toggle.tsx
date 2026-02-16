@@ -28,7 +28,13 @@ export function ThemeToggle() {
   const inactiveButtonClass = isLight
     ? "text-slate-500 hover:bg-slate-900/8 hover:text-emerald-700"
     : "text-white/70 hover:bg-white/10 hover:text-emerald-200";
+  const isReportedAreaPage = pathname?.startsWith("/reported-area");
   const isReportedGreenPage = pathname?.startsWith("/greenspot/reported-green");
+
+  if (isReportedAreaPage) {
+    return null;
+  }
+
   const positionClass = isReportedGreenPage
     ? "right-3 top-[calc(env(safe-area-inset-top)+8.9rem)] md:right-4 md:top-24"
     : "right-4 top-24";
