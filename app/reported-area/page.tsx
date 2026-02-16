@@ -3044,6 +3044,24 @@ export default function GD_System_ReportedAreaPage() {
                       <span className="truncate">{GD_System_profileLabel}</span>
                     </button>
                     <button
+                      onClick={() => setGD_System_profileModalOpen(true)}
+                      className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-ink)] transition hover:bg-[var(--gd-surface-strong)] hover:shadow-md md:hidden"
+                      aria-label="Open profile settings"
+                      type="button"
+                    >
+                      {GD_System_userAvatar ? (
+                        <img
+                          src={GD_System_userAvatar}
+                          alt="User avatar"
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-[10px] font-semibold">
+                          {GD_System_userInitials}
+                        </span>
+                      )}
+                    </button>
+                    <button
                       onClick={GD_System_toggleIntel}
                       className={clsx(GD_System_navButtonClassName, "hidden md:inline-flex lg:hidden")}
                       aria-label="Toggle intelligence sidebar"
@@ -3256,26 +3274,6 @@ export default function GD_System_ReportedAreaPage() {
                     type="button"
                   >
                     <Users className="h-4.5 w-4.5 shrink-0" />
-                  </button>
-
-                  <button
-                    onClick={() =>
-                      setGlobalTheme(globalTheme === "light" ? "green" : "light")
-                    }
-                    className={clsx(
-                      "flex h-10 w-10 items-center justify-center rounded-[13px] border transition-all active:scale-95",
-                      globalTheme === "light"
-                        ? "border-sky-300/35 bg-sky-400/15 text-sky-300"
-                        : "border-transparent text-[var(--gd-muted)] hover:border-[var(--gd-border-soft)] hover:text-[var(--gd-ink)] hover:bg-[var(--gd-surface-strong)]"
-                    )}
-                    aria-label="Toggle theme mode"
-                    type="button"
-                  >
-                    {GD_System_isDarkMode ? (
-                      <Sun className="h-4.5 w-4.5 shrink-0" />
-                    ) : (
-                      <Moon className="h-4.5 w-4.5 shrink-0" />
-                    )}
                   </button>
                 </div>
               </div>
