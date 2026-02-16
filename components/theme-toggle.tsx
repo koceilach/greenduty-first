@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useTheme } from "next-themes";
+import { usePathname } from "next/navigation";
 import { Leaf, Sun } from "lucide-react";
 
 const themes = [
@@ -11,6 +12,7 @@ const themes = [
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
+  const pathname = usePathname();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -26,9 +28,13 @@ export function ThemeToggle() {
   const inactiveButtonClass = isLight
     ? "text-slate-500 hover:bg-slate-900/8 hover:text-emerald-700"
     : "text-white/70 hover:bg-white/10 hover:text-emerald-200";
+  const isReportedGreenPage = pathname?.startsWith("/greenspot/reported-green");
+  const positionClass = isReportedGreenPage
+    ? "right-3 top-[calc(env(safe-area-inset-top)+8.9rem)] md:right-4 md:top-24"
+    : "right-4 top-24";
 
   return (
-    <div className={`pointer-events-auto fixed right-4 top-24 z-50 flex items-center gap-1 rounded-full p-1 text-xs backdrop-blur-xl ${shellClass}`}>
+    <div className={`pointer-events-auto fixed z-50 flex items-center gap-1 rounded-full p-1 text-xs backdrop-blur-xl ${positionClass} ${shellClass}`}>
       {themes.map(({ value, label, Icon }) => {
         const isActive = theme === value;
         return (

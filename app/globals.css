@@ -294,6 +294,14 @@ input[type="reset"] {
   color: var(--gd-home-hero-title);
 }
 
+.gd-home-hero-copy {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.light .gd-home-hero-copy {
+  color: rgba(255, 255, 255, 0.94) !important;
+}
+
 .gd-home-hero-cta {
   color: var(--gd-home-cta-color);
   border: 1px solid var(--gd-home-cta-border);

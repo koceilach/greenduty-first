@@ -83,8 +83,8 @@ export function Footer() {
                 >
                   <input
                     type="email"
-                    placeholder="Enter your mail"
-                    className="h-9 flex-1 rounded-full border border-white/20 bg-white/10 px-4 text-sm text-slate-100 outline-none placeholder:text-slate-300/70"
+                    placeholder="Enter your Gmail address"
+                    className="h-9 flex-1 rounded-full border border-white/20 bg-white/10 px-4 text-sm text-slate-100 outline-none placeholder:text-slate-200/95"
                   />
                   <button
                     type="submit"

@@ -299,26 +299,14 @@ export function MarketplaceAuthProvider({
         return { error: null };
       }
 
-      const { error: profileError } = await supabase
-        .from("marketplace_profiles")
-        .insert([
-          {
-            id: authUser.id,
-            email,
-            username,
-            role: "buyer",
-          },
-        ]);
-
-      if (profileError) {
-        return { error: profileError.message };
-      }
-
+      // Use ensureProfile to avoid duplicate-key races when profile row
+      // already exists (trigger/RPC/another client path).
+      const mp = await ensureProfile(authUser);
       setUser(authUser);
-      await fetchProfile(authUser);
+      setProfile(mp);
       return { error: null };
     },
-    [supabase, fetchProfile]
+    [supabase, ensureProfile]
   );
 
   const signIn = useCallback(

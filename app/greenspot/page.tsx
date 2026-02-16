@@ -75,13 +75,6 @@ const actionCards = [
   },
 ];
 
-const stats = [
-  { label: "GreenSpots Submitted", value: 12480 },
-  { label: "Verified Planting Zones", value: 3760 },
-  { label: "Trees Planned", value: 98200 },
-  { label: "Community Partners", value: 220 },
-];
-
 const impactStatMeta = [
   { icon: MapPin, delta: "+18%", context: "monthly submissions", spark: [42, 58, 76, 92] },
   { icon: BadgeCheck, delta: "+11%", context: "verification consistency", spark: [36, 52, 68, 84] },
@@ -184,6 +177,23 @@ const toRecentReportCard = (report: RecentReportRow): RecentReportCard => {
         report.status?.trim().toLowerCase() === "verified" || verifiedCount > 0,
     },
   };
+};
+
+const isVerifiedImpactReport = (report: RecentReportCard) => {
+  const normalizedStatus = report.status.trim().toLowerCase();
+  return (
+    normalizedStatus.includes("verified") ||
+    normalizedStatus.includes("accepted") ||
+    report.verifiedCount > 0
+  );
+};
+
+const estimateTreesFromReport = (report: RecentReportCard) => {
+  const signal = `${report.type} ${report.title} ${report.notes}`.toLowerCase();
+  if (signal.includes("tree")) return 12;
+  if (signal.includes("flower")) return 6;
+  if (signal.includes("plant")) return 8;
+  return 0;
 };
 
 function useCountUp(target: number, inView: boolean) {
@@ -452,9 +462,6 @@ export default function GreenSpotPage() {
     const delta = due - today.getTime();
     return delta > 0 && delta <= 3 * 24 * 60 * 60 * 1000;
   }).length;
-  const verificationRate = Math.round((stats[1].value / Math.max(stats[0].value, 1)) * 100);
-  const treesPerZone = Math.round(stats[2].value / Math.max(stats[1].value, 1));
-  const treesPerPartner = Math.round(stats[2].value / Math.max(stats[3].value, 1));
   const visibleRecentReports = recentReports.slice(0, 6);
   const featuredReport = visibleRecentReports[0] ?? null;
   const mapReports = recentReports.map((report) => ({
@@ -471,6 +478,11 @@ export default function GreenSpotPage() {
     created_at: report.createdAt,
   }));
   const totalCommunityReports = recentReports.length;
+  const verifiedPlantingZones = recentReports.filter(isVerifiedImpactReport).length;
+  const estimatedTreesPlanned = recentReports.reduce(
+    (sum, report) => sum + estimateTreesFromReport(report),
+    0
+  );
   const activeMissions = recentReports.filter(
     (report) => report.status.toLowerCase() !== "rejected"
   ).length;
@@ -501,6 +513,21 @@ export default function GreenSpotPage() {
   const verifiedMentors = communityLeaders.filter(
     (entry) => entry.verifiedCount > 0
   ).length;
+  const impactStats = [
+    { label: "GreenSpots Submitted", value: totalCommunityReports },
+    { label: "Verified Planting Zones", value: verifiedPlantingZones },
+    { label: "Trees Planned (est.)", value: estimatedTreesPlanned },
+    { label: "Community Partners", value: contributorsOnline },
+  ];
+  const verificationRate = Math.round(
+    (verifiedPlantingZones / Math.max(totalCommunityReports, 1)) * 100
+  );
+  const treesPerZone = Math.round(
+    estimatedTreesPlanned / Math.max(verifiedPlantingZones, 1)
+  );
+  const treesPerPartner = Math.round(
+    estimatedTreesPlanned / Math.max(contributorsOnline, 1)
+  );
 
   const categoryCounts = new Map<string, number>();
   recentReports.forEach((report) => {
@@ -759,20 +786,20 @@ export default function GreenSpotPage() {
                 {t("greenspot.hero.desc")}
               </p>
               <div className="mt-8 flex flex-col gap-4">
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-row items-center gap-3 sm:gap-4">
                   <motion.div
                     whileHover={{ y: -2 }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.25, ease: "easeOut" }}
                     className="group"
                   >
-                    <div className="rounded-full bg-gradient-to-r from-emerald-300/40 via-white/40 to-teal-200/40 p-[1px] shadow-[0_18px_40px_rgba(15,118,110,0.25)]">
+                    <div className="rounded-full bg-gradient-to-r from-emerald-300/40 via-white/40 to-teal-200/40 p-[0.5px] sm:p-[1px] shadow-[0_18px_40px_rgba(15,118,110,0.25)]">
                       <Button
                         asChild
                         size="lg"
-                        className="rounded-full border border-white/10 bg-black/40 px-8 text-emerald-100 backdrop-blur transition hover:bg-black/30"
+                        className="h-9 rounded-full border border-white/10 bg-black/40 px-6 text-emerald-100 backdrop-blur transition hover:bg-black/30 sm:h-10 sm:px-8"
                       >
-                        <Link href="/greenspot/login" className="flex items-center gap-2 text-xs uppercase tracking-[0.3em]">
+                        <Link href="/greenspot/login" className="flex items-center gap-2 text-[11px] uppercase tracking-[0.22em] leading-none sm:text-xs sm:tracking-[0.3em]">
                           Login
                         </Link>
                       </Button>
@@ -1698,7 +1725,7 @@ export default function GreenSpotPage() {
                     Impact & Stats
                   </p>
                   <span className="rounded-full border border-emerald-300/30 bg-emerald-500/15 px-3 py-1 text-xs text-emerald-100 light:border-emerald-400/35 light:bg-emerald-100 light:text-emerald-800 dark:border-emerald-300/30 dark:bg-emerald-500/15 dark:text-emerald-100 green:border-emerald-300/30 green:bg-emerald-500/15 green:text-emerald-100">
-                    Community-driven growth
+                    Live reported-green feed
                   </span>
                 </div>
 
@@ -1706,8 +1733,8 @@ export default function GreenSpotPage() {
                   {t("greenspot.impact.title")}
                 </h2>
                 <p className="mt-3 max-w-2xl text-sm text-white/70 light:text-slate-700 dark:text-white/70 green:text-white/70">
-                  A quick executive view of how reports convert into verified zones, planned trees,
-                  and active partner momentum.
+                  A quick executive view driven by current reported-green data: verified zones,
+                  estimated planting volume, and active partner momentum.
                 </p>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -1748,7 +1775,7 @@ export default function GreenSpotPage() {
               </div>
 
               <div ref={statsRef} className="grid gap-4 sm:grid-cols-2">
-                {stats.map((stat, index) => (
+                {impactStats.map((stat, index) => (
                   <StatCard
                     key={stat.label}
                     label={stat.label}
@@ -1811,7 +1838,3 @@ export default function GreenSpotPage() {
     </main>
   );
 }
-
-
-
-

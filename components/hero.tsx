@@ -55,7 +55,7 @@ export function Hero() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.55, delay: 0.28 }}
-                className="mt-4 max-w-[34rem] text-sm leading-relaxed text-white/80 sm:text-base"
+                className="gd-home-hero-copy mt-4 max-w-[34rem] text-sm leading-relaxed sm:text-base"
               >
                 Reliable clean-energy infrastructure, practical digital tools, and measurable impact for every community.
               </motion.p>

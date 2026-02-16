@@ -22,7 +22,6 @@ import {
   MapPin,
   Plus,
   LogOut,
-  Search,
   SendHorizontal,
   Sparkles,
   Sprout,
@@ -65,6 +64,7 @@ const expertOptions = [
 
 type CategoryKey = (typeof reportCategories)[number]["key"];
 type CategorySelection = CategoryKey | null;
+type SidebarKey = (typeof sidebarItems)[number]["key"];
 type UserLocation = {
   lat: number;
   lng: number;
@@ -305,9 +305,27 @@ export default function ReportedGreenPage() {
   const primaryTextClass = isLight ? "text-slate-900" : "text-white";
   const secondaryTextClass = isLight ? "text-slate-700" : "text-white/80";
   const tertiaryTextClass = isLight ? "text-slate-500" : "text-white/60";
-  const searchShellClass = isLight
-    ? "border border-slate-900/12 bg-white/78 shadow-[0_10px_24px_rgba(15,23,42,0.12)] focus-within:border-emerald-500/35 focus-within:ring-2 focus-within:ring-emerald-500/20"
-    : "border border-white/14 bg-black/30 shadow-[0_12px_28px_rgba(0,0,0,0.32)] focus-within:border-emerald-300/35 focus-within:ring-2 focus-within:ring-emerald-300/20";
+  const statusShellClass = isLight
+    ? "border border-slate-900/12 bg-white/78 shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
+    : "border border-white/14 bg-black/30 shadow-[0_12px_28px_rgba(0,0,0,0.32)]";
+  const statusChipClass = isLight
+    ? "border border-slate-900/10 bg-white/90 text-slate-700"
+    : "border border-white/16 bg-white/10 text-white/85";
+  const mobileDockShellClass = isLight
+    ? "rounded-[24px] border border-slate-900/10 bg-white/72 p-1.5 backdrop-blur-[18px] shadow-[0_18px_36px_rgba(15,23,42,0.18)]"
+    : "rounded-[24px] border border-white/16 bg-black/42 p-1.5 backdrop-blur-[18px] shadow-[0_20px_40px_rgba(0,0,0,0.46)]";
+  const mobileDockItemClass = isLight
+    ? "border border-transparent text-slate-700 hover:bg-slate-900/8 hover:text-slate-900"
+    : "border border-transparent text-white/80 hover:bg-white/12 hover:text-white";
+  const mobileDockItemActiveClass =
+    "border border-white/20 bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-[0_12px_28px_rgba(37,99,235,0.45)]";
+  const mobileDockIconClass = isLight ? "text-slate-700" : "text-white/82";
+  const mobileDockActionClass = isLight
+    ? "border border-slate-900/10 bg-white/82 text-slate-700 hover:bg-white"
+    : "border border-white/16 bg-white/10 text-white/88 hover:bg-white/14";
+  const mobileDockActionActiveClass = isLight
+    ? "border border-emerald-600/20 bg-emerald-500/16 text-emerald-700"
+    : "border border-emerald-200/26 bg-emerald-400/20 text-emerald-100";
   const profileChipClass = isLight
     ? "border-slate-900/12 bg-white/76 shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
     : "border-white/14 bg-black/30 shadow-[0_12px_28px_rgba(0,0,0,0.34)]";
@@ -570,6 +588,41 @@ export default function ReportedGreenPage() {
   const openAuth = useCallback(() => {
     router.push(authRedirectTarget);
   }, [authRedirectTarget, router]);
+  const handleSidebarSelect = useCallback(
+    (key: SidebarKey) => {
+      if (!user && key !== "home") {
+        openAuth();
+        return;
+      }
+      if (key === "dashboard") {
+        setDashboardOpen(true);
+        setRemindersOpen(false);
+        setProfileOpen(false);
+        setPanelOpen(false);
+        return;
+      }
+      if (key === "reminders") {
+        setRemindersOpen(true);
+        setDashboardOpen(false);
+        setProfileOpen(false);
+        setPanelOpen(false);
+        setReminderTab("opportunities");
+        setRemindersNotice(null);
+        return;
+      }
+      if (key === "profile") {
+        setProfileOpen(true);
+        setDashboardOpen(false);
+        setRemindersOpen(false);
+        setPanelOpen(false);
+        return;
+      }
+      setDashboardOpen(false);
+      setRemindersOpen(false);
+      setProfileOpen(false);
+    },
+    [openAuth, user]
+  );
 
   const handleLogout = useCallback(async () => {
     if (!user || !supabase || loggingOut) {
@@ -1534,8 +1587,30 @@ export default function ReportedGreenPage() {
     };
   }, []);
 
+  const toggleAiChat = useCallback(() => {
+    setAiChatOpen((value) => !value);
+  }, []);
+
+  const handleReportPanelToggle = useCallback(() => {
+    if (!user) {
+      openAuth();
+      return;
+    }
+    if (!panelOpen) {
+      setReportSuccess(null);
+      setReportFormError(null);
+      if (!userLocation) {
+        requestCurrentLocation();
+      }
+    }
+    setPanelOpen((value) => !value);
+  }, [openAuth, panelOpen, requestCurrentLocation, user, userLocation]);
+
   return (
-    <main className={`reported-green-page relative h-screen w-full overflow-hidden ${pageThemeClass}`}>
+    <main
+      className={`reported-green-page relative h-screen w-full overflow-hidden ${pageThemeClass}`}
+      style={{ height: "100dvh", minHeight: "100dvh" }}
+    >
       <div className="absolute inset-0">
         <MapComponent
           reports={reports}
@@ -1642,38 +1717,7 @@ export default function ReportedGreenPage() {
                   activeSidebarKey === item.key ? leftNavItemActiveClass : ""
                 }`}
                 type="button"
-                onClick={() => {
-                  if (!user && item.key !== "home") {
-                    openAuth();
-                    return;
-                  }
-                  if (item.key === "dashboard") {
-                    setDashboardOpen(true);
-                    setRemindersOpen(false);
-                    setProfileOpen(false);
-                    setPanelOpen(false);
-                    return;
-                  }
-                  if (item.key === "reminders") {
-                    setRemindersOpen(true);
-                    setDashboardOpen(false);
-                    setProfileOpen(false);
-                    setPanelOpen(false);
-                    setReminderTab("opportunities");
-                    setRemindersNotice(null);
-                    return;
-                  }
-                  if (item.key === "profile") {
-                    setProfileOpen(true);
-                    setDashboardOpen(false);
-                    setRemindersOpen(false);
-                    setPanelOpen(false);
-                    return;
-                  }
-                  setDashboardOpen(false);
-                  setRemindersOpen(false);
-                  setProfileOpen(false);
-                }}
+                onClick={() => handleSidebarSelect(item.key)}
               >
                 <span
                   className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
@@ -1731,25 +1775,44 @@ export default function ReportedGreenPage() {
         </aside>
 
         <div
-          className={`pointer-events-auto absolute left-4 right-4 top-4 z-30 flex items-center justify-between gap-3 md:left-[106px] ${navShellClass}`}
+          className={`pointer-events-auto absolute left-4 right-4 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex items-center justify-between gap-3 sm:top-4 md:left-[106px] ${navShellClass}`}
         >
           <div
-            className={`group flex w-full max-w-2xl items-center gap-3 rounded-full px-5 py-2.5 transition ${searchShellClass}`}
+            className={`flex w-full max-w-2xl items-center gap-2 rounded-2xl px-2.5 py-2.5 transition ${statusShellClass}`}
           >
-            <Search
-              className={`h-4 w-4 transition-colors ${tertiaryTextClass} ${
-                isLight
-                  ? "group-focus-within:text-emerald-700"
-                  : "group-focus-within:text-emerald-200"
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl ${
+                isLight ? "bg-emerald-500/16 text-emerald-700" : "bg-emerald-500/22 text-emerald-200"
               }`}
-            />
-            <input
-              type="text"
-              placeholder="Search locations..."
-              className={`w-full bg-transparent text-sm outline-none ${primaryTextClass} ${
-                isLight ? "placeholder:text-slate-500" : "placeholder:text-white/60"
-              }`}
-            />
+            >
+              <MapPin className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`inline-block h-2 w-2 rounded-full ${
+                    isLight ? "bg-emerald-500" : "bg-emerald-300"
+                  } shadow-[0_0_10px_rgba(52,211,153,0.85)]`}
+                />
+                <p className={`truncate text-[11px] font-semibold tracking-[0.02em] ${primaryTextClass}`}>
+                  Live GreenSpot Overview
+                </p>
+              </div>
+              <div className="mt-1 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                <div className="inline-flex items-center gap-1.5 pr-1">
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${statusChipClass}`}>
+                    <span className="font-semibold">{reports.length}</span> reports
+                  </span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${statusChipClass}`}>
+                    <span className="font-semibold">{user ? myReports.length : "Guest"}</span>
+                    {user ? " mine" : " mode"}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${statusChipClass}`}>
+                    <span className="font-semibold">{dueReminderCount}</span> due today
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div
@@ -1782,11 +1845,76 @@ export default function ReportedGreenPage() {
           </div>
         </div>
 
+        <div
+          className="pointer-events-auto absolute left-1/2 top-[calc(env(safe-area-inset-top)+5.15rem)] z-50 w-[min(94vw,430px)] -translate-x-1/2 md:hidden"
+        >
+          <div className={`flex items-center gap-1.5 ${mobileDockShellClass}`}>
+            <button
+              type="button"
+              aria-label="AI Assistant"
+              onClick={toggleAiChat}
+              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] transition ${
+                aiChatOpen ? mobileDockActionActiveClass : mobileDockActionClass
+              }`}
+            >
+              <Brain className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              aria-label={panelOpen ? "Close report panel" : "Open report panel"}
+              onClick={handleReportPanelToggle}
+              disabled={aiChatOpen}
+              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] transition ${
+                panelOpen ? mobileDockActionActiveClass : mobileDockActionClass
+              } ${aiChatOpen ? "cursor-not-allowed opacity-50" : ""}`}
+            >
+              {panelOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            </button>
+
+            {sidebarItems
+              .filter((item) => item.key !== "home")
+              .map((item) => {
+                const isActive =
+                  activeSidebarKey === item.key ||
+                  (activeSidebarKey === "home" && item.key === "dashboard");
+                return (
+                  <button
+                    key={`mobile-${item.key}`}
+                    type="button"
+                    onClick={() => handleSidebarSelect(item.key)}
+                    className={`relative flex h-10 shrink-0 items-center rounded-[12px] transition-all duration-200 ${
+                      isActive
+                        ? `min-w-[118px] flex-1 justify-center gap-1.5 px-3 ${mobileDockItemActiveClass}`
+                        : `w-10 justify-center ${mobileDockItemClass}`
+                    }`}
+                  >
+                    <item.icon className={`h-4 w-4 ${isActive ? "text-white" : mobileDockIconClass}`} />
+                    {item.key === "reminders" && dueReminderCount > 0 ? (
+                      <span
+                        className={`absolute -right-1.5 -top-1.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold ${
+                          isLight ? "bg-emerald-600 text-white" : "bg-emerald-400 text-emerald-950"
+                        }`}
+                      >
+                        {Math.min(dueReminderCount, 9)}
+                      </span>
+                    ) : null}
+                    {isActive ? (
+                      <span className="whitespace-nowrap text-[10px] font-semibold leading-none">
+                        {item.key === "dashboard" ? "Intelligent" : item.label}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+          </div>
+        </div>
+
         <motion.button
           type="button"
           aria-label="AI Assistant"
-          onClick={() => setAiChatOpen((value) => !value)}
-          className={`pointer-events-auto absolute bottom-8 right-5 z-50 flex h-12 w-12 items-center justify-center rounded-full border backdrop-blur-2xl sm:right-6 ${
+          onClick={toggleAiChat}
+          className={`pointer-events-auto absolute bottom-8 right-6 z-50 hidden h-12 w-12 items-center justify-center rounded-full border backdrop-blur-2xl sm:flex ${
             isLight
               ? "border-slate-900/12 bg-white/82 text-slate-900 shadow-[0_12px_26px_rgba(15,23,42,0.18)]"
               : "border-white/12 bg-black/36 text-white shadow-[0_12px_26px_rgba(0,0,0,0.36)]"
@@ -1804,7 +1932,7 @@ export default function ReportedGreenPage() {
               scale: [1, 1.06, 1],
             }}
             transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-            className={`flex h-9 w-9 items-center justify-center rounded-full ${
+            className={`flex h-7 w-7 items-center justify-center rounded-full sm:h-9 sm:w-9 ${
               aiChatOpen
                 ? "bg-emerald-500/35"
                 : isLight
@@ -1812,7 +1940,7 @@ export default function ReportedGreenPage() {
                   : "bg-emerald-500/24"
             }`}
           >
-            <Brain className={`h-5 w-5 ${isLight ? "text-emerald-700" : "text-emerald-200"}`} />
+            <Brain className={`h-4 w-4 sm:h-5 sm:w-5 ${isLight ? "text-emerald-700" : "text-emerald-200"}`} />
           </motion.span>
         </motion.button>
 
@@ -2228,7 +2356,7 @@ export default function ReportedGreenPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className={`pointer-events-auto absolute inset-0 z-[70] flex items-center justify-center p-4 ${
+              className={`pointer-events-auto absolute inset-0 z-[70] flex items-start justify-center overflow-hidden p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:items-center sm:p-4 ${
                 isLight ? "bg-slate-900/20" : "bg-black/45"
               }`}
             >
@@ -2237,7 +2365,7 @@ export default function ReportedGreenPage() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.98 }}
                 transition={{ duration: 0.32, ease: "easeOut" }}
-                className={`relative w-full max-w-5xl rounded-[28px] p-5 backdrop-blur-2xl sm:p-6 ${dashboardCardClass}`}
+                className={`relative my-1 flex w-full max-w-5xl flex-col overflow-hidden rounded-[24px] p-4 backdrop-blur-2xl sm:rounded-[28px] sm:p-6 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] ${dashboardCardClass}`}
               >
                 <button
                   type="button"
@@ -2247,19 +2375,20 @@ export default function ReportedGreenPage() {
                   <X className={`h-4 w-4 ${primaryTextClass}`} />
                 </button>
 
-                <div className="mb-4">
-                  <p className={`text-xs uppercase tracking-[0.22em] ${tertiaryTextClass}`}>
-                    Intelligent Dashboard
-                  </p>
-                  <h2 className={`mt-1 text-2xl font-semibold ${primaryTextClass}`}>
-                    Community Intelligence Window
-                  </h2>
-                  <p className={`mt-1 text-sm ${secondaryTextClass}`}>
-                    Top reporters, winner insights, area activity, and your removable GreenSpot reports.
-                  </p>
-                </div>
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="mb-4">
+                    <p className={`text-xs uppercase tracking-[0.22em] ${tertiaryTextClass}`}>
+                      Intelligent Dashboard
+                    </p>
+                    <h2 className={`mt-1 text-2xl font-semibold ${primaryTextClass}`}>
+                      Community Intelligence Window
+                    </h2>
+                    <p className={`mt-1 text-sm ${secondaryTextClass}`}>
+                      Top reporters, winner insights, area activity, and your removable GreenSpot reports.
+                    </p>
+                  </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
                   <div className={`rounded-2xl p-4 ${dashboardSubcardClass}`}>
                     <p className={`text-xs ${tertiaryTextClass}`}>Total Reports</p>
                     <p className={`mt-2 text-3xl font-semibold ${primaryTextClass}`}>
@@ -2289,7 +2418,7 @@ export default function ReportedGreenPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-[1.12fr_0.88fr]">
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.12fr_0.88fr]">
                   <div className="space-y-4">
                     <div className={`rounded-2xl p-4 ${dashboardSubcardClass}`}>
                       <div className="mb-3 flex items-center justify-between">
@@ -2385,9 +2514,9 @@ export default function ReportedGreenPage() {
                       ) : (
                         myReports.map((report) => (
                           <div key={report.id} className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}>
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className={`text-sm font-medium ${primaryTextClass}`}>{report.area}</p>
+                            <div className="flex min-w-0 items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className={`break-words text-sm font-medium ${primaryTextClass}`}>{report.area}</p>
                                 <p className={`text-xs ${secondaryTextClass}`}>
                                   {report.waste_type} - {report.status}
                                 </p>
@@ -2399,7 +2528,7 @@ export default function ReportedGreenPage() {
                                 type="button"
                                 onClick={() => removeMyReport(report.id)}
                                 disabled={deletingReportId === report.id}
-                                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition ${
+                                className={`shrink-0 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition ${
                                   isLight
                                     ? "bg-rose-500/12 text-rose-700 hover:bg-rose-500/18"
                                     : "bg-rose-500/15 text-rose-100 hover:bg-rose-500/22"
@@ -2415,6 +2544,7 @@ export default function ReportedGreenPage() {
                     </div>
                   </div>
                 </div>
+                </div>
               </motion.section>
             </motion.div>
           )}
@@ -2426,7 +2556,7 @@ export default function ReportedGreenPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className={`pointer-events-auto absolute inset-0 z-[71] flex items-start justify-center overflow-hidden p-3 sm:items-center sm:p-4 ${
+              className={`pointer-events-auto absolute inset-0 z-[71] flex items-start justify-center overflow-hidden p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:items-center sm:p-4 ${
                 isLight ? "bg-slate-900/20" : "bg-black/45"
               }`}
             >
@@ -2435,7 +2565,7 @@ export default function ReportedGreenPage() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.98 }}
                 transition={{ duration: 0.32, ease: "easeOut" }}
-                className={`relative my-2 flex w-full max-w-5xl flex-col overflow-hidden rounded-[28px] p-4 backdrop-blur-2xl sm:p-6 max-h-[calc(100dvh-1.5rem)] ${dashboardCardClass}`}
+                className={`relative my-1 flex w-full max-w-5xl flex-col overflow-hidden rounded-[24px] p-4 backdrop-blur-2xl sm:rounded-[28px] sm:p-6 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] ${dashboardCardClass}`}
               >
                 <button
                   type="button"
@@ -2538,9 +2668,9 @@ export default function ReportedGreenPage() {
                               key={report.id}
                               className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className={`text-sm font-medium ${primaryTextClass}`}>{report.area}</p>
+                              <div className="flex min-w-0 items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className={`break-words text-sm font-medium ${primaryTextClass}`}>{report.area}</p>
                                   <p className={`mt-1 text-xs ${secondaryTextClass}`}>
                                     {report.waste_type} - {report.status}
                                   </p>
@@ -2552,7 +2682,7 @@ export default function ReportedGreenPage() {
                                   type="button"
                                   onClick={() => void confirmReportForPlanting(report)}
                                   disabled={confirmingReportId === report.id}
-                                  className={`inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold transition ${
+                                  className={`shrink-0 inline-flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold transition ${
                                     confirmingReportId === report.id
                                       ? isLight
                                         ? "cursor-not-allowed bg-slate-900/10 text-slate-500"
@@ -2581,16 +2711,16 @@ export default function ReportedGreenPage() {
                               key={task.id}
                               className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className={`text-sm font-medium ${primaryTextClass}`}>{task.plant_name}</p>
+                              <div className="flex min-w-0 items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className={`break-words text-sm font-medium ${primaryTextClass}`}>{task.plant_name}</p>
                                   <p className={`mt-1 text-xs ${secondaryTextClass}`}>
                                     {task.task_type.replace(/_/g, " ")} - due{" "}
                                     {new Date(task.due_at).toLocaleDateString()}
                                   </p>
                                   <p className={`mt-1 text-[11px] ${tertiaryTextClass}`}>{task.description}</p>
                                 </div>
-                                <span className={`rounded-full px-2 py-0.5 text-[10px] ${badgeClass}`}>
+                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${badgeClass}`}>
                                   Pending
                                 </span>
                               </div>
@@ -2640,15 +2770,15 @@ export default function ReportedGreenPage() {
                               key={task.id}
                               className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className={`text-sm font-medium ${primaryTextClass}`}>{task.plant_name}</p>
+                              <div className="flex min-w-0 items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className={`break-words text-sm font-medium ${primaryTextClass}`}>{task.plant_name}</p>
                                   <p className={`mt-1 text-xs ${secondaryTextClass}`}>
                                     {task.task_type.replace(/_/g, " ")} - completed{" "}
                                     {new Date(task.completed_at ?? task.due_at).toLocaleDateString()}
                                   </p>
                                 </div>
-                                <span className={`rounded-full px-2 py-0.5 text-[10px] ${badgeClass}`}>
+                                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] ${badgeClass}`}>
                                   Done
                                 </span>
                               </div>
@@ -2742,7 +2872,7 @@ export default function ReportedGreenPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className={`pointer-events-auto absolute inset-0 z-[72] flex items-center justify-center p-4 ${
+              className={`pointer-events-auto absolute inset-0 z-[72] flex items-start justify-center overflow-hidden p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:items-center sm:p-4 ${
                 isLight ? "bg-slate-900/20" : "bg-black/48"
               }`}
             >
@@ -2751,7 +2881,7 @@ export default function ReportedGreenPage() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.98 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
-                className={`relative w-full max-w-4xl rounded-[28px] p-5 backdrop-blur-2xl sm:p-6 ${profileCardClass}`}
+                className={`relative my-1 flex w-full max-w-4xl flex-col overflow-hidden rounded-[24px] p-4 backdrop-blur-2xl sm:rounded-[28px] sm:p-6 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] ${profileCardClass}`}
               >
                 <button
                   type="button"
@@ -2761,12 +2891,13 @@ export default function ReportedGreenPage() {
                   <X className={`h-4 w-4 ${primaryTextClass}`} />
                 </button>
 
-                <p className={`text-xs uppercase tracking-[0.22em] ${tertiaryTextClass}`}>User Profile</p>
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <p className={`text-xs uppercase tracking-[0.22em] ${tertiaryTextClass}`}>User Profile</p>
 
-                <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
                   <div className={`rounded-2xl border p-4 ${isLight ? "border-slate-900/10 bg-white/72" : "border-white/12 bg-white/8"}`}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex items-center gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0 flex items-center gap-3 sm:gap-4">
                         <div className="relative">
                           <div
                             className={`h-20 w-20 overflow-hidden rounded-2xl border ${
@@ -2791,9 +2922,9 @@ export default function ReportedGreenPage() {
                           </div>
                           <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.75)]" />
                         </div>
-                        <div>
-                          <h3 className={`text-2xl font-semibold ${primaryTextClass}`}>{currentUser}</h3>
-                          <p className={`mt-1 max-w-sm text-sm ${secondaryTextClass}`}>{currentUserBio}</p>
+                        <div className="min-w-0">
+                          <h3 className={`break-words text-2xl font-semibold ${primaryTextClass}`}>{currentUser}</h3>
+                          <p className={`mt-1 max-w-sm break-words text-sm ${secondaryTextClass}`}>{currentUserBio}</p>
                         </div>
                       </div>
 
@@ -2801,7 +2932,7 @@ export default function ReportedGreenPage() {
                         type="button"
                         onClick={() => profileImageInputRef.current?.click()}
                         disabled={profileSaving}
-                        className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition ${
+                        className={`self-start inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium transition sm:self-auto ${
                           isLight
                             ? "border border-slate-900/14 bg-white text-slate-800 hover:bg-slate-100"
                             : "border border-white/16 bg-white/10 text-white hover:bg-white/16"
@@ -2966,6 +3097,7 @@ export default function ReportedGreenPage() {
                       </div>
                     </div>
                   </div>
+                </div>
                 </div>
               </motion.section>
             </motion.div>
@@ -3147,20 +3279,7 @@ export default function ReportedGreenPage() {
         <motion.button
           type="button"
           aria-label={panelOpen ? "Close report panel" : "Open report panel"}
-          onClick={() => {
-            if (!user) {
-              openAuth();
-              return;
-            }
-            if (!panelOpen) {
-              setReportSuccess(null);
-              setReportFormError(null);
-              if (!userLocation) {
-                requestCurrentLocation();
-              }
-            }
-            setPanelOpen((value) => !value);
-          }}
+          onClick={handleReportPanelToggle}
           initial={{ opacity: 0, y: 18, scale: 0.92 }}
           animate={
             panelOpen || aiChatOpen
@@ -3191,7 +3310,7 @@ export default function ReportedGreenPage() {
                   scale: { type: "spring", stiffness: 260, damping: 18 },
                 }
           }
-          className={`pointer-events-auto absolute bottom-2 left-1/2 z-50 inline-flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-300 sm:bottom-5 sm:h-16 sm:w-16 ${
+          className={`pointer-events-auto absolute bottom-5 left-1/2 z-50 hidden h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-300 sm:inline-flex ${
             isLight
               ? "border-slate-900/12 bg-white/88 text-slate-900"
               : "border-white/14 bg-black/42 text-white"
@@ -3214,17 +3333,16 @@ export default function ReportedGreenPage() {
             />
           ) : null}
           <span
-            className={`relative z-10 flex h-9 w-9 items-center justify-center rounded-full ${
+            className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full sm:h-9 sm:w-9 ${
               isLight
                 ? "border border-emerald-700/22 bg-emerald-500/14 text-emerald-700"
                 : "border border-emerald-200/26 bg-emerald-400/18 text-emerald-100"
             }`}
           >
-            {panelOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+            {panelOpen ? <X className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
           </span>
         </motion.button>
       </div>
     </main>
   );
 }
-
