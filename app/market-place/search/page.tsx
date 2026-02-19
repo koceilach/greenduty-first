@@ -12,8 +12,16 @@ import {
 } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 
+type MarketplaceSellerProfile = {
+  id: string;
+  username: string | null;
+  store_name: string | null;
+  avatar_url: string | null;
+};
+
 type MarketplaceItem = {
   id: string;
+  seller_id: string | null;
   title: string | null;
   description: string | null;
   price_dzd: number | null;
@@ -22,11 +30,45 @@ type MarketplaceItem = {
   plant_type: string | null;
   category: string | null;
   wilaya: string | null;
+  seller_profile?: MarketplaceSellerProfile | null;
 };
 
 const GD_formatWilayaLabel = (value?: string | null) => {
   if (!value) return "Algeria";
   return value === "All Wilayas" ? "All Algeria" : value;
+};
+
+const GD_first = <T,>(value: T | T[] | null | undefined): T | null =>
+  Array.isArray(value) ? value[0] ?? null : value ?? null;
+
+const GD_normalizeSellerProfile = (
+  value: MarketplaceSellerProfile | MarketplaceSellerProfile[] | null | undefined
+): MarketplaceSellerProfile | null => {
+  const raw = GD_first(value);
+  if (!raw) return null;
+  return {
+    id: raw.id,
+    username: raw.username ?? null,
+    store_name: raw.store_name ?? null,
+    avatar_url: raw.avatar_url ?? null,
+  };
+};
+
+const GD_sellerDisplayName = (profile?: MarketplaceSellerProfile | null) => {
+  if (!profile) return "Marketplace Seller";
+  if (profile.store_name && profile.store_name.trim().length > 0) {
+    return profile.store_name;
+  }
+  if (profile.username && profile.username.trim().length > 0) {
+    return profile.username;
+  }
+  return "Marketplace Seller";
+};
+
+const GD_sellerInitials = (profile?: MarketplaceSellerProfile | null) => {
+  const name = GD_sellerDisplayName(profile).trim();
+  if (!name) return "MS";
+  return name.slice(0, 2).toUpperCase();
 };
 
 export default function MarketplaceSearchPageWrapper() {
@@ -66,8 +108,10 @@ function MarketplaceSearchPage() {
 
     const { data, error: fetchError } = await supabase
       .from("marketplace_items")
-      .select("*")
-      .ilike("title", query)
+      .select(
+        "id, seller_id, title, description, price_dzd, image_url, stock_quantity, plant_type, category, wilaya, marketplace_profiles:seller_id ( id, username, store_name, avatar_url )"
+      )
+      .ilike("title", `%${query}%`)
       .order("created_at", { ascending: false });
 
     if (fetchError) {
@@ -76,7 +120,28 @@ function MarketplaceSearchPage() {
       return;
     }
 
-    setItems((data ?? []) as MarketplaceItem[]);
+    const normalized =
+      ((data ?? []) as any[]).map((row) => ({
+        id: row.id,
+        seller_id: row.seller_id ?? null,
+        title: row.title ?? null,
+        description: row.description ?? null,
+        price_dzd: row.price_dzd ?? null,
+        image_url: row.image_url ?? null,
+        stock_quantity: row.stock_quantity ?? null,
+        plant_type: row.plant_type ?? null,
+        category: row.category ?? null,
+        wilaya: row.wilaya ?? null,
+        seller_profile: GD_normalizeSellerProfile(
+          row.marketplace_profiles as
+            | MarketplaceSellerProfile
+            | MarketplaceSellerProfile[]
+            | null
+            | undefined
+        ),
+      })) ?? [];
+
+    setItems(normalized as MarketplaceItem[]);
     setLoading(false);
   }, [supabase, query]);
 
@@ -95,14 +160,14 @@ function MarketplaceSearchPage() {
   );
 
   return (
-    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
       </div>
 
-      <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pb-16 pt-10">
+      <div className="gd-mp-container relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 pb-16 pt-10">
         <section className="gd-search-hero rounded-[32px] border border-white/10 bg-gradient-to-br from-emerald-950/70 via-emerald-950/40 to-slate-950/60 p-6 shadow-[0_20px_55px_rgba(0,0,0,0.45)] backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -221,6 +286,30 @@ function MarketplaceSearchPage() {
                   </span>
                 </div>
                 <div className="space-y-3 p-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!item.seller_id) return;
+                      router.push(`/market-place/profile/${item.seller_id}`);
+                    }}
+                    disabled={!item.seller_id}
+                    className="inline-flex min-w-0 items-center gap-2 rounded-full border border-emerald-200/30 bg-emerald-200/10 px-2.5 py-1 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-200/20 disabled:cursor-default disabled:opacity-70"
+                  >
+                    <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-emerald-100/40 bg-white/90 text-[10px] uppercase text-emerald-700">
+                      {item.seller_profile?.avatar_url ? (
+                        <img
+                          src={item.seller_profile.avatar_url}
+                          alt={GD_sellerDisplayName(item.seller_profile)}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        GD_sellerInitials(item.seller_profile)
+                      )}
+                    </span>
+                    <span className="truncate">
+                      {GD_sellerDisplayName(item.seller_profile)}
+                    </span>
+                  </button>
                   <div className="text-[10px] uppercase tracking-[0.2em] text-emerald-200/70">
                     {item.plant_type ?? item.category ?? "Seeds"}
                   </div>

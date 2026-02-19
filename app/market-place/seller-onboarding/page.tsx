@@ -147,11 +147,11 @@ export default function SellerOnboardingPage() {
   ]);
 
   return (
-    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.2),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(16,185,129,0.25),_transparent_60%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 pb-16 pt-10">
+      <div className="gd-mp-container relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 pb-16 pt-10">
         <Link
           href="/market-place"
           className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-emerald-200/80 transition hover:text-emerald-100"

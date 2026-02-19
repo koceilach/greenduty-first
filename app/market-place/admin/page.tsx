@@ -19,6 +19,10 @@ import {
 } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 import type { MarketplaceProfile, SellerApplication } from "@/components/marketplace-auth-provider";
+import {
+  GD_isMissingRpcError,
+  GD_runEscrowRpc,
+} from "@/lib/marketplace/escrow-client";
 
 /* ─── helpers ──────────────────────────────────────────────── */
 const GD_formatWilayaLabel = (value?: string | null) => {
@@ -31,6 +35,7 @@ const GD_ESCROW_FILTERS = [
   { value: "funds_held", label: "Funds Held" },
   { value: "disputed", label: "Disputed" },
   { value: "released_to_seller", label: "Released" },
+  { value: "refunded_to_buyer", label: "Refunded" },
   { value: "all", label: "All" },
 ] as const;
 
@@ -44,6 +49,14 @@ type AdminOrder = {
   buyer_confirmation?: boolean | null;
   buyer_receipt_url?: string | null;
   seller_shipping_proof?: string | null;
+  dispute?: {
+    id: string;
+    reason?: string | null;
+    status?: string | null;
+    resolution_action?: string | null;
+    resolution_note?: string | null;
+    updated_at?: string | null;
+  } | null;
   created_at: string;
   item: {
     id: string;
@@ -110,18 +123,46 @@ export default function AdminDashboardPage() {
   const fetchOrders = useCallback(async () => {
     if (!supabase || !isAdmin) return;
     setOrdersLoading(true);
+    const queryWithDisputes =
+      "id, buyer_id, quantity, total_price_dzd, status, escrow_status, buyer_confirmation, buyer_receipt_url, seller_shipping_proof, created_at, marketplace_items ( id, title, image_url, price_dzd, wilaya ), marketplace_disputes ( id, reason, status, resolution_action, resolution_note, updated_at )";
+    const queryWithoutDisputes =
+      "id, buyer_id, quantity, total_price_dzd, status, escrow_status, buyer_confirmation, buyer_receipt_url, seller_shipping_proof, created_at, marketplace_items ( id, title, image_url, price_dzd, wilaya )";
+
     let query = supabase
       .from("marketplace_orders")
-      .select(
-        "id, buyer_id, quantity, total_price_dzd, status, escrow_status, buyer_confirmation, buyer_receipt_url, seller_shipping_proof, created_at, marketplace_items ( id, title, image_url, price_dzd, wilaya )"
-      )
+      .select(queryWithDisputes)
       .order("created_at", { ascending: false });
 
     if (escrowFilter !== "all") query = query.eq("escrow_status", escrowFilter);
 
-    const { data, error } = await query;
+    let queryResult: { data: any[] | null; error: { message?: string } | null } =
+      await query;
+    let data = queryResult.data;
+    let error = queryResult.error;
+    if (
+      error &&
+      (error.message ?? "").toLowerCase().includes("marketplace_disputes")
+    ) {
+      let fallbackQuery = supabase
+        .from("marketplace_orders")
+        .select(queryWithoutDisputes)
+        .order("created_at", { ascending: false });
+      if (escrowFilter !== "all") {
+        fallbackQuery = fallbackQuery.eq("escrow_status", escrowFilter);
+      }
+      const fallback = await fallbackQuery;
+      data = fallback.data;
+      error = fallback.error;
+    }
+
     if (error) {
-      setToast("Unable to load escrow orders.");
+      if ((error.message ?? "").toLowerCase().includes("marketplace_disputes")) {
+        setToast(
+          "Disputes table is missing. Run migration 20260219113000_marketplace_disputes_workflow.sql in Supabase."
+        );
+      } else {
+        setToast("Unable to load escrow orders.");
+      }
       setOrdersLoading(false);
       return;
     }
@@ -137,6 +178,21 @@ export default function AdminDashboardPage() {
         buyer_confirmation: (row as any).buyer_confirmation ?? false,
         buyer_receipt_url: (row as any).buyer_receipt_url ?? null,
         seller_shipping_proof: (row as any).seller_shipping_proof ?? null,
+        dispute: (() => {
+          const raw = (row as any).marketplace_disputes;
+          if (!raw) return null;
+          const payload = Array.isArray(raw) ? raw[0] : raw;
+          return payload
+            ? {
+                id: payload.id,
+                reason: payload.reason ?? null,
+                status: payload.status ?? null,
+                resolution_action: payload.resolution_action ?? null,
+                resolution_note: payload.resolution_note ?? null,
+                updated_at: payload.updated_at ?? null,
+              }
+            : null;
+        })(),
         created_at: row.created_at,
         item: (row as any).marketplace_items ?? null,
       }))
@@ -148,9 +204,39 @@ export default function AdminDashboardPage() {
     async (orderId: string) => {
       if (!supabase || !isAdmin) return;
       setActionLoading(orderId);
-      const { error } = await supabase.from("marketplace_orders").update({ escrow_status: "funds_held" }).eq("id", orderId);
-      setActionLoading(null);
-      if (error) { setToast("Unable to verify receipt."); return; }
+      const result = await GD_runEscrowRpc<{ ok: boolean }>(
+        supabase,
+        "marketplace_admin_set_escrow",
+        { p_order_id: orderId, p_action: "verify_funds", p_note: null },
+        "Escrow verification timed out. Please try again."
+      );
+      if (result.error) {
+        if (GD_isMissingRpcError(result.error)) {
+          const fallback = await supabase
+            .from("marketplace_orders")
+            .update({ escrow_status: "funds_held", status: "processing" })
+            .eq("id", orderId);
+          setActionLoading(null);
+          if (fallback.error) {
+            setToast("Unable to verify receipt.");
+            return;
+          }
+        } else if (
+          result.error.toLowerCase().includes("marketplace_admin_set_escrow")
+        ) {
+          setActionLoading(null);
+          setToast(
+            "Escrow RPC missing. Run migration 20260219113000_marketplace_disputes_workflow.sql in Supabase."
+          );
+          return;
+        } else {
+          setActionLoading(null);
+          setToast(result.error);
+          return;
+        }
+      } else {
+        setActionLoading(null);
+      }
       setToast("Receipt verified. Funds held in escrow.");
       fetchOrders();
     },
@@ -161,10 +247,111 @@ export default function AdminDashboardPage() {
     async (orderId: string) => {
       if (!supabase || !isAdmin) return;
       setActionLoading(orderId);
-      const { error } = await supabase.from("marketplace_orders").update({ escrow_status: "released_to_seller" }).eq("id", orderId);
-      setActionLoading(null);
-      if (error) { setToast("Unable to release funds."); return; }
+      const note = window.prompt(
+        "Optional resolution note for release (shown in dispute log):",
+        ""
+      );
+      if (note === null) {
+        setActionLoading(null);
+        return;
+      }
+      const result = await GD_runEscrowRpc<{ ok: boolean }>(
+        supabase,
+        "marketplace_admin_set_escrow",
+        {
+          p_order_id: orderId,
+          p_action: "release_to_seller",
+          p_note: note.trim() || null,
+        },
+        "Fund release timed out. Please try again."
+      );
+
+      if (result.error) {
+        if (GD_isMissingRpcError(result.error)) {
+          const fallback = await supabase
+            .from("marketplace_orders")
+            .update({ escrow_status: "released_to_seller", status: "delivered" })
+            .eq("id", orderId);
+          setActionLoading(null);
+          if (fallback.error) {
+            setToast("Unable to release funds.");
+            return;
+          }
+        } else if (
+          result.error.toLowerCase().includes("marketplace_admin_set_escrow")
+        ) {
+          setActionLoading(null);
+          setToast(
+            "Escrow RPC missing. Run migration 20260219113000_marketplace_disputes_workflow.sql in Supabase."
+          );
+          return;
+        } else {
+          setActionLoading(null);
+          setToast(result.error);
+          return;
+        }
+      } else {
+        setActionLoading(null);
+      }
       setToast("Funds released to seller.");
+      fetchOrders();
+    },
+    [supabase, isAdmin, fetchOrders]
+  );
+
+  const handleRefundBuyer = useCallback(
+    async (orderId: string) => {
+      if (!supabase || !isAdmin) return;
+      setActionLoading(orderId);
+      const note = window.prompt(
+        "Reason for refund (saved in dispute log):",
+        "Refund approved by admin."
+      );
+      if (note === null) {
+        setActionLoading(null);
+        return;
+      }
+
+      const result = await GD_runEscrowRpc<{ ok: boolean }>(
+        supabase,
+        "marketplace_admin_set_escrow",
+        {
+          p_order_id: orderId,
+          p_action: "refund_buyer",
+          p_note: note.trim() || "Refund approved by admin.",
+        },
+        "Refund action timed out. Please try again."
+      );
+
+      if (result.error) {
+        if (GD_isMissingRpcError(result.error)) {
+          const fallback = await supabase
+            .from("marketplace_orders")
+            .update({ escrow_status: "refunded_to_buyer", status: "refunded" })
+            .eq("id", orderId);
+          setActionLoading(null);
+          if (fallback.error) {
+            setToast("Unable to refund buyer.");
+            return;
+          }
+        } else if (
+          result.error.toLowerCase().includes("marketplace_admin_set_escrow")
+        ) {
+          setActionLoading(null);
+          setToast(
+            "Escrow RPC missing. Run migration 20260219113000_marketplace_disputes_workflow.sql in Supabase."
+          );
+          return;
+        } else {
+          setActionLoading(null);
+          setToast(result.error);
+          return;
+        }
+      } else {
+        setActionLoading(null);
+      }
+
+      setToast("Buyer refunded and dispute resolved.");
       fetchOrders();
     },
     [supabase, isAdmin, fetchOrders]
@@ -333,12 +520,12 @@ export default function AdminDashboardPage() {
   /* ─── auth guards ─────────────────────────────────────────── */
   if (!user) {
     return (
-      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
         </div>
-        <div className="relative z-10 mx-auto max-w-3xl px-6 py-16">
+        <div className="gd-mp-container relative z-10 mx-auto max-w-3xl px-6 py-16">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
             Please sign in to access the admin dashboard.
           </div>
@@ -349,12 +536,12 @@ export default function AdminDashboardPage() {
 
   if (!isAdmin) {
     return (
-      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
         </div>
-        <div className="relative z-10 mx-auto max-w-3xl px-6 py-16">
+        <div className="gd-mp-container relative z-10 mx-auto max-w-3xl px-6 py-16">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
             Admin access required. Contact the site administrator.
           </div>
@@ -372,14 +559,14 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
+      <div className="gd-mp-container relative z-10 mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
         {/* Header */}
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-white/10 bg-white/5 p-5 shadow-[0_18px_45px_rgba(0,0,0,0.35)]">
           <div>
@@ -535,6 +722,7 @@ export default function AdminDashboardPage() {
               <div className="grid gap-4">
                 {orders.map((order) => {
                   const es = (order.escrow_status ?? "pending_receipt").toLowerCase();
+                  const refunded = es === "refunded_to_buyer";
                   return (
                     <div key={order.id} className="rounded-3xl border border-white/10 bg-white/5 p-5 transition hover:border-emerald-200/30">
                       <div className="flex flex-wrap items-start gap-4">
@@ -553,7 +741,22 @@ export default function AdminDashboardPage() {
                               <span className="inline-flex items-center gap-1"><MapPin className="h-3 w-3 text-emerald-200" />{GD_formatWilayaLabel(order.item.wilaya)}</span>
                             )}
                             <StatusBadge status={es} />
+                            {refunded && (
+                              <span className="rounded-full border border-sky-200/40 bg-sky-200/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-sky-100">
+                                Buyer refunded
+                              </span>
+                            )}
                           </div>
+                          {order.dispute?.reason && (
+                            <div className="text-[11px] text-amber-100/90">
+                              Dispute reason: {order.dispute.reason}
+                            </div>
+                          )}
+                          {order.dispute?.resolution_note && (
+                            <div className="text-[11px] text-white/55">
+                              Resolution: {order.dispute.resolution_note}
+                            </div>
+                          )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           {order.buyer_receipt_url && (
@@ -566,15 +769,26 @@ export default function AdminDashboardPage() {
                               <Truck className="h-3.5 w-3.5" /> Shipping
                             </a>
                           )}
+                          <Link
+                            href={`/market-place/orders/${order.id}/receipt`}
+                            className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] text-white/70 transition hover:border-emerald-300/40"
+                          >
+                            <FileCheck className="h-3.5 w-3.5" /> Receipt PDF
+                          </Link>
                           {es === "pending_receipt" && (
                             <button type="button" onClick={() => handleVerifyFunds(order.id)} disabled={actionLoading === order.id || !order.buyer_receipt_url} className="rounded-full bg-emerald-400 px-3 py-1.5 text-[11px] font-semibold text-emerald-950 transition hover:brightness-110 disabled:opacity-60">
                               {actionLoading === order.id ? "..." : "Verify Funds"}
                             </button>
                           )}
                           {(es === "funds_held" || es === "disputed") && (
-                            <button type="button" onClick={() => handleReleaseToSeller(order.id)} disabled={actionLoading === order.id} className="rounded-full border border-emerald-200/40 bg-emerald-200/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-200/20 disabled:opacity-60">
-                              {actionLoading === order.id ? "..." : "Release"}
-                            </button>
+                            <>
+                              <button type="button" onClick={() => handleReleaseToSeller(order.id)} disabled={actionLoading === order.id} className="rounded-full border border-emerald-200/40 bg-emerald-200/10 px-3 py-1.5 text-[11px] font-semibold text-emerald-100 transition hover:bg-emerald-200/20 disabled:opacity-60">
+                                {actionLoading === order.id ? "..." : "Release"}
+                              </button>
+                              <button type="button" onClick={() => handleRefundBuyer(order.id)} disabled={actionLoading === order.id} className="rounded-full border border-sky-200/40 bg-sky-200/10 px-3 py-1.5 text-[11px] font-semibold text-sky-100 transition hover:bg-sky-200/20 disabled:opacity-60">
+                                {actionLoading === order.id ? "..." : "Refund"}
+                              </button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -785,6 +999,7 @@ function StatusBadge({ status }: { status: string }) {
   if (s === "approved" || s === "released_to_seller" || s === "funds_held") color = "border-emerald-200/40 bg-emerald-200/10 text-emerald-200";
   if (s === "pending" || s === "pending_receipt") color = "border-amber-300/40 bg-amber-200/10 text-amber-200";
   if (s === "rejected" || s === "disputed") color = "border-red-300/40 bg-red-200/10 text-red-300";
+  if (s === "refunded_to_buyer" || s === "refunded") color = "border-sky-200/40 bg-sky-200/10 text-sky-100";
   return (
     <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.15em] font-semibold ${color}`}>
       {status.replace(/_/g, " ")}

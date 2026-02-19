@@ -13,9 +13,11 @@ import {
   Zap,
 } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
+import { GD_findOrCreateMarketplaceDirectConversation } from "@/lib/marketplace/messages/direct-conversation";
 
 type ProductRecord = {
   id: string;
+  seller_id?: string | null;
   title?: string | null;
   name?: string | null;
   description?: string | null;
@@ -26,6 +28,49 @@ type ProductRecord = {
   image_url?: string | null;
   wilaya?: string | null;
   stock_quantity?: number | null;
+  seller_profile?: MarketplaceSellerProfile | null;
+};
+
+type MarketplaceSellerProfile = {
+  id: string;
+  username: string | null;
+  store_name: string | null;
+  avatar_url: string | null;
+  location: string | null;
+};
+
+const GD_first = <T,>(value: T | T[] | null | undefined): T | null =>
+  Array.isArray(value) ? value[0] ?? null : value ?? null;
+
+const GD_normalizeSellerProfile = (
+  value: MarketplaceSellerProfile | MarketplaceSellerProfile[] | null | undefined
+): MarketplaceSellerProfile | null => {
+  const raw = GD_first(value);
+  if (!raw) return null;
+  return {
+    id: raw.id,
+    username: raw.username ?? null,
+    store_name: raw.store_name ?? null,
+    avatar_url: raw.avatar_url ?? null,
+    location: raw.location ?? null,
+  };
+};
+
+const GD_sellerDisplayName = (profile?: MarketplaceSellerProfile | null) => {
+  if (!profile) return "Marketplace Seller";
+  if (profile.store_name && profile.store_name.trim().length > 0) {
+    return profile.store_name;
+  }
+  if (profile.username && profile.username.trim().length > 0) {
+    return profile.username;
+  }
+  return "Marketplace Seller";
+};
+
+const GD_sellerInitials = (profile?: MarketplaceSellerProfile | null) => {
+  const name = GD_sellerDisplayName(profile).trim();
+  if (!name) return "MS";
+  return name.slice(0, 2).toUpperCase();
 };
 
 const GD_PLACEHOLDER_COPY =
@@ -51,6 +96,7 @@ export default function ProductDetailsPage() {
   const [error, setError] = useState<string | null>(null);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [buyerFirstName, setBuyerFirstName] = useState("");
   const [buyerLastName, setBuyerLastName] = useState("");
@@ -73,11 +119,16 @@ export default function ProductDetailsPage() {
     let active = true;
 
     const fetchFromTable = async (table: string) => {
-      const { data, error: tableError } = await supabase
-        .from(table)
-        .select("*")
-        .eq("id", productId)
-        .maybeSingle();
+      const query =
+        table === "marketplace_items"
+          ? supabase
+              .from(table)
+              .select(
+                "id, seller_id, title, name, description, price_dzd, category, plant_type, urgency, image_url, wilaya, stock_quantity, marketplace_profiles:seller_id ( id, username, store_name, avatar_url, location )"
+              )
+          : supabase.from(table).select("*");
+
+      const { data, error: tableError } = await query.eq("id", productId).maybeSingle();
       return { data: data as ProductRecord | null, error: tableError };
     };
 
@@ -107,8 +158,28 @@ export default function ProductDetailsPage() {
       }
 
       const image_url = resolveImageUrl(resolved.image_url ?? null);
+      const sellerProfile =
+        resolvedTable === "marketplace_items"
+          ? GD_normalizeSellerProfile(
+              (resolved as any).marketplace_profiles as
+                | MarketplaceSellerProfile
+                | MarketplaceSellerProfile[]
+                | null
+                | undefined
+            )
+          : null;
+      const sellerAvatar = resolveImageUrl(sellerProfile?.avatar_url ?? null);
       if (!active) return;
-      setProduct({ ...resolved, image_url });
+      setProduct({
+        ...resolved,
+        image_url,
+        seller_profile: sellerProfile
+          ? {
+              ...sellerProfile,
+              avatar_url: sellerAvatar,
+            }
+          : null,
+      });
       setSourceTable(resolvedTable);
       setLoading(false);
     };
@@ -170,6 +241,15 @@ export default function ProductDetailsPage() {
   }, [derived?.urgency]);
 
   const stockCount = product?.stock_quantity ?? null;
+  const sellerProfile = product?.seller_profile ?? null;
+  const sellerName = useMemo(
+    () => GD_sellerDisplayName(sellerProfile),
+    [sellerProfile]
+  );
+  const sellerProfileHref = useMemo(() => {
+    if (!product?.seller_id) return null;
+    return `/market-place/profile/${product.seller_id}`;
+  }, [product?.seller_id]);
   const isOutOfStock =
     typeof stockCount === "number" ? stockCount <= 0 : false;
   const deliveryFee = 50;
@@ -275,7 +355,9 @@ export default function ProductDetailsPage() {
       return;
     }
 
-    setToast("Order placed. Pay on delivery selected.");
+    setToast(
+      "Order placed. Upload payment receipt in Orders for admin verification."
+    );
     setCheckoutOpen(false);
     setPlacingOrder(false);
     router.push("/market-place/orders");
@@ -295,6 +377,55 @@ export default function ProductDetailsPage() {
     router,
   ]);
 
+  const handleMessageSeller = useCallback(async () => {
+    if (!supabase || !user) {
+      setToast("Please sign in to message the seller.");
+      return;
+    }
+
+    if (sourceTable !== "marketplace_items") {
+      setToast("Seller chat is unavailable for this listing.");
+      return;
+    }
+
+    const sellerId = product?.seller_id ?? null;
+    if (!sellerId) {
+      setToast("Seller chat is unavailable for this listing.");
+      return;
+    }
+
+    setOpeningChat(true);
+    const result = await GD_findOrCreateMarketplaceDirectConversation(
+      supabase,
+      user.id,
+      sellerId,
+      {
+        itemId: product?.id ?? null,
+        itemTitle: derived?.title ?? null,
+        itemImageUrl: derived?.imageUrl ?? null,
+        itemPriceDzd: derived?.priceValue ?? null,
+      }
+    );
+    setOpeningChat(false);
+
+    if (!result.conversationId) {
+      setToast(result.error ?? "Unable to open chat right now.");
+      return;
+    }
+
+    router.push(`/market-place/messages/${result.conversationId}`);
+  }, [
+    supabase,
+    user,
+    sourceTable,
+    product?.seller_id,
+    product?.id,
+    derived?.title,
+    derived?.imageUrl,
+    derived?.priceValue,
+    router,
+  ]);
+
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 2600);
@@ -302,11 +433,11 @@ export default function ProductDetailsPage() {
   }, [toast]);
 
   return (
-    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(45,212,191,0.18),_transparent_55%),radial-gradient(circle_at_bottom,_rgba(16,185,129,0.2),_transparent_60%)]" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-emerald-400/70 to-transparent" />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-16 pt-10">
+      <div className="gd-mp-container relative z-10 mx-auto flex w-full max-w-5xl flex-col gap-6 px-6 pb-16 pt-10">
         <Link
           href="/market-place"
           className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-emerald-200/80 transition hover:text-emerald-100"
@@ -394,6 +525,45 @@ export default function ProductDetailsPage() {
                   </p>
                 </div>
 
+                {sourceTable === "marketplace_items" && sellerProfileHref && (
+                  <div className="rounded-2xl border border-emerald-300/25 bg-emerald-300/10 p-4">
+                    <button
+                      type="button"
+                      onClick={() => router.push(sellerProfileHref)}
+                      className="inline-flex min-w-0 items-center gap-3 text-left"
+                    >
+                      <span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border border-emerald-200/60 bg-white text-sm font-semibold text-emerald-700">
+                        {sellerProfile?.avatar_url ? (
+                          <img
+                            src={sellerProfile.avatar_url}
+                            alt={sellerName}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          GD_sellerInitials(sellerProfile)
+                        )}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs uppercase tracking-[0.2em] text-emerald-200/80">
+                          Sold by
+                        </span>
+                        <span className="block truncate text-sm font-semibold text-emerald-100">
+                          {sellerName}
+                        </span>
+                        {sellerProfile?.location && (
+                          <span className="mt-0.5 inline-flex items-center gap-1 text-xs text-emerald-100/80">
+                            <MapPin className="h-3 w-3" />
+                            {sellerProfile.location}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    <p className="mt-3 text-xs text-emerald-100/80">
+                      Visit the seller store to review all listings, ratings, and profile details.
+                    </p>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap items-center gap-4">
                   <div className="rounded-2xl border border-emerald-300/30 bg-emerald-300/10 px-4 py-3">
                     <div className="text-[10px] uppercase tracking-[0.3em] text-emerald-200/80">
@@ -418,10 +588,21 @@ export default function ProductDetailsPage() {
                   </button>
                   <button
                     type="button"
+                    onClick={handleMessageSeller}
+                    disabled={openingChat}
                     className="rounded-full border border-white/10 bg-white/5 px-6 py-2 text-sm font-semibold text-white/70 transition hover:border-emerald-300/40 hover:text-white"
                   >
-                    Message seller
+                    {openingChat ? "Opening chat..." : "Message seller"}
                   </button>
+                  {sellerProfileHref && (
+                    <button
+                      type="button"
+                      onClick={() => router.push(sellerProfileHref)}
+                      className="rounded-full border border-emerald-300/30 bg-emerald-300/10 px-6 py-2 text-sm font-semibold text-emerald-100 transition hover:border-emerald-200/60"
+                    >
+                      View seller store
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -477,7 +658,7 @@ export default function ProductDetailsPage() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-emerald-950/70">Delivery</span>
-                    <span className="font-semibold">Pay on delivery</span>
+                    <span className="font-semibold">Receipt required</span>
                   </div>
                 </div>
 
@@ -496,8 +677,8 @@ export default function ProductDetailsPage() {
                     GreenDuty protection
                   </div>
                   <p className="mt-2">
-                    Pay on delivery available. You only pay when the item
-                    arrives at your door.
+                    After placing your order, upload your payment receipt in
+                    Orders. Admin verifies payment before seller ships.
                   </p>
                 </div>
               </div>
@@ -509,10 +690,11 @@ export default function ProductDetailsPage() {
                       Payment method
                     </div>
                     <h2 className="mt-2 text-xl font-semibold text-slate-900">
-                      Pay on delivery
+                      Manual payment receipt
                     </h2>
                     <p className="mt-1 text-xs text-slate-500">
-                      No card required. Pay when the item arrives.
+                      Pay externally, then upload a payment receipt for escrow
+                      review.
                     </p>
                   </div>
                 </div>
@@ -520,7 +702,7 @@ export default function ProductDetailsPage() {
                 <div className="mt-4 space-y-4">
                   <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
                     <Truck className="h-4 w-4" />
-                    Pay on delivery
+                    Upload receipt after order
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -577,8 +759,8 @@ export default function ProductDetailsPage() {
                   </div>
 
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-                    Pay in cash when the item is delivered. Delivery fee is{" "}
-                    {deliveryFee} DZD.
+                    Payment receipt is uploaded from your Orders page after this
+                    order is placed. Delivery fee is {deliveryFee} DZD.
                   </div>
 
                   <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">

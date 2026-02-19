@@ -344,10 +344,39 @@ export function MarketplaceAuthProvider({
   );
 
   const signOut = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    if (!supabase) {
+      setUser(null);
+      setProfile(null);
+      return;
+    }
+
+    try {
+      const globalResult = await Promise.race([
+        supabase.auth.signOut({ scope: "global" }),
+        new Promise<{ error: { message: string } }>((resolve) =>
+          setTimeout(
+            () => resolve({ error: { message: "Sign out request timed out." } }),
+            4500
+          )
+        ),
+      ]);
+
+      if (globalResult?.error) {
+        const localResult = await supabase.auth.signOut({ scope: "local" });
+        if (localResult.error) {
+          console.warn(
+            "[Marketplace] Sign out fallback failed:",
+            localResult.error.message
+          );
+        }
+      }
+    } catch (error) {
+      console.warn("[Marketplace] Sign out threw an error:", error);
+      await supabase.auth.signOut({ scope: "local" });
+    } finally {
+      setUser(null);
+      setProfile(null);
+    }
   }, [supabase]);
 
   const updateProfile = useCallback(

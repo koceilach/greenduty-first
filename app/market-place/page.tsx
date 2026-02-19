@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as Select from "@radix-ui/react-select";
@@ -119,40 +119,40 @@ const GD_CATEGORY_CARDS = [
   {
     title: "Vegetables",
     description: "Tomato, pepper, cucumber and more.",
-    count: "156 items",
     icon: Leaf,
+    matchers: ["vegetable", "tomato", "pepper", "cucumber", "lettuce", "carrot"],
   },
   {
     title: "Fruits",
     description: "Berries, citrus, melons and orchard seeds.",
-    count: "84 items",
     icon: Sparkles,
+    matchers: ["fruit", "citrus", "berry", "melon", "grape", "apple"],
   },
   {
     title: "Grains & Cereals",
     description: "Wheat, barley, corn and pulses.",
-    count: "61 items",
     icon: Sprout,
+    matchers: ["grain", "cereal", "wheat", "barley", "corn", "rice"],
   },
   {
     title: "Herbs & Spices",
     description: "Basil, mint, thyme, coriander.",
-    count: "94 items",
     icon: NotebookPen,
+    matchers: ["herb", "spice", "basil", "mint", "thyme", "coriander", "oregano"],
   },
   {
     title: "Legumes",
     description: "Beans, lentils, chickpeas.",
-    count: "43 items",
     icon: ShoppingBag,
+    matchers: ["legume", "bean", "lentil", "chickpea", "pea", "fava"],
   },
   {
     title: "Flowers",
     description: "Ornamental and pollinator-friendly blooms.",
-    count: "78 items",
     icon: Award,
+    matchers: ["flower", "ornamental", "rose", "jasmine", "lavender", "sunflower"],
   },
-];
+] as const;
 
 const GD_WEATHER_FALLBACK = [
   {
@@ -336,6 +336,12 @@ const GD_CARD_BASE =
   "rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_30px_rgba(0,0,0,0.25)]";
 const GD_WEATHER_REFRESH_MS = 5 * 60 * 1000;
 const GD_SPOTLIGHT_LIMIT = 6;
+const GD_PUBLISH_TIMEOUT_MS = 12000;
+const GD_PUBLISH_WATCHDOG_MS = 18000;
+const GD_BOTTOM_NAV_ITEM =
+  "gd-bottom-nav-item group flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-1.5 text-center text-[11px] font-medium text-gray-500 transition-colors duration-200 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 max-[360px]:gap-0.5 max-[360px]:px-1 max-[360px]:text-[9px] sm:text-[12px]";
+const GD_BOTTOM_NAV_ICON =
+  "gd-bottom-nav-icon h-4 w-4 text-gray-500 transition-colors duration-200 max-[360px]:h-3.5 max-[360px]:w-3.5 sm:h-5 sm:w-5";
 
 const GD_COUPON_MAX_DISCOUNT = 50;
 
@@ -345,6 +351,22 @@ const GD_parseCouponDiscount = (code: string) => {
   const value = Number(match[1]);
   if (!Number.isFinite(value) || value <= 0) return 0;
   return Math.min(GD_COUPON_MAX_DISCOUNT, value);
+};
+
+const GD_withTimeout = async <T,>(
+  operation: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string
+): Promise<T> => {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<T>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+  });
+  try {
+    return await Promise.race([operation, timeoutPromise]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 };
 
 type MarketplaceItem = {
@@ -361,6 +383,15 @@ type MarketplaceItem = {
   latitude: number | null;
   longitude: number | null;
   created_at: string;
+  seller_profile?: MarketplaceSellerProfile | null;
+};
+
+type MarketplaceSellerProfile = {
+  id: string;
+  username: string | null;
+  store_name: string | null;
+  avatar_url: string | null;
+  location: string | null;
 };
 
 type GDWeatherData = {
@@ -377,8 +408,134 @@ type GDWeatherData = {
   updatedAt: string;
 };
 
+const GD_LISTING_CATEGORY_MATCHERS: Record<string, string[]> = {
+  Seeds: ["seed", "grain", "cereal", "legume"],
+  Plants: ["plant", "tree", "flower", "herb"],
+  Tools: ["tool", "equipment", "irrigation", "agronomy"],
+  Fertilizers: ["fertilizer", "compost", "manure", "nutrient", "soil"],
+};
+
+const GD_FEATURED_FILTER_MATCHERS: Record<string, string[]> = {
+  Vegetables: ["vegetable", "tomato", "pepper", "cucumber", "lettuce", "carrot"],
+  Fruits: ["fruit", "citrus", "berry", "melon", "grape", "apple"],
+  Herbs: ["herb", "spice", "basil", "mint", "thyme", "coriander"],
+  Grains: ["grain", "cereal", "wheat", "barley", "corn", "rice"],
+  Flowers: ["flower", "ornamental", "rose", "jasmine", "lavender", "sunflower"],
+};
+
+type GDMarketFilterOptions = {
+  selectedWilaya: string;
+  selectedListingCategory: string;
+  activeFeaturedFilter: string;
+  minPrice: string;
+  maxPrice: string;
+};
+
+const GD_itemText = (item: MarketplaceItem) =>
+  `${item.category ?? ""} ${item.plant_type ?? ""} ${item.title ?? ""} ${item.description ?? ""}`.toLowerCase();
+
+const GD_first = <T,>(value: T | T[] | null | undefined): T | null =>
+  Array.isArray(value) ? value[0] ?? null : value ?? null;
+
+const GD_normalizeSellerProfile = (
+  value: MarketplaceSellerProfile | MarketplaceSellerProfile[] | null | undefined
+): MarketplaceSellerProfile | null => {
+  const raw = GD_first(value);
+  if (!raw) return null;
+  return {
+    id: raw.id,
+    username: raw.username ?? null,
+    store_name: raw.store_name ?? null,
+    avatar_url: raw.avatar_url ?? null,
+    location: raw.location ?? null,
+  };
+};
+
+const GD_sellerDisplayName = (profile?: MarketplaceSellerProfile | null) => {
+  if (!profile) return "Marketplace Seller";
+  if (profile.store_name && profile.store_name.trim().length > 0) {
+    return profile.store_name;
+  }
+  if (profile.username && profile.username.trim().length > 0) {
+    return profile.username;
+  }
+  return "Marketplace Seller";
+};
+
+const GD_sellerInitials = (profile?: MarketplaceSellerProfile | null) => {
+  const name = GD_sellerDisplayName(profile).trim();
+  if (!name) return "MS";
+  return name.slice(0, 2).toUpperCase();
+};
+
+const GD_matchesAnyTerm = (text: string, terms: string[]) =>
+  terms.some((term) => text.includes(term));
+
+const GD_filterMarketplaceItems = (
+  items: MarketplaceItem[],
+  options: GDMarketFilterOptions
+) => {
+  const {
+    selectedWilaya,
+    selectedListingCategory,
+    activeFeaturedFilter,
+    minPrice,
+    maxPrice,
+  } = options;
+
+  const minNumeric = Number(minPrice);
+  const maxNumeric = Number(maxPrice);
+  const hasMin = Number.isFinite(minNumeric);
+  const hasMax = Number.isFinite(maxNumeric);
+  const lowerBound =
+    hasMin && hasMax ? Math.min(minNumeric, maxNumeric) : minNumeric;
+  const upperBound =
+    hasMin && hasMax ? Math.max(minNumeric, maxNumeric) : maxNumeric;
+
+  return items.filter((item) => {
+    const text = GD_itemText(item);
+
+    if (selectedWilaya !== "All Wilayas") {
+      const wilaya = item.wilaya ?? "";
+      if (wilaya !== selectedWilaya && wilaya !== "All Wilayas") {
+        return false;
+      }
+    }
+
+    if (selectedListingCategory !== "All Categories") {
+      const categoryTerms =
+        GD_LISTING_CATEGORY_MATCHERS[selectedListingCategory] ?? [
+          selectedListingCategory.toLowerCase(),
+        ];
+      if (!GD_matchesAnyTerm(text, categoryTerms)) {
+        return false;
+      }
+    }
+
+    if (activeFeaturedFilter !== "All") {
+      const featuredTerms =
+        GD_FEATURED_FILTER_MATCHERS[activeFeaturedFilter] ?? [
+          activeFeaturedFilter.toLowerCase(),
+        ];
+      if (!GD_matchesAnyTerm(text, featuredTerms)) {
+        return false;
+      }
+    }
+
+    const price = Number(item.price_dzd);
+    if (hasMin && Number.isFinite(price) && price < lowerBound) {
+      return false;
+    }
+    if (hasMax && Number.isFinite(price) && price > upperBound) {
+      return false;
+    }
+
+    return true;
+  });
+};
+
 export default function MarketPlacePage() {
-  const { supabase, user, profile, refreshProfile, signOut } = useMarketplaceAuth();
+  const { supabase, user, profile, loading: authLoading, signOut } = useMarketplaceAuth();
   const router = useRouter();
   const [activeAiFilter, setActiveAiFilter] = useState("All");
   const [activeFeaturedFilter, setActiveFeaturedFilter] = useState("All");
@@ -400,7 +557,9 @@ export default function MarketPlacePage() {
   const [marketItems, setMarketItems] = useState<MarketplaceItem[]>([]);
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState<string | null>(null);
+  const marketLoadRequestRef = useRef(0);
   const [toast, setToast] = useState<string | null>(null);
+  const [signOutPending, setSignOutPending] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [productSubmitting, setProductSubmitting] = useState(false);
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
@@ -423,6 +582,7 @@ export default function MarketPlacePage() {
     profile?.role === "seller" ? "seller" : "buyer"
   );
   const isSeller = marketMode === "seller";
+  const canSwitchModes = profile?.role === "seller" || profile?.role === "admin";
 
   const filteredWilayas = useMemo(() => {
     const query = wilayaQuery.trim().toLowerCase();
@@ -454,9 +614,26 @@ export default function MarketPlacePage() {
     setMarketMode(profile.role === "seller" ? "seller" : "buyer");
   }, [user, profile?.role]);
 
+  const filteredMarketItems = useMemo(() => {
+    return GD_filterMarketplaceItems(marketItems, {
+      selectedWilaya,
+      selectedListingCategory,
+      activeFeaturedFilter,
+      minPrice,
+      maxPrice,
+    });
+  }, [
+    marketItems,
+    selectedWilaya,
+    selectedListingCategory,
+    activeFeaturedFilter,
+    minPrice,
+    maxPrice,
+  ]);
+
   const aiRecommendationsSource = useMemo(() => {
-    if (!supabase || marketItems.length === 0) return [];
-    const priceValues = marketItems
+    if (!supabase || filteredMarketItems.length === 0) return [];
+    const priceValues = filteredMarketItems
       .map((item) => item.price_dzd)
       .filter((value): value is number => typeof value === "number")
       .sort((a, b) => a - b);
@@ -465,7 +642,7 @@ export default function MarketPlacePage() {
         ? priceValues[Math.floor(priceValues.length / 2)]
         : null;
 
-    return marketItems.map((item) => {
+    return filteredMarketItems.map((item) => {
       const seed = `${item.id ?? ""}${item.title ?? ""}`;
       let hash = 0;
       for (let i = 0; i < seed.length; i += 1) {
@@ -503,12 +680,15 @@ export default function MarketPlacePage() {
             : "Price on request",
         location: GD_formatWilayaLabel(item.wilaya),
         tag,
+        sellerId: item.seller_id,
+        sellerName: GD_sellerDisplayName(item.seller_profile),
+        sellerAvatar: item.seller_profile?.avatar_url ?? null,
         image:
           item.image_url ??
           "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=900&q=80",
       };
     });
-  }, [supabase, marketItems, selectedWilaya]);
+  }, [supabase, filteredMarketItems, selectedWilaya]);
 
   const filteredAi = useMemo(() => {
     if (activeAiFilter === "All") return aiRecommendationsSource;
@@ -516,53 +696,73 @@ export default function MarketPlacePage() {
   }, [activeAiFilter, aiRecommendationsSource]);
 
   const loadMarketplaceItems = useCallback(async () => {
-    if (!supabase) return;
-    setMarketLoading(true);
-    setMarketError(null);
-
-    let query = supabase
-      .from("marketplace_items")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (searchValue.trim()) {
-      query = query.ilike("title", `%${searchValue.trim()}%`);
-    }
-    if (selectedWilaya !== "All Wilayas") {
-      query = query.in("wilaya", [selectedWilaya, "All Wilayas"]);
-    }
-    if (selectedListingCategory !== "All Categories") {
-      query = query.eq("category", selectedListingCategory);
-    }
-    if (activeFeaturedFilter !== "All") {
-      query = query.eq("plant_type", activeFeaturedFilter);
-    }
-    const min = Number(minPrice);
-    const max = Number(maxPrice);
-    if (Number.isFinite(min)) {
-      query = query.gte("price_dzd", min);
-    }
-    if (Number.isFinite(max)) {
-      query = query.lte("price_dzd", max);
-    }
-
-    const { data, error } = await query;
-    if (error) {
-      setMarketError("Unable to load marketplace items.");
+    if (!supabase) {
       setMarketLoading(false);
       return;
     }
-    setMarketItems((data ?? []) as MarketplaceItem[]);
-    setMarketLoading(false);
-  }, [
-    supabase,
-    searchValue,
-    selectedWilaya,
-    selectedListingCategory,
-    activeFeaturedFilter,
-    minPrice,
-    maxPrice,
-  ]);
+    const requestId = marketLoadRequestRef.current + 1;
+    marketLoadRequestRef.current = requestId;
+
+    setMarketLoading(true);
+    setMarketError(null);
+
+    try {
+      let query = supabase
+        .from("marketplace_items")
+        .select(
+          "id, seller_id, title, description, price_dzd, image_url, stock_quantity, category, plant_type, wilaya, latitude, longitude, created_at, marketplace_profiles:seller_id ( id, username, store_name, avatar_url, location )"
+        )
+        .order("created_at", { ascending: false });
+
+      const searchQuery = searchValue.trim();
+      if (searchQuery) {
+        query = query.ilike("title", `%${searchQuery}%`);
+      }
+
+      const { data, error } = await query;
+      if (requestId !== marketLoadRequestRef.current) return;
+
+      if (error) {
+        setMarketItems([]);
+        setMarketError("Unable to load marketplace items.");
+        return;
+      }
+
+      const normalized =
+        ((data ?? []) as any[]).map((row) => ({
+          id: row.id,
+          seller_id: row.seller_id,
+          title: row.title,
+          description: row.description ?? null,
+          price_dzd: row.price_dzd,
+          image_url: row.image_url ?? null,
+          stock_quantity: row.stock_quantity,
+          category: row.category ?? null,
+          plant_type: row.plant_type ?? null,
+          wilaya: row.wilaya ?? null,
+          latitude: row.latitude ?? null,
+          longitude: row.longitude ?? null,
+          created_at: row.created_at,
+          seller_profile: GD_normalizeSellerProfile(
+            row.marketplace_profiles as
+              | MarketplaceSellerProfile
+              | MarketplaceSellerProfile[]
+              | null
+              | undefined
+          ),
+        })) ?? [];
+
+      setMarketItems(normalized as MarketplaceItem[]);
+    } catch (error) {
+      if (requestId !== marketLoadRequestRef.current) return;
+      setMarketItems([]);
+      setMarketError("Unable to load marketplace items.");
+    } finally {
+      if (requestId === marketLoadRequestRef.current) {
+        setMarketLoading(false);
+      }
+    }
+  }, [supabase, searchValue]);
 
   useEffect(() => {
     loadMarketplaceItems();
@@ -570,7 +770,6 @@ export default function MarketPlacePage() {
 
   useEffect(() => {
     let active = true;
-    let controller = new AbortController();
     const coords =
       GD_WILAYA_COORDINATES[selectedWilaya] ??
       GD_WILAYA_COORDINATES["All Wilayas"];
@@ -590,8 +789,7 @@ export default function MarketPlacePage() {
           timezone: "auto",
         });
         const response = await fetch(
-          `https://api.open-meteo.com/v1/forecast?${params.toString()}`,
-          { signal: controller.signal }
+          `https://api.open-meteo.com/v1/forecast?${params.toString()}`
         );
         if (!response.ok) {
           throw new Error("Weather data unavailable.");
@@ -637,7 +835,9 @@ export default function MarketPlacePage() {
         });
       } catch (error) {
         if (!active) return;
-        if ((error as Error)?.name === "AbortError") return;
+        const errorName = (error as Error)?.name ?? "";
+        const errorMessage = (error as Error)?.message?.toLowerCase?.() ?? "";
+        if (errorName === "AbortError" || errorMessage.includes("aborted")) return;
         setWeatherData(null);
         setWeatherError("Unable to load live weather data.");
       } finally {
@@ -647,14 +847,11 @@ export default function MarketPlacePage() {
 
     fetchWeather();
     const interval = setInterval(() => {
-      controller.abort();
-      controller = new AbortController();
       fetchWeather();
     }, GD_WEATHER_REFRESH_MS);
     return () => {
       active = false;
       clearInterval(interval);
-      controller.abort();
     };
   }, [selectedWilaya, forecastDays]);
 
@@ -807,13 +1004,31 @@ export default function MarketPlacePage() {
   );
 
   const handleProfileClick = useCallback(() => {
-    if (!user) {
+    if (authLoading) {
+      setToast("Loading your account...");
+      return;
+    }
+    if (!user?.id) {
       setToast("Please sign in to view your profile.");
       router.push("/market-place/login");
       return;
     }
-    router.push(`/market-place/profile/${user.id}`);
-  }, [router, user]);
+    router.push("/market-place/profile");
+  }, [authLoading, router, user?.id]);
+
+  const handleLogout = useCallback(async () => {
+    if (signOutPending) return;
+    setSignOutPending(true);
+    try {
+      await signOut();
+    } catch (error) {
+      console.warn("[Marketplace] Logout action failed:", error);
+    } finally {
+      router.replace("/market-place/login");
+      router.refresh();
+      setSignOutPending(false);
+    }
+  }, [signOutPending, signOut, router]);
 
   const handleSwitchRole = useCallback(
     async (role: "buyer" | "seller") => {
@@ -863,16 +1078,17 @@ export default function MarketPlacePage() {
     []
   );
 
-  const uploadProductImage = useCallback(async () => {
-    if (!supabase || !user || !productImageFile) return null;
-    const extension = productImageFile.name.split(".").pop() ?? "jpg";
+  const uploadProductImage = useCallback(async (file?: File | null) => {
+    const targetFile = file ?? productImageFile;
+    if (!supabase || !user || !targetFile) return null;
+    const extension = targetFile.name.split(".").pop() ?? "jpg";
     const filePath = `marketplace/${user.id}/${Date.now()}-${Math.random()
       .toString(36)
       .slice(2)}.${extension}`;
     const { error } = await supabase.storage
       .from("avatars")
-      .upload(filePath, productImageFile, {
-        contentType: productImageFile.type || "image/jpeg",
+      .upload(filePath, targetFile, {
+        contentType: targetFile.type || "image/jpeg",
         upsert: true,
       });
     if (error) {
@@ -901,6 +1117,7 @@ export default function MarketPlacePage() {
   }, []);
 
   const handleCreateProduct = useCallback(async () => {
+    if (productSubmitting) return;
     if (!supabase) {
       setToast("Supabase is not configured.");
       return;
@@ -927,69 +1144,118 @@ export default function MarketPlacePage() {
     }
 
     setProductSubmitting(true);
-    const imageUrl = await uploadProductImage();
-    const stockValue = Number(productForm.stock);
-    const coords =
-      GD_WILAYA_COORDINATES[productForm.wilaya] ??
-      GD_WILAYA_COORDINATES["All Wilayas"];
-    const extraDetails: string[] = [];
-    if (productForm.color.trim()) {
-      extraDetails.push(`Color: ${productForm.color.trim()}`);
-    }
-    if (productForm.size.trim()) {
-      extraDetails.push(`Size: ${productForm.size.trim()}`);
-    }
-    const fullDescription =
-      extraDetails.length > 0
-        ? `${productForm.description.trim()}\n\nDetails: ${extraDetails.join(
-            " | "
-          )}`
-        : productForm.description.trim();
-
-    const payload = {
-      seller_id: user.id,
-      title: productForm.title.trim(),
-      description: fullDescription,
-      price_dzd: Number(discountedPriceValue.toFixed(2)),
-      image_url: imageUrl,
-      stock_quantity: Number.isFinite(stockValue) ? stockValue : 0,
-      category: productForm.category,
-      plant_type: productForm.plantType,
-      wilaya: productForm.wilaya,
-      latitude: coords.lat,
-      longitude: coords.lon,
-    };
-
-    const attemptInsert = async () =>
-      supabase.from("marketplace_items").insert([payload]);
-
-    let result = await attemptInsert();
-
-    if (result.error) {
-      if (/row level|permission|policy/i.test(result.error.message || "")) {
-        setToast("You need to be an approved seller to list products.");
-      } else {
-        setToast(`Product creation failed: ${result.error.message}`);
-      }
+    const imageFileSnapshot = productImageFile;
+    const watchdog = setTimeout(() => {
       setProductSubmitting(false);
-      return;
-    }
+      setToast("Publishing is taking too long. Please retry.");
+    }, GD_PUBLISH_WATCHDOG_MS);
+    try {
+      const stockValue = Number(productForm.stock);
+      const coords =
+        GD_WILAYA_COORDINATES[productForm.wilaya] ??
+        GD_WILAYA_COORDINATES["All Wilayas"];
+      const extraDetails: string[] = [];
+      if (productForm.color.trim()) {
+        extraDetails.push(`Color: ${productForm.color.trim()}`);
+      }
+      if (productForm.size.trim()) {
+        extraDetails.push(`Size: ${productForm.size.trim()}`);
+      }
+      const fullDescription =
+        extraDetails.length > 0
+          ? `${productForm.description.trim()}\n\nDetails: ${extraDetails.join(
+              " | "
+            )}`
+          : productForm.description.trim();
 
-    setToast("Product listed successfully.");
-    resetProductForm();
-    setProductModalOpen(false);
-    loadMarketplaceItems();
-    setProductSubmitting(false);
+      const payload = {
+        seller_id: user.id,
+        title: productForm.title.trim(),
+        description: fullDescription,
+        price_dzd: Number(discountedPriceValue.toFixed(2)),
+        image_url: null,
+        stock_quantity: Number.isFinite(stockValue) ? stockValue : 0,
+        category: productForm.category,
+        plant_type: productForm.plantType,
+        wilaya: productForm.wilaya,
+        latitude: coords.lat,
+        longitude: coords.lon,
+      };
+
+      const result = await GD_withTimeout<{
+        data: { id: string } | null;
+        error: { message?: string } | null;
+      }>(
+        (async () => {
+          const { data, error } = await supabase
+            .from("marketplace_items")
+            .insert([payload])
+            .select("id")
+            .single();
+          return {
+            data: data ? ({ id: String((data as { id?: string }).id ?? "") }) : null,
+            error: error ? { message: error.message } : null,
+          };
+        })(),
+        GD_PUBLISH_TIMEOUT_MS,
+        "Publishing timed out. Please retry."
+      );
+
+      if (result.error) {
+        if (/row level|permission|policy/i.test(result.error.message || "")) {
+          setToast("You need to be an approved seller to list products.");
+        } else {
+          setToast(`Product creation failed: ${result.error.message}`);
+        }
+        return;
+      }
+
+      setToast("Product listed successfully.");
+      const insertedId = result.data?.id ?? null;
+      resetProductForm();
+      setProductModalOpen(false);
+      loadMarketplaceItems();
+
+      if (imageFileSnapshot && insertedId) {
+        void (async () => {
+          try {
+            const imageUrl = await GD_withTimeout(
+              uploadProductImage(imageFileSnapshot),
+              GD_PUBLISH_TIMEOUT_MS,
+              "Image upload timed out after publish."
+            );
+            if (!imageUrl) return;
+            await supabase
+              .from("marketplace_items")
+              .update({ image_url: imageUrl })
+              .eq("id", insertedId)
+              .eq("seller_id", user.id);
+          } catch {
+            setToast("Product saved, but image upload is still pending.");
+          }
+        })();
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Publishing failed. Please try again.";
+      setToast(message);
+    } finally {
+      clearTimeout(watchdog);
+      setProductSubmitting(false);
+    }
   }, [
+    productSubmitting,
     supabase,
     user,
     profile?.role,
     isSeller,
+    productImageFile,
     productForm,
     basePriceValue,
     discountedPriceValue,
     uploadProductImage,
-    refreshProfile,
     resetProductForm,
     loadMarketplaceItems,
   ]);
@@ -998,8 +1264,8 @@ export default function MarketPlacePage() {
 
   const featuredSource = useMemo(() => {
     if (!supabase) return [] as any[];
-    return marketItems;
-  }, [supabase, marketItems]);
+    return filteredMarketItems;
+  }, [supabase, filteredMarketItems]);
 
   const featuredCards = showAllFeatured
     ? featuredSource
@@ -1010,7 +1276,7 @@ export default function MarketPlacePage() {
     const isIn = (value: string | null | undefined, options: string[]) =>
       options.includes(normalize(value));
     const pickItems = (predicate: (item: MarketplaceItem) => boolean) =>
-      marketItems.filter(predicate).slice(0, GD_SPOTLIGHT_LIMIT);
+      filteredMarketItems.filter(predicate).slice(0, GD_SPOTLIGHT_LIMIT);
 
     return [
       {
@@ -1044,23 +1310,43 @@ export default function MarketPlacePage() {
         empty: "No agronomy tools listed yet.",
       },
     ];
-  }, [marketItems]);
+  }, [filteredMarketItems]);
 
   const heroStats = useMemo(() => {
-    if (!supabase || marketItems.length === 0) return GD_HERO_STATS;
-    const total = marketItems.length;
-    const inStock = marketItems.filter((item) => item.stock_quantity > 0).length;
+    if (!supabase || filteredMarketItems.length === 0) return GD_HERO_STATS;
+    const total = filteredMarketItems.length;
+    const inStock = filteredMarketItems.filter((item) => item.stock_quantity > 0).length;
     const wilayas = new Set(
-      marketItems.map((item) => item.wilaya).filter(Boolean)
+      filteredMarketItems.map((item) => item.wilaya).filter(Boolean)
     ).size;
-    const sellers = new Set(marketItems.map((item) => item.seller_id)).size;
+    const sellers = new Set(filteredMarketItems.map((item) => item.seller_id)).size;
     const match = total ? Math.round((inStock / total) * 100) : 0;
     return [
       { label: "AI Match", value: `${match}%`, icon: Sparkles },
       { label: "Wilayas Covered", value: String(wilayas), icon: MapPin },
       { label: "Verified Sellers", value: String(sellers), icon: BadgeCheck },
     ];
-  }, [supabase, marketItems]);
+  }, [supabase, filteredMarketItems]);
+
+  const categoryCards = useMemo(() => {
+    return GD_CATEGORY_CARDS.map((card) => {
+      const count = filteredMarketItems.reduce((total, item) => {
+        const haystack = `${item.plant_type ?? ""} ${item.category ?? ""} ${item.title ?? ""} ${item.description ?? ""}`.toLowerCase();
+        const matches = card.matchers.some((term) => haystack.includes(term));
+        return total + (matches ? 1 : 0);
+      }, 0);
+      return {
+        title: card.title,
+        description: card.description,
+        icon: card.icon,
+        count,
+      };
+    });
+  }, [filteredMarketItems]);
+
+  const categoryMaxCount = useMemo(() => {
+    return Math.max(1, ...categoryCards.map((card) => card.count));
+  }, [categoryCards]);
 
   const fallbackTemperatureSeries = [35, 48, 42, 55, 46, 60, 50];
   const fallbackRainfallSeries = [28, 40, 55, 32, 62, 48, 70];
@@ -1174,15 +1460,22 @@ export default function MarketPlacePage() {
   }, [weatherData?.updatedAt]);
   const donutGradient =
     "conic-gradient(#2dd4bf 0deg 140deg, #22c55e 140deg 220deg, #facc15 220deg 290deg, #38bdf8 290deg 360deg)";
+  const heroMatch = heroStats.find((stat) => stat.label === "AI Match")?.value ?? "89%";
+  const heroCoverage =
+    heroStats.find((stat) => stat.label === "Wilayas Covered")?.value ??
+    String(GD_WILAYAS.length - 1);
+  const heroSellers =
+    heroStats.find((stat) => stat.label === "Verified Sellers")?.value ?? "250+";
+  const heroLocation = GD_formatWilayaLabel(selectedWilaya);
 
   return (
-    <div className="gd-marketplace-page relative min-h-screen bg-[#f7f8fa] text-gray-900">
+    <div className="gd-marketplace-page gd-mp-shell gd-mp-has-bottom-nav relative min-h-screen bg-[#f7f8fa] text-gray-900">
       {/* ── Top accent bar ── */}
       <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400" />
 
       {/* ── Sticky Header / Navbar ── */}
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
-        <div className="mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-3 lg:px-8">
+        <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-3 lg:px-8">
           {/* Brand */}
           <Link href="/market-place" className="flex shrink-0 items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
@@ -1228,44 +1521,47 @@ export default function MarketPlacePage() {
           </div>
 
           {/* Right actions */}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
             {/* Mode pills — seller pill only visible to approved sellers/admins */}
-            <div className="hidden items-center gap-1 rounded-full border border-gray-200 bg-gray-50 p-0.5 md:flex">
-              <button
-                type="button"
-                onClick={() => handleSwitchRole("buyer")}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-                  !isSeller
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                <ShoppingCart className="h-3.5 w-3.5" />
-                Buyer
-              </button>
-              {(profile?.role === "seller" || profile?.role === "admin") && (
-              <button
-                type="button"
-                onClick={() => handleSwitchRole("seller")}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-                  isSeller
-                    ? "bg-emerald-600 text-white shadow-sm"
-                    : "text-gray-500 hover:text-gray-800"
-                }`}
-              >
-                <ShoppingBag className="h-3.5 w-3.5" />
-                Seller
-              </button>
-              )}
-            </div>
+            {canSwitchModes && (
+              <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchRole("buyer")}
+                  className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 ${
+                    !isSeller
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-800"
+                  }`}
+                  title="Switch to buyer mode"
+                >
+                  <ShoppingCart className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Buyer</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchRole("seller")}
+                  className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 ${
+                    isSeller
+                      ? "bg-emerald-600 text-white shadow-sm"
+                      : "text-gray-500 hover:text-gray-800"
+                  }`}
+                  title="Switch to seller mode"
+                >
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Seller</span>
+                </button>
+              </div>
+            )}
 
             {isSeller ? (
               <Link
                 href="/market-place/vendor"
-                className="hidden items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 lg:flex"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-3 lg:py-1.5 lg:text-xs lg:font-semibold"
+                title="Vendor Studio"
               >
-                <ShoppingBag className="h-3.5 w-3.5" />
-                Vendor Studio
+                <ShoppingBag className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
+                <span className="hidden lg:inline">Vendor Studio</span>
               </Link>
             ) : (
               <>
@@ -1315,9 +1611,10 @@ export default function MarketPlacePage() {
             {user && (
               <button
                 type="button"
-                onClick={async () => { await signOut(); router.push("/market-place/login"); }}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-red-300 hover:text-red-500"
-                title="Log out"
+                onClick={handleLogout}
+                disabled={signOutPending}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-red-300 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                title={signOutPending ? "Signing out..." : "Log out"}
               >
                 <LogOut className="h-4 w-4" />
               </button>
@@ -1327,7 +1624,7 @@ export default function MarketPlacePage() {
 
         {/* Category navbar */}
         <div className="border-t border-gray-100 bg-white">
-          <div className="mx-auto flex w-full max-w-7xl items-center gap-1 overflow-x-auto px-4 py-1.5 text-[13px] lg:px-8">
+          <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center gap-1 overflow-x-auto px-4 py-1.5 text-[13px] lg:px-8">
             {GD_NAV_ITEMS.map((item) => (
               <button
                 key={item}
@@ -1360,156 +1657,363 @@ export default function MarketPlacePage() {
         </div>
       </header>
 
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 pb-32 pt-6 lg:px-8">
+      <div className="gd-mp-container mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 pb-32 pt-6 lg:px-8">
         {/* ═══════ HERO BANNER ═══════ */}
-        <section id="marketplace-home" className="grid gap-4 md:grid-cols-[1.6fr_1fr]">
-          {/* Main banner */}
-          <div className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-500 shadow-lg">
+        <section id="marketplace-home" className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
+          <div className="relative overflow-hidden rounded-[30px] border border-emerald-200/70 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-500 p-6 shadow-[0_18px_45px_rgba(16,185,129,0.35)] sm:p-8 lg:min-h-[360px] lg:p-10">
+            <div className="pointer-events-none absolute -left-12 top-12 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
+            <div className="pointer-events-none absolute bottom-0 right-0 h-56 w-56 rounded-full bg-teal-200/25 blur-3xl" />
             <div
-              className="absolute inset-0 scale-105 bg-cover bg-center opacity-20 mix-blend-overlay transition-transform duration-[2s] group-hover:scale-110"
+              className="pointer-events-none absolute inset-0 opacity-[0.14]"
               style={{
                 backgroundImage:
-                  "url(https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=1400&q=80)",
+                  "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.55) 1px, transparent 0)",
+                backgroundSize: "20px 20px",
               }}
             />
-            <div className="relative z-10 flex flex-col justify-center gap-5 p-8 md:p-10 lg:min-h-[320px] lg:p-12">
-              <span className="inline-flex w-max items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
-                <Sparkles className="h-3 w-3" />
-                AI-Powered Marketplace
-              </span>
-              <h1 className="max-w-lg text-3xl font-extrabold leading-tight text-white md:text-4xl lg:text-[2.75rem]">
-                Discover the Perfect Seeds for Your Wilaya
+
+            <div className="relative z-10 flex h-full flex-col">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/35 bg-white/12 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Agronomique AI Store
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-white/25 bg-black/10 px-3 py-1 text-[11px] font-semibold text-white/90 backdrop-blur-sm">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {heroLocation}
+                </span>
+              </div>
+
+              <h1 className="mt-5 max-w-2xl text-3xl font-black leading-tight text-white sm:text-4xl lg:text-[2.95rem]">
+                Grow Healthier Crops With A Marketplace Built For Real Fields
               </h1>
-              <p className="max-w-md text-sm leading-relaxed text-white/80">
-                Smart AI seed matching, trusted sellers, real-time insights, and climate-aware recommendations.
+
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/85 sm:text-[15px]">
+                Handpicked seeds, farming tools, and trusted local sellers in one agronomic storefront. Every listing is tuned with live climate context and practical field needs.
               </p>
-              <div className="flex flex-wrap gap-3">
+
+              <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   type="button"
                   onClick={() => scrollToSection("featured-marketplace")}
-                  className="rounded-full bg-white px-6 py-2.5 text-sm font-bold text-emerald-700 shadow-md transition hover:bg-gray-50 hover:shadow-lg"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-6 py-2.5 text-sm font-bold text-emerald-700 shadow-[0_8px_22px_rgba(0,0,0,0.2)] transition hover:-translate-y-0.5 hover:bg-emerald-50"
                 >
-                  Shop Now
+                  Shop Best Deals
+                  <ArrowUpRight className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
                   onClick={() => scrollToSection("ai-recommendations")}
-                  className="rounded-full border-2 border-white/40 bg-white/10 px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition hover:border-white/70 hover:bg-white/20"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-white/45 bg-white/12 px-6 py-2.5 text-sm font-bold text-white backdrop-blur-sm transition hover:border-white/70 hover:bg-white/20"
                 >
-                  Ask AI
+                  Ask Agronomy AI
+                  <Bot className="h-4 w-4" />
                 </button>
               </div>
-            </div>
-          </div>
 
-          {/* Side promo card */}
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-400 via-orange-400 to-red-400 shadow-lg">
-            <div className="relative z-10 flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
-              <span className="text-5xl font-black text-white md:text-6xl">
-                {heroStats.find(s => s.label === "AI Match")?.value || "89%"}
-              </span>
-              <span className="text-lg font-bold text-white/90">AI Match Rate</span>
-              <div className="flex flex-wrap justify-center gap-3">
+              <div className="mt-6 grid gap-2 sm:grid-cols-3">
                 {heroStats.map((stat) => {
                   const Icon = stat.icon;
                   return (
-                    <div key={stat.label} className="flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
-                      <Icon className="h-3 w-3" />
-                      <span>{stat.value}</span>
-                      <span className="text-white/70">{stat.label}</span>
+                    <div
+                      key={stat.label}
+                      className="rounded-2xl border border-white/25 bg-black/10 px-3 py-2 text-white backdrop-blur-sm"
+                    >
+                      <div className="flex items-center gap-2 text-[11px] font-semibold text-white/80">
+                        <Icon className="h-3.5 w-3.5 text-white/90" />
+                        {stat.label}
+                      </div>
+                      <div className="mt-1 text-lg font-black leading-none">{stat.value}</div>
                     </div>
                   );
                 })}
               </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-white/85">
+                <div className="flex -space-x-2">
+                  {GD_SELLERS.slice(0, 3).map((seller) => (
+                    <img
+                      key={seller.name}
+                      src={seller.avatar}
+                      alt={seller.name}
+                      className="h-8 w-8 rounded-full border-2 border-white/75 object-cover"
+                      loading="lazy"
+                    />
+                  ))}
+                </div>
+                <p className="text-xs font-medium">
+                  Trusted by growers across Algeria for practical, farm-ready sourcing.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative overflow-hidden rounded-[30px] border border-amber-200 bg-gradient-to-br from-[#fff4d8] via-[#ffe8be] to-[#ffd8a3] p-6 shadow-[0_14px_40px_rgba(180,83,9,0.18)] sm:p-7">
+            <div className="pointer-events-none absolute -right-14 -top-16 h-48 w-48 rounded-full bg-amber-300/35 blur-2xl" />
+            <div className="pointer-events-none absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-emerald-200/50 blur-2xl" />
+
+            <div className="relative z-10 flex h-full flex-col justify-between gap-5">
+              <div>
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/70 bg-white/65 px-3 py-1 text-[11px] font-semibold text-[#7c3f0b]">
+                  <Leaf className="h-3.5 w-3.5" />
+                  Today&apos;s Field Pulse
+                </span>
+                <h2 className="mt-4 text-2xl font-black leading-tight text-[#2e1d09] sm:text-[2rem]">
+                  Marketplace Confidence Index
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-[#6d3f14]">
+                  Live listing quality, seller activity, and location coverage in one quick snapshot.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200/80 bg-white/70 p-4">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8a4b15]">
+                      AI Match Today
+                    </p>
+                    <p className="mt-1 text-4xl font-black leading-none text-[#1f2a10]">
+                      {heroMatch}
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#7a4320]">
+                    {heroLocation}
+                  </span>
+                </div>
+                <div className="mt-3 h-2 rounded-full bg-amber-100">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-700"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, Number.parseInt(heroMatch, 10) || 0))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl border border-amber-200/70 bg-white/60 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8a4b15]">
+                    Coverage
+                  </p>
+                  <p className="mt-1 text-xl font-black text-[#1f2a10]">{heroCoverage}</p>
+                  <p className="text-[11px] text-[#74421b]">Wilayas</p>
+                </div>
+                <div className="rounded-xl border border-amber-200/70 bg-white/60 p-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8a4b15]">
+                    Active Sellers
+                  </p>
+                  <p className="mt-1 text-xl font-black text-[#1f2a10]">{heroSellers}</p>
+                  <p className="text-[11px] text-[#74421b]">Verified</p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => scrollToSection("featured-marketplace")}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#d8a35c] bg-[#fff1d3] px-4 py-2 text-sm font-bold text-[#6b3d12] transition hover:bg-[#ffe7be]"
+              >
+                Explore Today&apos;s Deals
+                <ArrowUpRight className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </section>
 
         {/* ═══════ FILTER BAR ═══════ */}
-        <section className="flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
-          {/* Wilaya select */}
-          <Select.Root
-            value={selectedWilaya}
-            onValueChange={setSelectedWilaya}
-            onOpenChange={(open) => { if (open) setWilayaQuery(""); }}
-          >
-            <Select.Trigger className="flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-[13px] text-gray-600 transition hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
-              <MapPin className="h-3.5 w-3.5 text-emerald-600" />
-              <Select.Value placeholder="All Wilayas" />
-              <Select.Icon className="ml-1 text-gray-400"><ChevronDown className="h-3.5 w-3.5" /></Select.Icon>
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Content position="popper" sideOffset={8} className="z-50 min-w-[220px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-xl">
-                <div className="px-2 pb-2 pt-1">
-                  <input
-                    value={wilayaQuery}
-                    onChange={(event) => setWilayaQuery(event.target.value)}
-                    onKeyDown={(event) => event.stopPropagation()}
-                    placeholder="Search wilaya..."
-                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-emerald-500"
-                  />
+        <section className="relative overflow-hidden rounded-[26px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-sky-50/45 p-3.5 shadow-[0_14px_36px_rgba(16,185,129,0.14)] sm:p-4">
+          <div className="pointer-events-none absolute -left-8 top-0 h-28 w-28 rounded-full bg-emerald-200/35 blur-2xl" />
+          <div className="pointer-events-none absolute -right-8 bottom-0 h-24 w-24 rounded-full bg-sky-200/35 blur-2xl" />
+
+          <div className="relative z-10 space-y-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-700/70">
+                  Smart Filters
+                </p>
+                <h3 className="mt-0.5 text-sm font-bold text-gray-900 sm:text-[15px]">
+                  Tune listings for your farm context
+                </h3>
+              </div>
+              <div className="inline-flex w-fit max-w-full items-center gap-1.5 rounded-full border border-emerald-200 bg-white/80 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                <MapPin className="h-3.5 w-3.5" />
+                <span className="max-w-[170px] truncate sm:max-w-none">{heroLocation}</span>
+              </div>
+            </div>
+
+            <div className="grid gap-2.5 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)] xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1.1fr)_minmax(0,1fr)]">
+              {/* Wilaya select */}
+              <Select.Root
+                value={selectedWilaya}
+                onValueChange={setSelectedWilaya}
+                onOpenChange={(open) => {
+                  if (open) setWilayaQuery("");
+                }}
+              >
+                <Select.Trigger className="flex h-11 w-full items-center gap-2 rounded-xl border border-emerald-100 bg-white/90 px-3 text-[13px] font-medium text-gray-700 shadow-[0_6px_16px_rgba(15,23,42,0.06)] transition hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                  <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+                  <Select.Value placeholder="All Wilayas" />
+                  <Select.Icon className="ml-auto text-gray-400">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Select.Icon>
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content
+                    position="popper"
+                    sideOffset={8}
+                    className="z-50 min-w-[220px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-xl"
+                  >
+                    <div className="px-2 pb-2 pt-1">
+                      <input
+                        value={wilayaQuery}
+                        onChange={(event) => setWilayaQuery(event.target.value)}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        placeholder="Search wilaya..."
+                        className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs text-gray-700 placeholder:text-gray-400 outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                    <Select.Viewport className="max-h-52 overflow-y-auto p-1">
+                      {filteredWilayas.map((option) => (
+                        <Select.Item
+                          key={option}
+                          value={option}
+                          className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-[13px] text-gray-600 outline-none transition-colors data-[highlighted]:bg-emerald-50 data-[highlighted]:text-emerald-700 data-[state=checked]:bg-emerald-50 data-[state=checked]:text-emerald-700"
+                        >
+                          <Select.ItemText>{option}</Select.ItemText>
+                          <Select.ItemIndicator>
+                            <Check className="h-4 w-4 text-emerald-600" />
+                          </Select.ItemIndicator>
+                        </Select.Item>
+                      ))}
+                      {wilayaQuery.trim().length > 0 && filteredWilayas.length <= 1 && (
+                        <div className="px-3 py-2 text-xs text-gray-400">No matches found.</div>
+                      )}
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+
+              {/* Category select */}
+              <Select.Root
+                value={selectedListingCategory}
+                onValueChange={setSelectedListingCategory}
+              >
+                <Select.Trigger className="flex h-11 w-full items-center gap-2 rounded-xl border border-emerald-100 bg-white/90 px-3 text-[13px] font-medium text-gray-700 shadow-[0_6px_16px_rgba(15,23,42,0.06)] transition hover:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
+                  <Sprout className="h-3.5 w-3.5 text-emerald-600" />
+                  <Select.Value placeholder="All Categories" />
+                  <Select.Icon className="ml-auto text-gray-400">
+                    <ChevronDown className="h-3.5 w-3.5" />
+                  </Select.Icon>
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content
+                    position="popper"
+                    sideOffset={8}
+                    className="z-50 min-w-[220px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-xl"
+                  >
+                    <Select.Viewport className="max-h-52 overflow-y-auto p-1">
+                      {GD_LISTING_CATEGORIES.map((option) => (
+                        <Select.Item
+                          key={option}
+                          value={option}
+                          className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-[13px] text-gray-600 outline-none transition-colors data-[highlighted]:bg-emerald-50 data-[highlighted]:text-emerald-700 data-[state=checked]:bg-emerald-50 data-[state=checked]:text-emerald-700"
+                        >
+                          <Select.ItemText>{option}</Select.ItemText>
+                          <Select.ItemIndicator>
+                            <Check className="h-4 w-4 text-emerald-600" />
+                          </Select.ItemIndicator>
+                        </Select.Item>
+                      ))}
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+
+              {/* Price range */}
+              <div className="rounded-xl border border-emerald-100 bg-white/90 p-2 shadow-[0_6px_16px_rgba(15,23,42,0.06)] md:col-span-2 xl:col-span-1">
+                <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-wide text-gray-500">
+                  <span>Price Range</span>
+                  <span>DZD</span>
                 </div>
-                <Select.Viewport className="max-h-52 overflow-y-auto p-1">
-                  {filteredWilayas.map((option) => (
-                    <Select.Item key={option} value={option} className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-[13px] text-gray-600 outline-none transition-colors data-[highlighted]:bg-emerald-50 data-[highlighted]:text-emerald-700 data-[state=checked]:bg-emerald-50 data-[state=checked]:text-emerald-700">
-                      <Select.ItemText>{option}</Select.ItemText>
-                      <Select.ItemIndicator><Check className="h-4 w-4 text-emerald-600" /></Select.ItemIndicator>
-                    </Select.Item>
-                  ))}
-                  {wilayaQuery.trim().length > 0 && filteredWilayas.length <= 1 && (
-                    <div className="px-3 py-2 text-xs text-gray-400">No matches found.</div>
-                  )}
-                </Select.Viewport>
-              </Select.Content>
-            </Select.Portal>
-          </Select.Root>
 
-          {/* Category select */}
-          <Select.Root value={selectedListingCategory} onValueChange={setSelectedListingCategory}>
-            <Select.Trigger className="flex h-9 items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-[13px] text-gray-600 transition hover:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20">
-              <Sprout className="h-3.5 w-3.5 text-emerald-600" />
-              <Select.Value placeholder="All Categories" />
-              <Select.Icon className="ml-1 text-gray-400"><ChevronDown className="h-3.5 w-3.5" /></Select.Icon>
-            </Select.Trigger>
-            <Select.Portal>
-              <Select.Content position="popper" sideOffset={8} className="z-50 min-w-[220px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-xl">
-                <Select.Viewport className="max-h-52 overflow-y-auto p-1">
-                  {GD_LISTING_CATEGORIES.map((option) => (
-                    <Select.Item key={option} value={option} className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-3 py-2 text-[13px] text-gray-600 outline-none transition-colors data-[highlighted]:bg-emerald-50 data-[highlighted]:text-emerald-700 data-[state=checked]:bg-emerald-50 data-[state=checked]:text-emerald-700">
-                      <Select.ItemText>{option}</Select.ItemText>
-                      <Select.ItemIndicator><Check className="h-4 w-4 text-emerald-600" /></Select.ItemIndicator>
-                    </Select.Item>
-                  ))}
-                </Select.Viewport>
-              </Select.Content>
-            </Select.Portal>
-          </Select.Root>
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
+                  <div className="flex items-center justify-between gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5">
+                    <span className="text-[10px] font-semibold uppercase text-gray-400">Min</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setMinPrice((prev) => String(Math.max(0, Number(prev) - 100)))}
+                        className="flex h-6 w-6 items-center justify-center rounded text-xs font-semibold text-gray-500 transition hover:bg-gray-200"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={minPrice}
+                        onChange={(event) => setMinPrice(event.target.value)}
+                        className="w-16 bg-transparent text-center text-[11px] font-semibold text-gray-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMinPrice((prev) => String(Number(prev) + 100))}
+                        className="flex h-6 w-6 items-center justify-center rounded text-xs font-semibold text-gray-500 transition hover:bg-gray-200"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
 
-          {/* Price range */}
-          <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1">
-            <span className="text-[10px] font-semibold uppercase text-gray-400">Min</span>
-            <button type="button" onClick={() => setMinPrice((prev) => String(Math.max(0, Number(prev) - 100)))} className="flex h-6 w-6 items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-200">−</button>
-            <input type="number" inputMode="numeric" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} className="w-14 bg-transparent text-center text-xs font-semibold text-gray-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-            <button type="button" onClick={() => setMinPrice((prev) => String(Number(prev) + 100))} className="flex h-6 w-6 items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-200">+</button>
+                  <span className="hidden text-center text-[11px] text-gray-300 sm:block">to</span>
+
+                  <div className="flex items-center justify-between gap-1 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1.5">
+                    <span className="text-[10px] font-semibold uppercase text-gray-400">Max</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setMaxPrice((prev) => String(Math.max(0, Number(prev) - 100)))}
+                        className="flex h-6 w-6 items-center justify-center rounded text-xs font-semibold text-gray-500 transition hover:bg-gray-200"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        value={maxPrice}
+                        onChange={(event) => setMaxPrice(event.target.value)}
+                        className="w-16 bg-transparent text-center text-[11px] font-semibold text-gray-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMaxPrice((prev) => String(Number(prev) + 100))}
+                        className="flex h-6 w-6 items-center justify-center rounded text-xs font-semibold text-gray-500 transition hover:bg-gray-200"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-[11px]">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-white/75 px-2.5 py-1 font-semibold text-emerald-700">
+                <Sparkles className="h-3 w-3" />
+                {filteredMarketItems.length} live listings
+              </span>
+              {marketLoading && (
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
+                  <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+                  Updating...
+                </span>
+              )}
+              {marketError && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-semibold text-amber-700">
+                  {marketError}
+                </span>
+              )}
+            </div>
           </div>
-          <span className="text-gray-300">–</span>
-          <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2 py-1">
-            <span className="text-[10px] font-semibold uppercase text-gray-400">Max</span>
-            <button type="button" onClick={() => setMaxPrice((prev) => String(Math.max(0, Number(prev) - 100)))} className="flex h-6 w-6 items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-200">−</button>
-            <input type="number" inputMode="numeric" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} className="w-16 bg-transparent text-center text-xs font-semibold text-gray-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
-            <button type="button" onClick={() => setMaxPrice((prev) => String(Number(prev) + 100))} className="flex h-6 w-6 items-center justify-center rounded text-xs text-gray-500 hover:bg-gray-200">+</button>
-          </div>
-          <span className="text-[10px] font-medium uppercase text-gray-400">DZD</span>
-
-          {marketLoading && (
-            <span className="ml-1 flex items-center gap-2 text-[11px] text-emerald-600">
-              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-              Updating...
-            </span>
-          )}
-          {marketError && <span className="text-[11px] text-amber-600">{marketError}</span>}
         </section>
-        {/* ═══════ AI RECOMMENDATIONS ═══════ */}
         <section id="ai-recommendations" className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -1564,6 +2068,26 @@ export default function MarketPlacePage() {
                       <div>
                         <h3 className="text-sm font-bold text-gray-900">{item.name}</h3>
                         <p className="mt-1 text-xs text-gray-500">{item.description}</p>
+                        {item.sellerId && (
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/market-place/profile/${item.sellerId}`)}
+                            className="mt-2 inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50/70 px-2.5 py-1 text-[10px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                          >
+                            <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-white">
+                              {item.sellerAvatar ? (
+                                <img
+                                  src={item.sellerAvatar}
+                                  alt={item.sellerName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <User className="h-3 w-3" />
+                              )}
+                            </span>
+                            {item.sellerName}
+                          </button>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                         <span className="font-bold text-emerald-700">{item.price}</span>
@@ -1633,6 +2157,8 @@ export default function MarketPlacePage() {
                 const price = isLive ? `${Number(item.price_dzd).toLocaleString()} DZD` : item.price;
                 const location = isLive ? GD_formatWilayaLabel(item.wilaya) : item.location;
                 const stockLabel = isLive ? (item.stock_quantity > 0 ? "In Stock" : "Out of Stock") : item.stock;
+                const sellerProfile = (item as MarketplaceItem).seller_profile;
+                const sellerName = GD_sellerDisplayName(sellerProfile);
 
                 return (
                   <article
@@ -1677,6 +2203,32 @@ export default function MarketPlacePage() {
                           <MapPin className="h-2.5 w-2.5" />{location}
                         </span>
                       </div>
+                      {isLive && (
+                        <div className="flex items-center justify-between gap-2 rounded-lg border border-emerald-100 bg-emerald-50/40 px-2 py-1.5">
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              router.push(`/market-place/profile/${item.seller_id}`);
+                            }}
+                            className="inline-flex min-w-0 items-center gap-2 text-[11px] font-semibold text-emerald-700 transition hover:text-emerald-800"
+                          >
+                            <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-white text-[10px] uppercase">
+                              {sellerProfile?.avatar_url ? (
+                                <img
+                                  src={sellerProfile.avatar_url}
+                                  alt={sellerName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                GD_sellerInitials(sellerProfile)
+                              )}
+                            </span>
+                            <span className="truncate">{sellerName}</span>
+                          </button>
+                          <span className="text-[10px] text-emerald-700/70">View store</span>
+                        </div>
+                      )}
                       {isSeller ? (
                         <button
                           type="button"
@@ -1726,6 +2278,7 @@ export default function MarketPlacePage() {
                   const price = typeof item.price_dzd === "number" ? `${item.price_dzd.toLocaleString()} DZD` : "Price on request";
                   const tag = item.plant_type ?? item.category ?? "Seeds";
                   const stockLabel = item.stock_quantity > 0 ? "In Stock" : "Out of Stock";
+                  const sellerName = GD_sellerDisplayName(item.seller_profile);
                   return (
                     <article
                       key={item.id}
@@ -1757,6 +2310,27 @@ export default function MarketPlacePage() {
                             {GD_formatWilayaLabel(item.wilaya)}
                           </span>
                         </div>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            router.push(`/market-place/profile/${item.seller_id}`);
+                          }}
+                          className="inline-flex min-w-0 items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50/60 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        >
+                          <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-white text-[10px] uppercase">
+                            {item.seller_profile?.avatar_url ? (
+                              <img
+                                src={item.seller_profile.avatar_url}
+                                alt={sellerName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              GD_sellerInitials(item.seller_profile)
+                            )}
+                          </span>
+                          <span className="truncate">{sellerName}</span>
+                        </button>
                         <button
                           type="button"
                           onClick={(event) => { event.stopPropagation(); handleViewDetails(item.id); }}
@@ -1841,21 +2415,29 @@ export default function MarketPlacePage() {
             )}
           </div>
 
-          {marketItems.length === 0 ? (
+          {filteredMarketItems.length === 0 ? (
             <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
               No products shared yet. Seller posts will appear here.
             </div>
           ) : (
             <div className="-mx-4 overflow-x-auto px-4 pb-2">
               <div className="flex min-w-full gap-4">
-                {marketItems.map((item) => {
+                {filteredMarketItems.map((item) => {
                   const title = item.title ?? "Marketplace Item";
                   const price = typeof item.price_dzd === "number" ? `${item.price_dzd.toLocaleString()} DZD` : "Price on request";
+                  const sellerName = GD_sellerDisplayName(item.seller_profile);
                   return (
-                    <button
+                    <article
                       key={item.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleViewDetails(item.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleViewDetails(item.id);
+                        }
+                      }}
                       className="group flex min-w-[220px] flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md"
                     >
                       <div className="flex items-start justify-between gap-3">
@@ -1871,7 +2453,31 @@ export default function MarketPlacePage() {
                         <span className="font-bold text-emerald-700">{price}</span>
                         <span className="text-gray-400">{GD_formatWilayaLabel(item.wilaya)}</span>
                       </div>
-                    </button>
+                      <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            router.push(`/market-place/profile/${item.seller_id}`);
+                          }}
+                          className="inline-flex min-w-0 items-center gap-2 text-[11px] font-semibold text-emerald-700 transition hover:text-emerald-800"
+                        >
+                          <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-emerald-100 bg-emerald-50 text-[10px] uppercase">
+                            {item.seller_profile?.avatar_url ? (
+                              <img
+                                src={item.seller_profile.avatar_url}
+                                alt={sellerName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              GD_sellerInitials(item.seller_profile)
+                            )}
+                          </span>
+                          <span className="truncate">{sellerName}</span>
+                        </button>
+                        <span className="text-[10px] text-gray-400">Seller profile</span>
+                      </div>
+                    </article>
                   );
                 })}
               </div>
@@ -1882,30 +2488,53 @@ export default function MarketPlacePage() {
         <section id="marketplace-categories" className="space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-gray-900">Explore Popular Categories</h2>
-            <button type="button" className="flex items-center gap-1 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700">
+            <button
+              type="button"
+              onClick={() => scrollToSection("featured-marketplace")}
+              className="flex items-center gap-1 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700"
+            >
               View All <ChevronRight className="h-4 w-4" />
             </button>
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2">
-            {GD_CATEGORY_CARDS.map((card) => {
+            {categoryCards.map((card) => {
               const Icon = card.icon;
               const isActive = selectedCategory === card.title;
+              const popularity = card.count / categoryMaxCount;
+              const hasItems = card.count > 0;
+              const countLabel = `${card.count} ${card.count === 1 ? "item" : "items"}`;
               return (
                 <button
                   key={card.title}
                   type="button"
                   onClick={() => setSelectedCategory(card.title)}
                   className="group flex shrink-0 flex-col items-center gap-2"
+                  title={`${card.title}: ${countLabel}`}
                 >
-                  <div className={`flex h-20 w-20 items-center justify-center rounded-full border-2 bg-gray-50 transition-all duration-200 group-hover:border-emerald-500 group-hover:bg-emerald-50 group-hover:shadow-md ${
-                    isActive ? "border-emerald-500 bg-emerald-50 shadow-md" : "border-gray-200"
+                  <div className={`flex h-20 w-20 items-center justify-center rounded-full border-2 transition-all duration-200 group-hover:border-emerald-500 group-hover:bg-emerald-50 group-hover:shadow-md ${
+                    isActive
+                      ? "border-emerald-500 bg-emerald-50 shadow-md"
+                      : hasItems
+                      ? "border-emerald-200 bg-emerald-50/40"
+                      : "border-gray-200 bg-gray-50"
                   }`}>
-                    <Icon className={`h-8 w-8 transition ${isActive ? "text-emerald-600" : "text-gray-500 group-hover:text-emerald-600"}`} />
+                    <Icon
+                      className={`h-8 w-8 transition ${
+                        isActive
+                          ? "text-emerald-600"
+                          : hasItems
+                          ? "text-emerald-500 group-hover:text-emerald-600"
+                          : "text-gray-500 group-hover:text-emerald-600"
+                      }`}
+                      style={{ opacity: hasItems ? 0.65 + popularity * 0.35 : 0.55 }}
+                    />
                   </div>
                   <span className={`text-xs font-medium ${isActive ? "text-emerald-700" : "text-gray-600"}`}>
                     {card.title}
                   </span>
-                  <span className="text-[10px] text-gray-400">{card.count}</span>
+                  <span className={`text-[10px] ${hasItems ? "text-emerald-600" : "text-gray-400"}`}>
+                    {countLabel}
+                  </span>
                 </button>
               );
             })}
@@ -2853,30 +3482,31 @@ export default function MarketPlacePage() {
       )}
 
       <nav
-        className="fixed left-1/2 z-20 flex -translate-x-1/2 items-center gap-6 rounded-full border border-gray-200 bg-white px-6 py-3 text-[10px] uppercase tracking-wider text-gray-500 shadow-lg max-[360px]:gap-4 max-[360px]:px-4 max-[360px]:text-[9px]"
-        style={{ bottom: "calc(env(safe-area-inset-bottom) + 12px)" }}
+        className="gd-bottom-nav fixed left-1/2 z-30 flex w-[min(96vw,560px)] -translate-x-1/2 items-center gap-1 rounded-[999px] px-2 py-2 max-[360px]:w-[min(98vw,380px)] max-[360px]:gap-0.5 max-[360px]:px-1.5 sm:w-[min(94vw,620px)] sm:gap-1.5 sm:px-3 sm:py-2.5"
+        style={{ bottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
+        aria-label="Marketplace quick actions"
       >
         <button
           type="button"
           onClick={() => scrollToSection("marketplace-home")}
-          className="flex flex-col items-center gap-1"
+          className={GD_BOTTOM_NAV_ITEM}
         >
-          <Home className="h-4 w-4 text-gray-500" />
-          Home
+          <Home className={GD_BOTTOM_NAV_ICON} />
+          <span className="block w-full truncate">Home</span>
         </button>
         <button
           type="button"
           onClick={() => scrollToSection("marketplace-categories")}
-          className="flex flex-col items-center gap-1"
+          className={GD_BOTTOM_NAV_ITEM}
         >
-          <Sprout className="h-4 w-4 text-gray-500" />
-          My Seeds
+          <Sprout className={GD_BOTTOM_NAV_ICON} />
+          <span className="block w-full truncate">My Seeds</span>
         </button>
         {isSeller && (
           <button
             type="button"
             onClick={() => setProductModalOpen(true)}
-            className="flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white shadow-md"
+            className="gd-bottom-nav-add relative flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-white shadow-[0_10px_28px_rgba(16,185,129,0.4)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_16px_32px_rgba(16,185,129,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 max-[360px]:h-10 max-[360px]:w-10"
             aria-label="Add product"
           >
             <Plus className="h-5 w-5" />
@@ -2886,38 +3516,41 @@ export default function MarketPlacePage() {
           <button
             type="button"
             onClick={() => scrollToSection("featured-marketplace")}
-            className="flex flex-col items-center gap-1"
+            className={GD_BOTTOM_NAV_ITEM}
           >
-            <ShoppingCart className="h-4 w-4 text-gray-500" />
-            Market
+            <ShoppingCart className={GD_BOTTOM_NAV_ICON} />
+            <span className="block w-full truncate">Market</span>
           </button>
         ) : (
           <button
             type="button"
             onClick={() => router.push("/market-place/buyer")}
-            className="flex flex-col items-center gap-1"
+            className={GD_BOTTOM_NAV_ITEM}
           >
-            <Gauge className="h-4 w-4 text-gray-500" />
-            Dashboard
+            <Gauge className={GD_BOTTOM_NAV_ICON} />
+            <span className="block w-full truncate">Dashboard</span>
           </button>
         )}
         {user ? (
           <button
             type="button"
-            onClick={async () => { await signOut(); router.push("/market-place/login"); }}
-            className="flex flex-col items-center gap-1"
+            onClick={handleLogout}
+            disabled={signOutPending}
+            className={GD_BOTTOM_NAV_ITEM}
           >
-            <LogOut className="h-4 w-4 text-gray-500" />
-            Logout
+            <LogOut className={GD_BOTTOM_NAV_ICON} />
+            <span className="block w-full truncate">
+              {signOutPending ? "Signing out" : "Logout"}
+            </span>
           </button>
         ) : (
           <button
             type="button"
             onClick={() => router.push("/market-place/login")}
-            className="flex flex-col items-center gap-1"
+            className={GD_BOTTOM_NAV_ITEM}
           >
-            <User className="h-4 w-4 text-gray-500" />
-            Login
+            <User className={GD_BOTTOM_NAV_ICON} />
+            <span className="block w-full truncate">Login</span>
           </button>
         )}
       </nav>

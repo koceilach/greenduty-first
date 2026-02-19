@@ -15,7 +15,21 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
+import {
+  GD_isMissingRpcError,
+  GD_runEscrowRpc,
+} from "@/lib/marketplace/escrow-client";
+import { GD_findOrCreateMarketplaceDirectConversation } from "@/lib/marketplace/messages/direct-conversation";
 import { GD_WILAYAS } from "@/lib/wilayas";
+
+type OrderDispute = {
+  id: string;
+  reason?: string | null;
+  status?: string | null;
+  resolution_action?: string | null;
+  resolution_note?: string | null;
+  updated_at?: string | null;
+};
 
 type BuyerOrder = {
   id: string;
@@ -26,12 +40,14 @@ type BuyerOrder = {
   buyer_confirmation?: boolean | null;
   buyer_receipt_url?: string | null;
   seller_shipping_proof?: string | null;
+  dispute?: OrderDispute | null;
   created_at: string;
   item: {
     id: string;
     title: string;
     image_url: string | null;
     price_dzd: number;
+    seller_id: string | null;
   } | null;
 };
 
@@ -60,6 +76,14 @@ type BuyerCartItem = {
   } | null;
 };
 
+const GD_isAbortError = (error: unknown) => {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { name?: string; message?: string };
+  const name = (maybeError.name ?? "").toLowerCase();
+  const message = (maybeError.message ?? "").toLowerCase();
+  return name.includes("abort") || message.includes("abort");
+};
+
 export default function BuyerDashboardPage() {
   const { supabase, user, profile, updateProfile, refreshProfile, submitSellerApplication, getMySellerApplication } =
     useMarketplaceAuth();
@@ -75,6 +99,7 @@ export default function BuyerDashboardPage() {
   const [cartCheckoutStep, setCartCheckoutStep] = useState<1 | 2>(1);
   const [cartFirstName, setCartFirstName] = useState("");
   const [cartLastName, setCartLastName] = useState("");
+  const [cartPhone, setCartPhone] = useState("");
   const [cartAddress, setCartAddress] = useState("");
   const [cartLocation, setCartLocation] = useState("");
   const [sellerRequestOpen, setSellerRequestOpen] = useState(false);
@@ -85,6 +110,7 @@ export default function BuyerDashboardPage() {
   const [receiptUploading, setReceiptUploading] = useState<string | null>(null);
   const [confirmingOrder, setConfirmingOrder] = useState<string | null>(null);
   const [disputeOrder, setDisputeOrder] = useState<string | null>(null);
+  const [messageOrderId, setMessageOrderId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const cardBase =
     "rounded-3xl border border-white/10 bg-white/5 shadow-[0_18px_45px_rgba(0,0,0,0.35)]";
@@ -93,104 +119,197 @@ export default function BuyerDashboardPage() {
   const fetchOrders = useCallback(async () => {
     if (!supabase || !user) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from("marketplace_orders")
-      .select(
-        "id, quantity, total_price_dzd, status, escrow_status, buyer_confirmation, buyer_receipt_url, seller_shipping_proof, created_at, marketplace_items ( id, title, image_url, price_dzd )"
-      )
-      .eq("buyer_id", user.id)
-      .order("created_at", { ascending: false });
+    const queryWithDisputes =
+      "id, quantity, total_price_dzd, status, escrow_status, buyer_confirmation, buyer_receipt_url, seller_shipping_proof, created_at, marketplace_items ( id, title, image_url, price_dzd, seller_id ), marketplace_disputes ( id, reason, status, resolution_action, resolution_note, updated_at )";
+    const queryWithoutDisputes =
+      "id, quantity, total_price_dzd, status, escrow_status, buyer_confirmation, buyer_receipt_url, seller_shipping_proof, created_at, marketplace_items ( id, title, image_url, price_dzd, seller_id )";
 
-    if (error) {
-      const message = error.message ?? "";
-      if (
-        message.toLowerCase().includes("escrow_status") ||
-        message.toLowerCase().includes("buyer_confirmation") ||
-        message.toLowerCase().includes("buyer_receipt_url") ||
-        message.toLowerCase().includes("seller_shipping_proof")
-      ) {
-        setToast(
-          "Escrow columns are missing. Run migration 20260206193000_marketplace_escrow.sql in Supabase."
-        );
-      } else {
-        setToast("Unable to load purchase history.");
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          let queryResult: { data: any[] | null; error: { message?: string } | null } =
+            await supabase
+              .from("marketplace_orders")
+              .select(queryWithDisputes)
+              .eq("buyer_id", user.id)
+              .order("created_at", { ascending: false });
+          let data = queryResult.data;
+          let error = queryResult.error;
+
+          if (
+            error &&
+            (error.message ?? "").toLowerCase().includes("marketplace_disputes")
+          ) {
+            const fallback = await supabase
+              .from("marketplace_orders")
+              .select(queryWithoutDisputes)
+              .eq("buyer_id", user.id)
+              .order("created_at", { ascending: false });
+            data = fallback.data;
+            error = fallback.error;
+          }
+
+          if (error) {
+            const message = error.message ?? "";
+            if (
+              message.toLowerCase().includes("escrow_status") ||
+              message.toLowerCase().includes("buyer_confirmation") ||
+              message.toLowerCase().includes("buyer_receipt_url") ||
+              message.toLowerCase().includes("seller_shipping_proof")
+            ) {
+              setToast(
+                "Escrow columns are missing. Run migration 20260206193000_marketplace_escrow.sql in Supabase."
+              );
+            } else if (message.toLowerCase().includes("marketplace_disputes")) {
+              setToast(
+                "Disputes table is missing. Run migration 20260219113000_marketplace_disputes_workflow.sql in Supabase."
+              );
+            } else {
+              setToast("Unable to load purchase history.");
+            }
+            return;
+          }
+
+          const normalized =
+            (data ?? []).map((row) => ({
+              id: row.id,
+              quantity: row.quantity,
+              total_price_dzd: row.total_price_dzd,
+              status: row.status,
+              escrow_status: (row as any).escrow_status ?? "pending_receipt",
+              buyer_confirmation: (row as any).buyer_confirmation ?? false,
+              buyer_receipt_url: (row as any).buyer_receipt_url ?? null,
+              seller_shipping_proof: (row as any).seller_shipping_proof ?? null,
+              dispute: (() => {
+                const raw = (row as any).marketplace_disputes;
+                if (!raw) return null;
+                const payload = Array.isArray(raw) ? raw[0] : raw;
+                return payload
+                  ? ({
+                      id: payload.id,
+                      reason: payload.reason ?? null,
+                      status: payload.status ?? null,
+                      resolution_action: payload.resolution_action ?? null,
+                      resolution_note: payload.resolution_note ?? null,
+                      updated_at: payload.updated_at ?? null,
+                    } as OrderDispute)
+                  : null;
+              })(),
+              created_at: row.created_at,
+              item: (row as any).marketplace_items ?? null,
+            })) ?? [];
+
+          setOrders(normalized);
+          return;
+        } catch (error) {
+          const aborted = GD_isAbortError(error);
+          if (aborted && attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            continue;
+          }
+          if (!aborted) {
+            console.error("[BuyerDashboard] fetchOrders failed:", error);
+          }
+          setToast("Unable to load purchase history.");
+          return;
+        }
       }
+    } finally {
       setLoading(false);
-      return;
     }
-    const normalized =
-      (data ?? []).map((row) => ({
-        id: row.id,
-        quantity: row.quantity,
-        total_price_dzd: row.total_price_dzd,
-        status: row.status,
-        escrow_status: (row as any).escrow_status ?? "pending_receipt",
-        buyer_confirmation: (row as any).buyer_confirmation ?? false,
-        buyer_receipt_url: (row as any).buyer_receipt_url ?? null,
-        seller_shipping_proof: (row as any).seller_shipping_proof ?? null,
-        created_at: row.created_at,
-        item: (row as any).marketplace_items ?? null,
-      })) ?? [];
-
-    setOrders(normalized);
-    setLoading(false);
   }, [supabase, user]);
 
   const fetchSavedItems = useCallback(async () => {
     if (!supabase || !user) return;
     setSavedLoading(true);
-    const { data, error } = await supabase
-      .from("marketplace_saved_items")
-      .select(
-        "id, created_at, marketplace_items ( id, title, image_url, price_dzd, wilaya )"
-      )
-      .eq("buyer_id", user.id)
-      .order("created_at", { ascending: false });
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const { data, error } = await supabase
+            .from("marketplace_saved_items")
+            .select(
+              "id, created_at, marketplace_items ( id, title, image_url, price_dzd, wilaya )"
+            )
+            .eq("buyer_id", user.id)
+            .order("created_at", { ascending: false });
 
-    if (error) {
-      setToast("Unable to load saved items.");
+          if (error) {
+            setToast("Unable to load saved items.");
+            return;
+          }
+
+          const normalized =
+            (data ?? []).map((row) => ({
+              id: row.id,
+              created_at: row.created_at,
+              item: (row as any).marketplace_items ?? null,
+            })) ?? [];
+
+          setSavedItems(normalized);
+          return;
+        } catch (error) {
+          const aborted = GD_isAbortError(error);
+          if (aborted && attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            continue;
+          }
+          if (!aborted) {
+            console.error("[BuyerDashboard] fetchSavedItems failed:", error);
+          }
+          setToast("Unable to load saved items.");
+          return;
+        }
+      }
+    } finally {
       setSavedLoading(false);
-      return;
     }
-
-    const normalized =
-      (data ?? []).map((row) => ({
-        id: row.id,
-        created_at: row.created_at,
-        item: (row as any).marketplace_items ?? null,
-      })) ?? [];
-
-    setSavedItems(normalized);
-    setSavedLoading(false);
   }, [supabase, user]);
 
   const fetchCartItems = useCallback(async () => {
     if (!supabase || !user) return;
     setCartLoading(true);
-    const { data, error } = await supabase
-      .from("marketplace_cart_items")
-      .select(
-        "id, quantity, created_at, marketplace_items ( id, title, image_url, price_dzd, wilaya )"
-      )
-      .eq("buyer_id", user.id)
-      .order("created_at", { ascending: false });
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        try {
+          const { data, error } = await supabase
+            .from("marketplace_cart_items")
+            .select(
+              "id, quantity, created_at, marketplace_items ( id, title, image_url, price_dzd, wilaya )"
+            )
+            .eq("buyer_id", user.id)
+            .order("created_at", { ascending: false });
 
-    if (error) {
-      setToast("Unable to load cart items.");
+          if (error) {
+            setToast("Unable to load cart items.");
+            return;
+          }
+
+          const normalized =
+            (data ?? []).map((row) => ({
+              id: row.id,
+              quantity: row.quantity,
+              created_at: row.created_at,
+              item: (row as any).marketplace_items ?? null,
+            })) ?? [];
+
+          setCartItems(normalized);
+          return;
+        } catch (error) {
+          const aborted = GD_isAbortError(error);
+          if (aborted && attempt === 0) {
+            await new Promise((resolve) => setTimeout(resolve, 150));
+            continue;
+          }
+          if (!aborted) {
+            console.error("[BuyerDashboard] fetchCartItems failed:", error);
+          }
+          setToast("Unable to load cart items.");
+          return;
+        }
+      }
+    } finally {
       setCartLoading(false);
-      return;
     }
-
-    const normalized =
-      (data ?? []).map((row) => ({
-        id: row.id,
-        quantity: row.quantity,
-        created_at: row.created_at,
-        item: (row as any).marketplace_items ?? null,
-      })) ?? [];
-
-    setCartItems(normalized);
-    setCartLoading(false);
   }, [supabase, user]);
 
   const handleRemoveSavedItem = useCallback(
@@ -267,6 +386,7 @@ export default function BuyerDashboardPage() {
     if (
       cartFirstName.trim().length === 0 ||
       cartLastName.trim().length === 0 ||
+      cartPhone.trim().length < 8 ||
       cartAddress.trim().length === 0 ||
       cartLocation.trim().length === 0
     ) {
@@ -288,6 +408,7 @@ export default function BuyerDashboardPage() {
       seller_shipping_proof: null,
       buyer_first_name: cartFirstName.trim(),
       buyer_last_name: cartLastName.trim(),
+      buyer_phone: cartPhone.trim(),
       delivery_address: cartAddress.trim(),
       delivery_location: cartLocation.trim(),
       delivery_fee_dzd: deliveryFee,
@@ -308,13 +429,20 @@ export default function BuyerDashboardPage() {
       } else if (
         message.toLowerCase().includes("buyer_first_name") ||
         message.toLowerCase().includes("buyer_last_name") ||
+        message.toLowerCase().includes("buyer_phone") ||
         message.toLowerCase().includes("delivery_address") ||
         message.toLowerCase().includes("delivery_location") ||
         message.toLowerCase().includes("delivery_fee_dzd")
       ) {
-        setToast(
-          "Order delivery columns are missing. Run migration 20260206174500_marketplace_order_delivery.sql in Supabase."
-        );
+        if (message.toLowerCase().includes("buyer_phone")) {
+          setToast(
+            "Buyer phone column is missing. Run migration 20260219212000_marketplace_order_buyer_phone.sql in Supabase."
+          );
+        } else {
+          setToast(
+            "Order delivery columns are missing. Run migration 20260206174500_marketplace_order_delivery.sql in Supabase."
+          );
+        }
       } else if (message.toLowerCase().includes("marketplace_orders")) {
         setToast(
           "Orders table is missing. Run migration 20260205190000_marketplace_rbac.sql in Supabase."
@@ -352,6 +480,7 @@ export default function BuyerDashboardPage() {
     deliveryFee,
     cartFirstName,
     cartLastName,
+    cartPhone,
     cartAddress,
     cartLocation,
     router,
@@ -421,29 +550,55 @@ export default function BuyerDashboardPage() {
         setReceiptUploading(null);
         return;
       }
-      const { error } = await supabase
-        .from("marketplace_orders")
-        .update({
-          buyer_receipt_url: receiptUrl,
-          escrow_status: "pending_receipt",
-        })
-        .eq("id", orderId)
-        .eq("buyer_id", user.id);
 
-      if (error) {
-        const message = error.message ?? "";
-        if (
-          message.toLowerCase().includes("escrow_status") ||
-          message.toLowerCase().includes("buyer_receipt_url")
+      const result = await GD_runEscrowRpc<{ ok: boolean }>(
+        supabase,
+        "marketplace_submit_buyer_receipt",
+        {
+          p_order_id: orderId,
+          p_receipt_url: receiptUrl,
+        },
+        "Receipt update timed out. Please try again."
+      );
+
+      if (result.error) {
+        if (GD_isMissingRpcError(result.error)) {
+          const fallback = await supabase
+            .from("marketplace_orders")
+            .update({
+              buyer_receipt_url: receiptUrl,
+              escrow_status: "pending_receipt",
+            })
+            .eq("id", orderId)
+            .eq("buyer_id", user.id);
+          if (fallback.error) {
+            const fallbackMessage = fallback.error.message ?? "";
+            if (
+              fallbackMessage.toLowerCase().includes("escrow_status") ||
+              fallbackMessage.toLowerCase().includes("buyer_receipt_url")
+            ) {
+              setToast(
+                "Escrow columns are missing. Run migration 20260206193000_marketplace_escrow.sql in Supabase."
+              );
+            } else {
+              setToast("Unable to submit receipt right now.");
+            }
+            setReceiptUploading(null);
+            return;
+          }
+        } else if (
+          result.error.toLowerCase().includes("marketplace_submit_buyer_receipt")
         ) {
           setToast(
-            "Escrow columns are missing. Run migration 20260206193000_marketplace_escrow.sql in Supabase."
+            "Escrow RPC missing. Run migration 20260219113000_marketplace_disputes_workflow.sql in Supabase."
           );
+          setReceiptUploading(null);
+          return;
         } else {
-          setToast("Unable to submit receipt right now.");
+          setToast(result.error);
+          setReceiptUploading(null);
+          return;
         }
-        setReceiptUploading(null);
-        return;
       }
 
       setToast("Receipt submitted. Awaiting admin verification.");
@@ -457,30 +612,52 @@ export default function BuyerDashboardPage() {
     async (orderId: string) => {
       if (!supabase || !user) return;
       setConfirmingOrder(orderId);
-      const { error } = await supabase
-        .from("marketplace_orders")
-        .update({
-          buyer_confirmation: true,
-          escrow_status: "released_to_seller",
-          status: "delivered",
-        })
-        .eq("id", orderId)
-        .eq("buyer_id", user.id);
+      const result = await GD_runEscrowRpc<{ ok: boolean }>(
+        supabase,
+        "marketplace_confirm_delivery",
+        { p_order_id: orderId },
+        "Delivery confirmation timed out. Please try again."
+      );
 
-      if (error) {
-        const message = error.message ?? "";
-        if (
-          message.toLowerCase().includes("escrow_status") ||
-          message.toLowerCase().includes("buyer_confirmation")
+      if (result.error) {
+        if (GD_isMissingRpcError(result.error)) {
+          const fallback = await supabase
+            .from("marketplace_orders")
+            .update({
+              buyer_confirmation: true,
+              escrow_status: "released_to_seller",
+              status: "delivered",
+            })
+            .eq("id", orderId)
+            .eq("buyer_id", user.id);
+          if (fallback.error) {
+            const fallbackMessage = fallback.error.message ?? "";
+            if (
+              fallbackMessage.toLowerCase().includes("escrow_status") ||
+              fallbackMessage.toLowerCase().includes("buyer_confirmation")
+            ) {
+              setToast(
+                "Escrow columns are missing. Run migration 20260206193000_marketplace_escrow.sql in Supabase."
+              );
+            } else {
+              setToast("Unable to confirm delivery right now.");
+            }
+            setConfirmingOrder(null);
+            return;
+          }
+        } else if (
+          result.error.toLowerCase().includes("marketplace_confirm_delivery")
         ) {
           setToast(
-            "Escrow columns are missing. Run migration 20260206193000_marketplace_escrow.sql in Supabase."
+            "Escrow RPC missing. Run migration 20260219113000_marketplace_disputes_workflow.sql in Supabase."
           );
+          setConfirmingOrder(null);
+          return;
         } else {
-          setToast("Unable to confirm delivery right now.");
+          setToast(result.error);
+          setConfirmingOrder(null);
+          return;
         }
-        setConfirmingOrder(null);
-        return;
       }
 
       setToast("Delivery confirmed. Funds released to seller.");
@@ -493,27 +670,57 @@ export default function BuyerDashboardPage() {
   const handleOpenDispute = useCallback(
     async (orderId: string) => {
       if (!supabase || !user) return;
+      const reason = window.prompt(
+        "What is the issue with this order? (optional)",
+        ""
+      );
+      if (reason === null) return;
       setDisputeOrder(orderId);
-      const { error } = await supabase
-        .from("marketplace_orders")
-        .update({
-          escrow_status: "disputed",
-          status: "disputed",
-        })
-        .eq("id", orderId)
-        .eq("buyer_id", user.id);
+      const result = await GD_runEscrowRpc<{ ok: boolean }>(
+        supabase,
+        "marketplace_open_dispute",
+        {
+          p_order_id: orderId,
+          p_reason: reason.trim() || null,
+        },
+        "Dispute request timed out. Please try again."
+      );
 
-      if (error) {
-        const message = error.message ?? "";
-        if (message.toLowerCase().includes("escrow_status")) {
+      if (result.error) {
+        if (GD_isMissingRpcError(result.error)) {
+          const fallback = await supabase
+            .from("marketplace_orders")
+            .update({
+              escrow_status: "disputed",
+              status: "disputed",
+            })
+            .eq("id", orderId)
+            .eq("buyer_id", user.id);
+          if (fallback.error) {
+            const fallbackMessage = fallback.error.message ?? "";
+            if (fallbackMessage.toLowerCase().includes("escrow_status")) {
+              setToast(
+                "Escrow columns are missing. Run migration 20260206193000_marketplace_escrow.sql in Supabase."
+              );
+            } else {
+              setToast("Unable to open dispute right now.");
+            }
+            setDisputeOrder(null);
+            return;
+          }
+        } else if (
+          result.error.toLowerCase().includes("marketplace_open_dispute")
+        ) {
           setToast(
-            "Escrow columns are missing. Run migration 20260206193000_marketplace_escrow.sql in Supabase."
+            "Dispute RPC missing. Run migration 20260219113000_marketplace_disputes_workflow.sql in Supabase."
           );
+          setDisputeOrder(null);
+          return;
         } else {
-          setToast("Unable to open dispute right now.");
+          setToast(result.error);
+          setDisputeOrder(null);
+          return;
         }
-        setDisputeOrder(null);
-        return;
       }
 
       setToast("Dispute opened. Admin notified.");
@@ -521,6 +728,51 @@ export default function BuyerDashboardPage() {
       fetchOrders();
     },
     [supabase, user, fetchOrders]
+  );
+
+  const handleMessageSeller = useCallback(
+    async (
+      orderId: string,
+      sellerId?: string | null,
+      item?: {
+        id: string;
+        title: string;
+        image_url: string | null;
+        price_dzd: number;
+      } | null
+    ) => {
+      if (!supabase || !user) {
+        setToast("Please sign in to message the seller.");
+        return;
+      }
+      if (!sellerId) {
+        setToast("Seller chat is unavailable for this order.");
+        return;
+      }
+
+      setMessageOrderId(orderId);
+      const result = await GD_findOrCreateMarketplaceDirectConversation(
+        supabase,
+        user.id,
+        sellerId,
+        {
+          itemId: item?.id ?? null,
+          itemTitle: item?.title ?? null,
+          itemImageUrl: item?.image_url ?? null,
+          itemPriceDzd:
+            typeof item?.price_dzd === "number" ? item.price_dzd : null,
+        }
+      );
+      setMessageOrderId(null);
+
+      if (!result.conversationId) {
+        setToast(result.error ?? "Unable to open chat right now.");
+        return;
+      }
+
+      router.push(`/market-place/messages/${result.conversationId}`);
+    },
+    [supabase, user, router]
   );
 
   useEffect(() => {
@@ -557,6 +809,7 @@ export default function BuyerDashboardPage() {
   const cartFormComplete =
     cartFirstName.trim().length > 0 &&
     cartLastName.trim().length > 0 &&
+    cartPhone.trim().length >= 8 &&
     cartAddress.trim().length > 0 &&
     cartLocation.trim().length > 0;
 
@@ -581,6 +834,12 @@ export default function BuyerDashboardPage() {
         className: "border-amber-300/40 bg-amber-200/15 text-amber-100",
       };
     }
+    if (normalized === "refunded") {
+      return {
+        label: "Refunded",
+        className: "border-sky-200/40 bg-sky-200/10 text-sky-100",
+      };
+    }
     if (normalized === "cancelled" || normalized === "canceled") {
       return {
         label: "Cancelled",
@@ -603,13 +862,13 @@ export default function BuyerDashboardPage() {
 
   if (!user) {
     return (
-      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
           <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
         </div>
-        <div className="relative z-10 mx-auto max-w-3xl px-6 py-16">
+        <div className="gd-mp-container relative z-10 mx-auto max-w-3xl px-6 py-16">
           <div className={`${cardBase} p-8 text-center text-sm text-white/60`}>
             Please sign in to view your buyer dashboard.
           </div>
@@ -619,14 +878,14 @@ export default function BuyerDashboardPage() {
   }
 
   return (
-    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-16 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-32 h-72 w-72 rounded-full bg-teal-400/10 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-6xl space-y-8 px-6 py-10">
+      <div className="gd-mp-container relative z-10 mx-auto max-w-6xl space-y-8 px-6 py-10">
         <header className={`${cardBase} p-6`}>
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div>
@@ -894,7 +1153,7 @@ export default function BuyerDashboardPage() {
               </span>
             </div>
             <div className="flex items-center justify-between border-t border-white/10 pt-3">
-              <span>Total (pay on delivery)</span>
+              <span>Total (receipt workflow)</span>
               <span className="text-sm font-semibold text-emerald-100">
                 {cartTotalWithFee.toLocaleString()} DZD
               </span>
@@ -965,6 +1224,7 @@ export default function BuyerDashboardPage() {
                 const receiptSubmitted = Boolean(order.buyer_receipt_url);
                 const fundsHeld = escrowStatus === "funds_held";
                 const released = escrowStatus === "released_to_seller";
+                const refunded = escrowStatus === "refunded_to_buyer";
                 const disputed = escrowStatus === "disputed";
                 const shipped =
                   order.status === "shipped" || order.status === "delivered";
@@ -979,10 +1239,14 @@ export default function BuyerDashboardPage() {
                   },
                   {
                     label: "Shipping",
-                    complete: shipped || released,
-                    active: fundsHeld && !shipped && !released,
+                    complete: shipped || released || refunded,
+                    active: fundsHeld && !shipped && !released && !refunded,
                   },
-                  { label: "Success", complete: released, active: released },
+                  {
+                    label: "Success",
+                    complete: released || refunded,
+                    active: released || refunded,
+                  },
                 ];
                 return (
                   <div
@@ -1029,6 +1293,24 @@ export default function BuyerDashboardPage() {
                         >
                           {status.label}
                         </div>
+                        {order.item?.seller_id && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleMessageSeller(
+                                order.id,
+                                order.item?.seller_id,
+                                order.item
+                              )
+                            }
+                            disabled={messageOrderId === order.id}
+                            className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/70 transition hover:border-emerald-300/40 hover:text-white disabled:opacity-60"
+                          >
+                            {messageOrderId === order.id
+                              ? "Opening chat..."
+                              : "Message seller"}
+                          </button>
+                        )}
                         {order.item?.id && (
                           <Link
                             href={`/market-place/product/${order.item.id}`}
@@ -1038,6 +1320,13 @@ export default function BuyerDashboardPage() {
                             <ChevronRight className="h-3.5 w-3.5" />
                           </Link>
                         )}
+                        <Link
+                          href={`/market-place/orders/${order.id}/receipt`}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-100/90 transition hover:text-emerald-100"
+                        >
+                          Receipt PDF
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Link>
                       </div>
                     </div>
 
@@ -1073,8 +1362,24 @@ export default function BuyerDashboardPage() {
                           Dispute in review
                         </span>
                       )}
+                      {refunded && (
+                        <span className="rounded-full border border-sky-200/40 bg-sky-200/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-sky-100">
+                          Refunded to buyer
+                        </span>
+                      )}
+                      {order.dispute?.reason && disputed && (
+                        <span className="rounded-full border border-amber-200/30 bg-amber-200/10 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-amber-100/90">
+                          Reason: {order.dispute.reason}
+                        </span>
+                      )}
+                      {order.dispute?.resolution_note &&
+                        order.dispute.status === "resolved" && (
+                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] uppercase tracking-[0.2em] text-white/60">
+                            Resolution: {order.dispute.resolution_note}
+                          </span>
+                        )}
 
-                      {!released && (
+                      {!released && !refunded && (
                         <button
                           type="button"
                           onClick={() => handleOpenDispute(order.id)}
@@ -1086,10 +1391,17 @@ export default function BuyerDashboardPage() {
                       )}
 
                       {!receiptSubmitted && escrowStatus === "pending_receipt" && (
+                        <span className="rounded-full border border-slate-200/30 bg-slate-200/10 px-3 py-2 text-[11px] text-slate-100/90">
+                          Upload your payment receipt for admin verification.
+                          Seller cannot ship before admin approval.
+                        </span>
+                      )}
+
+                      {!receiptSubmitted && escrowStatus === "pending_receipt" && (
                         <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-emerald-200/40 bg-emerald-200/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-100 transition hover:bg-emerald-200/20">
                           {receiptUploading === order.id
                             ? "Uploading..."
-                            : "Upload Receipt"}
+                            : "Upload Payment Receipt"}
                           <input
                             type="file"
                             accept="image/*,.pdf"
@@ -1104,7 +1416,8 @@ export default function BuyerDashboardPage() {
 
                       {receiptSubmitted && escrowStatus === "pending_receipt" && (
                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-white/60">
-                          Receipt submitted - awaiting admin verification
+                          Receipt submitted. Awaiting admin verification before
+                          seller shipping.
                         </span>
                       )}
 
@@ -1114,7 +1427,7 @@ export default function BuyerDashboardPage() {
                         </span>
                       )}
 
-                      {canConfirmDelivery && !released && (
+                      {canConfirmDelivery && !released && !refunded && (
                         <button
                           type="button"
                           onClick={() => handleConfirmDelivery(order.id)}
@@ -1223,7 +1536,8 @@ export default function BuyerDashboardPage() {
                     GreenDuty protection
                   </div>
                   <p className="mt-2">
-                    Pay on delivery. The seller is notified once you confirm.
+                    After order placement, buyer uploads payment receipt and
+                    admin verifies before seller shipping.
                   </p>
                 </div>
               </div>
@@ -1242,7 +1556,7 @@ export default function BuyerDashboardPage() {
                     <p className="mt-1 text-xs text-slate-500">
                       {cartCheckoutStep === 1
                         ? "Set where you want the items delivered."
-                        : "Confirm pay on delivery and fill your details."}
+                        : "Confirm order and fill your delivery details."}
                     </p>
                   </div>
                 </div>
@@ -1296,7 +1610,7 @@ export default function BuyerDashboardPage() {
                   <div className="mt-4 space-y-4">
                     <div className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700">
                       <Truck className="h-4 w-4" />
-                      Pay on delivery
+                      Upload receipt after order
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -1328,6 +1642,19 @@ export default function BuyerDashboardPage() {
 
                     <div>
                       <label className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                        Phone number
+                      </label>
+                      <input
+                        type="tel"
+                        value={cartPhone}
+                        onChange={(event) => setCartPhone(event.target.value)}
+                        placeholder="Example: 0550123456"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 shadow-sm focus:border-emerald-300 focus:outline-none focus:ring-2 focus:ring-emerald-200/50"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
                         Exact address
                       </label>
                       <input
@@ -1353,7 +1680,8 @@ export default function BuyerDashboardPage() {
                     </div>
 
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700">
-                      Pay in cash when the items are delivered. Delivery fee is{" "}
+                      Upload payment receipt in Orders after checkout. Admin
+                      verifies it before seller shipping. Delivery fee is{" "}
                       {deliveryFee} DZD per item.
                     </div>
 

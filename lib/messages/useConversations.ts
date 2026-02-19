@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 import type { Conversation, ConversationParticipant, Message } from "./types";
+import { GD_findOrCreateDirectConversation } from "./direct-conversation";
 
 /* ─── helpers ───────────────────────────────────────────── */
 const first = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -180,49 +181,14 @@ export function useConversations() {
   const findOrCreateDM = useCallback(
     async (otherUserId: string): Promise<string | null> => {
       if (!currentUserId) return null;
-
-      // Check if a direct conversation already exists between these two users
-      const { data: myConvs } = await supabase
-        .from("conversation_participants")
-        .select("conversation_id")
-        .eq("user_id", currentUserId);
-
-      const myConvIds = (myConvs ?? []).map((r) => r.conversation_id);
-
-      if (myConvIds.length) {
-        const { data: otherConvs } = await supabase
-          .from("conversation_participants")
-          .select("conversation_id")
-          .eq("user_id", otherUserId)
-          .in("conversation_id", myConvIds);
-
-        for (const row of otherConvs ?? []) {
-          const { data: conv } = await supabase
-            .from("conversations")
-            .select("id, type")
-            .eq("id", row.conversation_id)
-            .eq("type", "direct")
-            .single();
-          if (conv) return conv.id;
-        }
-      }
-
-      // Create new conversation
-      const { data: newConv, error: convError } = await supabase
-        .from("conversations")
-        .insert({ type: "direct" })
-        .select("id")
-        .single();
-
-      if (convError || !newConv) return null;
-
-      await supabase.from("conversation_participants").insert([
-        { conversation_id: newConv.id, user_id: currentUserId },
-        { conversation_id: newConv.id, user_id: otherUserId },
-      ]);
-
+      const result = await GD_findOrCreateDirectConversation(
+        supabase,
+        currentUserId,
+        otherUserId
+      );
+      if (!result.conversationId) return null;
       await fetchConversations();
-      return newConv.id;
+      return result.conversationId;
     },
     [currentUserId, fetchConversations]
   );

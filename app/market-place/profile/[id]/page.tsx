@@ -117,7 +117,7 @@ export default function MarketplaceProfilePage() {
   const profileId = Array.isArray(params?.id)
     ? params?.id[0]
     : (params?.id as string | undefined);
-  const { supabase, user, profile, updateProfile } = useMarketplaceAuth();
+  const { supabase, user, profile, loading: authLoading, updateProfile } = useMarketplaceAuth();
   const [viewProfile, setViewProfile] = useState<typeof profile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [items, setItems] = useState<MarketplaceItem[]>([]);
@@ -149,7 +149,12 @@ export default function MarketplaceProfilePage() {
   const isSelf = Boolean(user?.id && profileId && user.id === profileId);
 
   useEffect(() => {
-    if (!supabase || !profileId) return;
+    if (authLoading) return;
+    if (!supabase || !profileId) {
+      setLoadingProfile(false);
+      setViewProfile(null);
+      return;
+    }
     let active = true;
     const loadProfile = async () => {
       setLoadingProfile(true);
@@ -202,7 +207,7 @@ export default function MarketplaceProfilePage() {
     return () => {
       active = false;
     };
-  }, [supabase, profileId, isSelf, profile, user]);
+  }, [supabase, profileId, isSelf, profile, user, authLoading]);
 
   useEffect(() => {
     if (!isSelf || !profile) return;
@@ -459,9 +464,19 @@ export default function MarketplaceProfilePage() {
 
   if (!profileId) {
     return (
-      <div className="gd-mp-sub min-h-screen bg-[#0b2b25] text-white">
-        <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-white/60">
+      <div className="gd-mp-sub gd-mp-shell min-h-screen bg-[#0b2b25] text-white">
+        <div className="gd-mp-container mx-auto max-w-3xl px-6 py-16 text-sm text-white/60">
           Profile not found.
+        </div>
+      </div>
+    );
+  }
+
+  if (authLoading) {
+    return (
+      <div className="gd-mp-sub gd-mp-shell min-h-screen bg-[#0b2b25] text-white">
+        <div className="gd-mp-container mx-auto max-w-3xl px-6 py-16 text-sm text-white/60">
+          Loading account...
         </div>
       </div>
     );
@@ -469,12 +484,12 @@ export default function MarketplaceProfilePage() {
 
   if (!user) {
     return (
-      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+      <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
           <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl" />
         </div>
-        <div className="relative z-10 mx-auto max-w-3xl px-6 py-16">
+        <div className="gd-mp-container relative z-10 mx-auto max-w-3xl px-6 py-16">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
             Please sign in to view marketplace profiles.{" "}
             <Link
@@ -491,8 +506,8 @@ export default function MarketplaceProfilePage() {
 
   if (loadingProfile) {
     return (
-      <div className="gd-mp-sub min-h-screen bg-[#0b2b25] text-white">
-        <div className="mx-auto max-w-3xl px-6 py-16 text-sm text-white/60">
+      <div className="gd-mp-sub gd-mp-shell min-h-screen bg-[#0b2b25] text-white">
+        <div className="gd-mp-container mx-auto max-w-3xl px-6 py-16 text-sm text-white/60">
           Loading profile...
         </div>
       </div>
@@ -501,8 +516,8 @@ export default function MarketplaceProfilePage() {
 
   if (!viewProfile) {
     return (
-      <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
-        <div className="mx-auto max-w-3xl px-6 py-16">
+      <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+        <div className="gd-mp-container mx-auto max-w-3xl px-6 py-16">
           <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
             Profile not found.{" "}
             <Link
@@ -521,14 +536,14 @@ export default function MarketplaceProfilePage() {
     viewProfile.username ?? viewProfile.store_name ?? "Marketplace Member";
 
   return (
-    <div className="gd-mp-sub relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
+    <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
         <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl" />
         <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
       </div>
 
-      <div className="relative z-10 mx-auto max-w-6xl px-6 py-10">
+      <div className="gd-mp-container relative z-10 mx-auto max-w-6xl px-6 py-10">
         <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
           <aside className={`${cardBase} hidden h-max space-y-4 p-5 lg:block`}>
             <div className="text-xs uppercase tracking-[0.3em] text-emerald-200/70">
@@ -687,8 +702,11 @@ export default function MarketplaceProfilePage() {
                         Store Collection
                       </div>
                       <h2 className="mt-2 text-lg font-semibold">
-                        Featured listings
+                        All store listings
                       </h2>
+                      <p className="mt-1 text-xs text-white/60">
+                        Buyers can open any listing to review details or place an order.
+                      </p>
                     </div>
                     <div className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-white/60">
                       {items.length} items
@@ -700,8 +718,8 @@ export default function MarketplaceProfilePage() {
                       No products listed yet.
                     </div>
                   ) : (
-                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                      {items.slice(0, 6).map((item) => (
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {items.map((item) => (
                         <div
                           key={item.id}
                           className="rounded-2xl border border-white/10 bg-white/5 p-4"
@@ -720,8 +738,24 @@ export default function MarketplaceProfilePage() {
                           <div className="mt-1 text-xs text-white/60">
                             {item.plant_type ?? item.category ?? "Marketplace item"}
                           </div>
-                          <div className="mt-2 text-sm text-emerald-200">
-                            {item.price_dzd.toLocaleString()} DZD
+                          <div className="mt-2 flex items-center justify-between gap-2 text-xs text-white/60">
+                            <span className="text-sm font-semibold text-emerald-200">
+                              {item.price_dzd.toLocaleString()} DZD
+                            </span>
+                            <span>{GD_formatDate(item.created_at)}</span>
+                          </div>
+                          <div className="mt-3 flex items-center justify-between gap-3">
+                            <span className="inline-flex items-center gap-1 text-[11px] text-white/60">
+                              <MapPin className="h-3 w-3 text-emerald-200/80" />
+                              {item.wilaya ?? "Algeria"}
+                            </span>
+                            <Link
+                              href={`/market-place/product/${item.id}`}
+                              className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-200 transition hover:text-emerald-100"
+                            >
+                              View listing
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            </Link>
                           </div>
                         </div>
                       ))}
