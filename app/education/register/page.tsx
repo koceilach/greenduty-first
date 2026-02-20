@@ -446,6 +446,14 @@ function EduRegisterPage() {
                       Privacy Policy
                     </Link>
                   </p>
+                  <div>
+                    <Link
+                      href="/"
+                      className="inline-flex items-center rounded-full border border-slate-300 bg-white/75 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:bg-white dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Back to Home
+                    </Link>
+                  </div>
                 </div>
               </>
             )}
@@ -468,3 +476,5 @@ function EduRegisterPage() {
     </div>
   );
 }
+
+

@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { supabaseClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import Image from "next/image";
@@ -109,8 +110,6 @@ function EduLoginPage() {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
-
   /* auto-redirect if already logged in */
   useEffect(() => {
     let mounted = true;
@@ -170,25 +169,6 @@ function EduLoginPage() {
       setError(normalizeError(err instanceof Error ? err.message : undefined));
     } finally {
       setLoading(false);
-    }
-  };
-
-  /* google oauth */
-  const handleGoogle = async () => {
-    setGoogleLoading(true);
-    const base = siteUrl ? siteUrl.replace(/\/+$/, "") : window.location.origin;
-    try {
-      const { error: oauthError } = await supabaseClient.auth.signInWithOAuth({
-        provider: "google",
-        options: { redirectTo: `${base}/auth/callback?next=${encodeURIComponent(redirectTarget)}` },
-      });
-      if (oauthError) {
-        setError(normalizeError(oauthError.message));
-        setGoogleLoading(false);
-      }
-    } catch (err) {
-      setError(normalizeError(err instanceof Error ? err.message : undefined));
-      setGoogleLoading(false);
     }
   };
 
@@ -305,7 +285,10 @@ function EduLoginPage() {
               {/* Google */}
               <button
                 type="button"
-                onClick={handleGoogle}
+                onClick={() => {
+                  setGoogleLoading(true);
+                  void signIn("google", { callbackUrl: "/dashboard" });
+                }}
                 disabled={googleLoading}
                 className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white/70 py-3 text-sm font-medium text-slate-700 transition hover:bg-white hover:shadow-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:bg-slate-800"
               >
@@ -334,11 +317,14 @@ function EduLoginPage() {
                   Sign up
                 </Link>
               </p>
-              <p className="text-xs text-slate-400 dark:text-slate-500">
-                <Link href="/" className="transition hover:text-slate-600 dark:hover:text-slate-300">
-                  ← Back to Green Duty
+              <div>
+                <Link
+                  href="/"
+                  className="inline-flex items-center rounded-full border border-slate-300 bg-white/75 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-600 transition hover:bg-white dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Back to Home
                 </Link>
-              </p>
+              </div>
             </div>
           </div>
         </div>
@@ -360,3 +346,6 @@ function EduLoginPage() {
     </div>
   );
 }
+
+
+

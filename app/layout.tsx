@@ -1,16 +1,21 @@
 import React from "react"
 import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Cairo } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from "@/components/auth-provider"
+import { Provider } from "@/components/AuthProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { I18nProvider } from "@/lib/i18n/context"
 import './globals.css'
 import 'leaflet/dist/leaflet.css';
 
-const _geist = Geist({ subsets: ["latin"] });
-const _geistMono = Geist_Mono({ subsets: ["latin"] });
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
+const cairo = Cairo({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-cairo",
+});
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -49,14 +54,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="green" suppressHydrationWarning>
-      <body className={`font-sans antialiased`}>
-        <ThemeProvider>
-          <I18nProvider>
-            <AuthProvider>{children}</AuthProvider>
-          </I18nProvider>
-          <ThemeToggle />
-        </ThemeProvider>
-        <Analytics />
+      <body className={`${geist.variable} ${cairo.variable} ${geist.className} font-sans antialiased`}>
+        <Provider>
+          <ThemeProvider>
+            <I18nProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </I18nProvider>
+            <ThemeToggle />
+          </ThemeProvider>
+          <Analytics />
+        </Provider>
       </body>
     </html>
   )

@@ -17,14 +17,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("gd_locale") as Locale | null
-    if (stored) {
+    if (stored === "en" || stored === "fr" || stored === "ar") {
       setLocale(stored)
     }
   }, [])
 
   useEffect(() => {
     localStorage.setItem("gd_locale", locale)
-    document.documentElement.lang = locale === "ar" ? "ar" : "en"
+    document.documentElement.lang = locale
     document.documentElement.dir = locale === "ar" ? "rtl" : "ltr"
   }, [locale])
 

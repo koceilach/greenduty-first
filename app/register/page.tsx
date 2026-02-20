@@ -502,6 +502,14 @@ function RegisterPage() {
 
   return (
     <div className="min-h-screen flex relative overflow-hidden">
+      <div className="absolute left-4 top-4 z-20">
+        <Link
+          href="/"
+          className="inline-flex items-center rounded-full border border-gray-300/80 bg-white/90 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-gray-700 shadow-sm transition hover:bg-white"
+        >
+          Back to Home
+        </Link>
+      </div>
       {showSuccess && (
         <SuccessOverlay
           onComplete={() => {
@@ -843,3 +851,6 @@ function RegisterPage() {
     </div>
   )
 }
+
+
+

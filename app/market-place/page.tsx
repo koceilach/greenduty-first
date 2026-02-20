@@ -16,11 +16,13 @@ import {
   ChevronDown,
   ChevronRight,
   CloudSun,
+  Clock3,
   Droplets,
   Gauge,
   Home,
   Leaf,
   LineChart,
+  Lock,
   LogOut,
   MapPin,
   MessageCircle,
@@ -47,10 +49,6 @@ import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 import { GD_WILAYAS } from "@/lib/wilayas";
 
 const GD_NAV_ITEMS = [
-  "Marketplace",
-  "Community",
-  "Knowledge",
-  "Analytics",
   "AI",
 ] as const;
 
@@ -214,6 +212,9 @@ const GD_FEATURES = [
   },
 ];
 
+const GD_FEATURES_LOCK_DURATION_MS = 96 * 60 * 60 * 1000;
+const GD_FEATURES_UNLOCK_AT_STORAGE_KEY = "greenduty.marketplace.features.unlockAt";
+
 const GD_ANALYTICS_STATS = [
   {
     label: "Total Orders",
@@ -272,25 +273,121 @@ const GD_SELLERS = [
   },
 ];
 
-const GD_KNOWLEDGE = [
+type GDKnowledgeArticle = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  image: string;
+  readTime: string;
+  intro: string;
+  keyActions: string[];
+  sections: Array<{
+    heading: string;
+    body: string;
+  }>;
+};
+
+const GD_KNOWLEDGE: GDKnowledgeArticle[] = [
   {
+    id: "compost-basics",
     title: "Compost Basics: Feeding the Soil",
     description: "Step-by-step guide to building rich compost in 30 days.",
     category: "Soil Health",
+    readTime: "7 min read",
+    intro:
+      "Compost turns kitchen and farm waste into nutrient-rich soil food. A balanced pile improves moisture retention, root strength, and long-term crop resilience.",
+    keyActions: [
+      "Build with a 3:1 ratio of dry browns to fresh greens.",
+      "Keep moisture like a squeezed sponge, not wet mud.",
+      "Turn the pile every 5-7 days for oxygen flow.",
+      "Use mature compost when color is dark and smell is earthy.",
+    ],
+    sections: [
+      {
+        heading: "Layering Method",
+        body:
+          "Start with coarse dry material at the base for airflow, then alternate green and brown layers. Thin layers break down faster and reduce odor issues.",
+      },
+      {
+        heading: "Moisture and Heat Control",
+        body:
+          "If the pile is too dry, decomposition slows. If it is too wet, it turns anaerobic. Keep it lightly moist and monitor heat in the center for active breakdown.",
+      },
+      {
+        heading: "Field Application",
+        body:
+          "Apply finished compost before planting or around established crops as a top dressing. This improves soil structure and reduces dependence on chemical inputs.",
+      },
+    ],
     image:
       "https://images.unsplash.com/photo-1461354464878-ad92f492a5a0?auto=format&fit=crop&w=900&q=80",
   },
   {
+    id: "seasonal-calendar",
     title: "Seasonal Planting Calendar for Algeria",
     description: "Know what to plant each month with smart reminders.",
     category: "Planning",
+    readTime: "8 min read",
+    intro:
+      "Planting at the right time is often the difference between average and excellent yields. This calendar framework helps align crop cycles with Algerian climate windows.",
+    keyActions: [
+      "Match crop families to local temperature bands.",
+      "Reserve protected sowing for unstable weather weeks.",
+      "Plan irrigation peaks before hot-season stress begins.",
+      "Stagger planting dates to reduce harvest risk.",
+    ],
+    sections: [
+      {
+        heading: "Early Season Strategy",
+        body:
+          "Use nurseries and protected trays for sensitive seedlings. Start hardy vegetables first, then move to heat-sensitive crops after stable night temperatures.",
+      },
+      {
+        heading: "Mid-Season Adjustments",
+        body:
+          "During hotter weeks, prioritize mulching and morning irrigation. Adjust spacing to improve airflow and reduce fungal pressure in humid zones.",
+      },
+      {
+        heading: "Late Season Rotation",
+        body:
+          "Transition plots with legumes and soil-cover crops to maintain fertility. Rotation breaks pest cycles and prepares cleaner beds for the next season.",
+      },
+    ],
     image:
       "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=900&q=80",
   },
   {
+    id: "greenhouse-hacks",
     title: "Greenhouse Setup: 3 Low-Cost Hacks",
     description: "Boost humidity and temperature for winter seedlings.",
     category: "Smart Farming",
+    readTime: "6 min read",
+    intro:
+      "You can improve greenhouse performance without expensive systems. A few low-cost interventions can stabilize temperature, airflow, and seedling survival rates.",
+    keyActions: [
+      "Seal heat leaks along doors and side seams.",
+      "Install simple thermal mass like dark water barrels.",
+      "Create cross-vent openings to prevent humidity spikes.",
+      "Use shade cloth timing to protect midday growth.",
+    ],
+    sections: [
+      {
+        heading: "Thermal Retention on Budget",
+        body:
+          "Thermal mass absorbs heat by day and releases it at night. Even basic water drums can soften cold swings and reduce seedling shock.",
+      },
+      {
+        heading: "Ventilation for Disease Prevention",
+        body:
+          "Stagnant moist air promotes fungal outbreaks. Cross-vent paths and periodic vent cycles keep leaves dry and stems stronger.",
+      },
+      {
+        heading: "Micro-Zone Layout",
+        body:
+          "Group plants by heat and humidity needs. Creating micro-zones allows better growth control and avoids overwatering sensitive varieties.",
+      },
+    ],
     image:
       "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=900&q=80",
   },
@@ -368,6 +465,143 @@ const GD_withTimeout = async <T,>(
     if (timer) clearTimeout(timer);
   }
 };
+
+const GD_formatCountdown = (timeLeftMs: number) => {
+  const totalSeconds = Math.max(0, Math.floor(timeLeftMs / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
+function GDMarketplaceFeaturesSection() {
+  const [isLocked, setIsLocked] = useState(true);
+  const [timeLeftMs, setTimeLeftMs] = useState(GD_FEATURES_LOCK_DURATION_MS);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const savedUnlockAt = Number(window.localStorage.getItem(GD_FEATURES_UNLOCK_AT_STORAGE_KEY));
+    const unlockAt =
+      Number.isFinite(savedUnlockAt) && savedUnlockAt > 0
+        ? savedUnlockAt
+        : Date.now() + GD_FEATURES_LOCK_DURATION_MS;
+
+    if (!Number.isFinite(savedUnlockAt) || savedUnlockAt <= 0) {
+      window.localStorage.setItem(GD_FEATURES_UNLOCK_AT_STORAGE_KEY, String(unlockAt));
+    }
+
+    const updateCountdown = () => {
+      const remaining = unlockAt - Date.now();
+
+      if (remaining <= 0) {
+        setIsLocked(false);
+        setTimeLeftMs(0);
+        return true;
+      }
+
+      setIsLocked(true);
+      setTimeLeftMs(remaining);
+      return false;
+    };
+
+    if (updateCountdown()) return;
+
+    const intervalId = window.setInterval(() => {
+      if (updateCountdown()) {
+        window.clearInterval(intervalId);
+      }
+    }, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, []);
+
+  const countdownLabel = useMemo(() => GD_formatCountdown(timeLeftMs), [timeLeftMs]);
+
+  return (
+    <section id="marketplace-features" className="space-y-8">
+      <div className="space-y-2 text-center">
+        <h2 className="text-lg font-bold text-gray-900 md:text-xl">
+          Intelligent Marketplace Features
+        </h2>
+        <p className="text-sm text-gray-500">
+          {isLocked
+            ? "A premium intelligence pack is in final launch prep."
+            : "Elevate planning with precision insights and intelligent automation."}
+        </p>
+      </div>
+
+      {isLocked ? (
+        <div className="space-y-5 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-5 shadow-sm">
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+              <Lock className="h-3.5 w-3.5" />
+              Coming soon
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300 bg-emerald-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+              <Clock3 className="h-3.5 w-3.5" />
+              {countdownLabel}
+            </span>
+          </div>
+          <p className="text-center text-xs text-emerald-700">
+            96-hour vault mode is active. Feature internals are hidden until auto-unlock.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+            {GD_FEATURES.map((feature, index) => (
+              <div
+                key={feature.title}
+                className="rounded-xl border border-emerald-100 bg-white/90 p-4"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">
+                    Module {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                    Locked
+                  </span>
+                </div>
+                <p className="mt-2 text-sm font-semibold text-gray-900">{feature.title}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-xs font-medium text-emerald-700">
+            Stay ready. All modules unlock automatically when the timer ends.
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
+          {GD_FEATURES.map((feature) => {
+            const Icon = feature.icon;
+            return (
+              <div
+                key={feature.title}
+                className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="mt-5 flex-1 space-y-3 pb-4">
+                  <div className="text-sm font-semibold text-gray-900">{feature.title}</div>
+                  <p className="text-xs leading-relaxed text-gray-500">
+                    {feature.description}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="mt-auto inline-flex w-max self-start items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-medium text-green-700 transition group-hover:bg-green-100"
+                >
+                  {feature.cta}
+                  <ArrowUpRight className="h-3 w-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 type MarketplaceItem = {
   id: string;
@@ -559,6 +793,8 @@ export default function MarketPlacePage() {
   const [marketError, setMarketError] = useState<string | null>(null);
   const marketLoadRequestRef = useRef(0);
   const [toast, setToast] = useState<string | null>(null);
+  const [activeKnowledgeArticle, setActiveKnowledgeArticle] =
+    useState<GDKnowledgeArticle | null>(null);
   const [signOutPending, setSignOutPending] = useState(false);
   const [productModalOpen, setProductModalOpen] = useState(false);
   const [productSubmitting, setProductSubmitting] = useState(false);
@@ -613,6 +849,25 @@ export default function MarketPlacePage() {
     if (!user || !profile?.role) return;
     setMarketMode(profile.role === "seller" ? "seller" : "buyer");
   }, [user, profile?.role]);
+
+  useEffect(() => {
+    if (!activeKnowledgeArticle) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setActiveKnowledgeArticle(null);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [activeKnowledgeArticle]);
 
   const filteredMarketItems = useMemo(() => {
     return GD_filterMarketplaceItems(marketItems, {
@@ -1630,7 +1885,7 @@ export default function MarketPlacePage() {
                 key={item}
                 type="button"
                 className={`whitespace-nowrap rounded-lg px-3 py-1.5 font-medium transition ${
-                  item === "Marketplace"
+                  item === "AI"
                     ? "bg-emerald-50 text-emerald-700"
                     : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
                 }`}
@@ -2334,7 +2589,7 @@ export default function MarketPlacePage() {
                         <button
                           type="button"
                           onClick={(event) => { event.stopPropagation(); handleViewDetails(item.id); }}
-                          className="w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
+                          className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
                         >
                           View details
                         </button>
@@ -2593,8 +2848,18 @@ export default function MarketPlacePage() {
               </div>
               <div className="mt-4 h-32 w-full">
                 <svg viewBox="0 0 100 100" className="h-full w-full">
-                  <polyline fill="none" stroke="#10b981" strokeWidth="3" points={temperaturePath} />
-                  <polyline fill="none" stroke="#e5e7eb" strokeWidth="1" points="0,100 100,100" />
+                  <polyline
+                    fill="none"
+                    stroke="var(--gd-mp-chart-line, #10b981)"
+                    strokeWidth="3"
+                    points={temperaturePath}
+                  />
+                  <polyline
+                    fill="none"
+                    stroke="var(--gd-mp-chart-baseline, #e5e7eb)"
+                    strokeWidth="1"
+                    points="0,100 100,100"
+                  />
                 </svg>
               </div>
             </div>
@@ -2619,44 +2884,7 @@ export default function MarketPlacePage() {
             </div>
           </div>
         </section>
-        <section id="marketplace-features" className="space-y-8">
-          <div className="text-center space-y-2">
-            <h2 className="text-lg font-bold text-gray-900 md:text-xl">
-              Intelligent Marketplace Features
-            </h2>
-            <p className="text-sm text-gray-500">
-              Elevate planning with precision insights and intelligent automation.
-            </p>
-          </div>
-          <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
-            {GD_FEATURES.map((feature) => {
-              const Icon = feature.icon;
-              return (
-                <div
-                  key={feature.title}
-                  className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-                >
-                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <div className="mt-5 flex-1 space-y-3 pb-4">
-                    <div className="text-sm font-semibold text-gray-900">{feature.title}</div>
-                    <p className="text-xs text-gray-500 leading-relaxed">
-                      {feature.description}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    className="mt-auto inline-flex w-max self-start items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-medium text-green-700 transition group-hover:bg-green-100"
-                  >
-                    {feature.cta}
-                    <ArrowUpRight className="h-3 w-3" />
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
+        <GDMarketplaceFeaturesSection />
         {isSeller && (
           <section id="marketplace-analytics" className="space-y-6">
             <div className="text-center">
@@ -2777,35 +3005,46 @@ export default function MarketPlacePage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4">
             {GD_SELLERS.map((seller) => (
-              <div key={seller.name} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={seller.avatar}
-                    alt={seller.name}
-                    className="h-10 w-10 rounded-full object-cover ring-2 ring-green-100"
-                    loading="lazy"
-                  />
-                  <div>
-                    <div className="text-sm font-semibold text-gray-900">{seller.name}</div>
-                    <div className="text-[11px] text-gray-400">
-                      {seller.role}
+              <article
+                key={seller.name}
+                className="group relative overflow-hidden rounded-2xl border border-emerald-100/80 bg-gradient-to-br from-white via-emerald-50/35 to-white p-4 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg"
+              >
+                <div className="pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-emerald-200/35 blur-2xl" />
+
+                <div className="relative flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <img
+                      src={seller.avatar}
+                      alt={seller.name}
+                      className="h-11 w-11 rounded-full object-cover ring-2 ring-emerald-100"
+                      loading="lazy"
+                    />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-gray-900">{seller.name}</div>
+                      <div className="truncate text-[11px] text-gray-500">{seller.role}</div>
                     </div>
                   </div>
-                </div>
-                <div className="mt-4 flex items-center justify-between text-xs text-gray-500">
-                  <span className="flex items-center gap-1 text-amber-500">
-                    <Star className="h-3.5 w-3.5 fill-amber-400" />
-                    {seller.rating}
+
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Verified
                   </span>
-                  <span>{seller.deals}</span>
                 </div>
-                <button
-                  type="button"
-                  className="mt-4 w-full rounded-full border border-green-200 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700 transition hover:bg-green-100"
-                >
-                  View Profile
-                </button>
-              </div>
+
+                <div className="relative mt-4 grid grid-cols-2 gap-2">
+                  <div className="rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-amber-700">Rating</p>
+                    <p className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-amber-700">
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                      {seller.rating}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2">
+                    <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-700">Sales</p>
+                    <p className="mt-1 text-sm font-semibold text-emerald-700">{seller.deals}</p>
+                  </div>
+                </div>
+              </article>
             ))}
           </div>
         </section>
@@ -2820,23 +3059,34 @@ export default function MarketPlacePage() {
           </div>
           <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
             {GD_KNOWLEDGE.map((item) => (
-              <article key={item.title} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md">
-                <div className="h-36 overflow-hidden">
+              <article
+                key={item.id}
+                className="group overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <div className="relative h-36 overflow-hidden">
                   <img
                     src={item.image}
                     alt={item.title}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                     loading="lazy"
                   />
+                  <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/45 via-transparent to-transparent" />
                 </div>
                 <div className="space-y-2.5 p-4">
-                  <span className="text-[10px] font-semibold uppercase tracking-wider text-green-600">
-                    {item.category}
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-green-600">
+                      {item.category}
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[10px] text-gray-400">
+                      <Clock3 className="h-3 w-3 text-emerald-600" />
+                      {item.readTime}
+                    </span>
+                  </div>
                   <h3 className="text-sm font-semibold text-gray-900">{item.title}</h3>
                   <p className="text-xs text-gray-500">{item.description}</p>
                   <button
                     type="button"
+                    onClick={() => setActiveKnowledgeArticle(item)}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-600 hover:text-green-700"
                   >
                     Read article
@@ -2847,6 +3097,96 @@ export default function MarketPlacePage() {
             ))}
           </div>
         </section>
+
+        {activeKnowledgeArticle && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/70 p-0 sm:items-center sm:p-6">
+            <button
+              type="button"
+              aria-label="Close article"
+              className="absolute inset-0"
+              onClick={() => setActiveKnowledgeArticle(null)}
+            />
+
+            <div className="relative flex h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl border border-emerald-100 bg-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-3xl">
+              <div className="relative h-52 sm:h-60">
+                <img
+                  src={activeKnowledgeArticle.image}
+                  alt={activeKnowledgeArticle.title}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/25 to-transparent" />
+
+                <div className="absolute left-4 right-16 top-4 flex flex-wrap items-center gap-2 sm:left-6 sm:right-20">
+                  <span className="inline-flex items-center rounded-full border border-emerald-200/70 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                    {activeKnowledgeArticle.category}
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-white/35 bg-white/15 px-3 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                    <Clock3 className="h-3.5 w-3.5" />
+                    {activeKnowledgeArticle.readTime}
+                  </span>
+                </div>
+
+                <div className="absolute bottom-4 left-4 right-4 sm:bottom-5 sm:left-6 sm:right-6">
+                  <h3 className="text-xl font-semibold leading-tight text-white sm:text-2xl">
+                    {activeKnowledgeArticle.title}
+                  </h3>
+                  <p className="mt-2 max-w-2xl text-sm text-white/85">
+                    {activeKnowledgeArticle.description}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveKnowledgeArticle(null)}
+                  className="absolute right-4 top-4 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/45 bg-white/20 text-white backdrop-blur-sm transition hover:bg-white/30 sm:right-6"
+                  aria-label="Close article"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-7 sm:py-6">
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50/45 p-4">
+                  <p className="text-sm leading-relaxed text-emerald-900">
+                    {activeKnowledgeArticle.intro}
+                  </p>
+                </div>
+
+                <div className="mt-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">
+                    Action Checklist
+                  </p>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    {activeKnowledgeArticle.keyActions.map((action) => (
+                      <p
+                        key={action}
+                        className="inline-flex items-start gap-2 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-xs text-gray-700"
+                      >
+                        <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                        {action}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  {activeKnowledgeArticle.sections.map((section) => (
+                    <article
+                      key={section.heading}
+                      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm"
+                    >
+                      <h4 className="text-sm font-semibold text-gray-900">{section.heading}</h4>
+                      <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                        {section.body}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         <section id="marketplace-testimonials" className="space-y-6">
           <div className="text-center">
             <h2 className="text-lg font-bold text-gray-900">What Our Farmers Say</h2>
@@ -2950,7 +3290,7 @@ export default function MarketPlacePage() {
               </div>
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <MessageCircle className="h-4 w-4 text-green-500" />
-                support@greenduty.io
+                support@greenduty.org
               </div>
             </div>
 

@@ -80,6 +80,15 @@ export default function MarketplaceRegisterPage() {
 
       <div className="gd-mp-container relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
+          <div className="mb-4">
+            <Link
+              href="/"
+              className="inline-flex items-center rounded-full border border-emerald-200/30 bg-emerald-200/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-emerald-100 transition hover:bg-emerald-200/20"
+            >
+              Back to Home
+            </Link>
+          </div>
+
           <div className="rounded-[28px] border border-white/10 bg-white/5 p-6 shadow-[0_20px_50px_rgba(0,0,0,0.45)] backdrop-blur-xl">
             <div className="flex items-center gap-3 text-xs uppercase tracking-[0.3em] text-emerald-200/70">
               <Leaf className="h-4 w-4" />
@@ -187,3 +196,6 @@ export default function MarketplaceRegisterPage() {
     </div>
   );
 }
+
+
+

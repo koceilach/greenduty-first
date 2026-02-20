@@ -3,9 +3,8 @@
 import { Suspense, useCallback, useEffect, useMemo, useState, type ReactNode, type InputHTMLAttributes } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter, useSearchParams } from "next/navigation"
+import { signIn } from "next-auth/react"
 import { supabaseClient } from "@/lib/supabase/client"
-
-const GDutyAuthSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // GREENDUTY AUTH - IMMERSIVE NATURE EXPERIENCE
@@ -57,6 +56,7 @@ function GDutyAuthGoogleIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // MESMERIZING BACKGROUND ANIMATIONS
@@ -514,32 +514,19 @@ function GDutyAuthLoginPage() {
     GDutyAuthRedirectTarget,
   ])
 
-  const GDutyAuthLoginWithGoogle = useCallback(async () => {
-    if (typeof window === "undefined") return
-    setIsOAuthLoading(true)
-    const redirectBase = GDutyAuthSiteUrl
-      ? GDutyAuthSiteUrl.replace(/\/+$/, "")
-      : window.location.origin
-    try {
-      const { error } = await GDutyAuthSupabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${redirectBase}${GDutyAuthRedirectTarget}`,
-        },
-      })
-      if (error) {
-        GDutyAuthShowError(GDutyAuthNormalizeError(error.message))
-        setIsOAuthLoading(false)
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Google sign-in failed."
-      GDutyAuthShowError(GDutyAuthNormalizeError(message))
-      setIsOAuthLoading(false)
-    }
-  }, [GDutyAuthSupabase, GDutyAuthShowError, GDutyAuthNormalizeError, GDutyAuthRedirectTarget])
-
   return (
     <div className="min-h-svh w-full flex items-center justify-center relative overflow-hidden bg-gradient-to-br from-stone-50 via-emerald-50/40 to-stone-100 py-6 px-4">
+      <div className="absolute left-4 top-4 z-20">
+        <button
+          type="button"
+          onClick={() => {
+            window.location.href = "/";
+          }}
+          className="inline-flex items-center rounded-full border border-stone-300/80 bg-white/85 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700 shadow-sm transition hover:bg-white"
+        >
+          Back to Home
+        </button>
+      </div>
       <AnimatePresence>
         {errorMessage && (
           <div className="pointer-events-none fixed left-1/2 top-4 z-50 w-full -translate-x-1/2 px-4">
@@ -738,7 +725,10 @@ function GDutyAuthLoginPage() {
 
             <GDutyAuthButton
               variant="secondary"
-              onClick={GDutyAuthLoginWithGoogle}
+              onClick={() => {
+                setIsOAuthLoading(true)
+                void signIn("google", { callbackUrl: "/reported-area/dashboard" })
+              }}
               loading={isOAuthLoading}
               loadingText="Connecting..."
             >
@@ -790,3 +780,6 @@ function GDutyAuthLoginPage() {
     </div>
   )
 }
+
+
+

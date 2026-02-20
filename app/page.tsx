@@ -9,8 +9,10 @@ import { Services } from "@/components/services";
 import { WorkWithUs } from "@/components/work-with-us";
 import { ImpactStats } from "@/components/impact-stats";
 import { DiscordCommunity } from "@/components/discord-community";
+import { HelpUs } from "@/components/help-us";
 import { Contact } from "@/components/contact";
 import { Footer } from "@/components/footer";
+import { useI18n } from "@/lib/i18n/context";
 
 function SectionReveal({ children }: { children: ReactNode }) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
@@ -78,6 +80,32 @@ function ParallaxParticles() {
   );
 }
 
+function HeroEarthScrollCue() {
+  const { t, locale } = useI18n();
+  const isArabic = locale === "ar";
+
+  return (
+    <div className="relative z-20 -mt-2 mb-2 flex justify-center sm:-mt-5 sm:mb-3">
+      <a
+        href="#earth-section"
+        aria-label={t("landing.page.scroll.aria")}
+        className="group inline-flex flex-col items-center gap-1.5 text-[var(--gd-text-70)] transition hover:text-emerald-200 light:hover:text-emerald-700"
+      >
+        <span className={`text-[10px] font-semibold ${isArabic ? "" : "uppercase tracking-[0.2em]"}`}>
+          {t("landing.page.scroll")}
+        </span>
+        <span className="relative flex h-11 w-7 items-start justify-center rounded-full border-2 border-white/45 light:border-slate-700/35">
+          <motion.span
+            animate={{ y: [0, 10, 0], opacity: [1, 0.35, 1] }}
+            transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+            className="mt-1.5 h-1.5 w-1.5 rounded-full bg-current"
+          />
+        </span>
+      </a>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <main className="relative min-h-screen overflow-x-clip text-[var(--gd-text-100)]">
@@ -89,6 +117,7 @@ export default function Home() {
       <SectionReveal>
         <Hero />
       </SectionReveal>
+      <HeroEarthScrollCue />
       <SectionReveal>
         <Interactive3DSection />
       </SectionReveal>
@@ -103,6 +132,9 @@ export default function Home() {
       </SectionReveal>
       <SectionReveal>
         <DiscordCommunity />
+      </SectionReveal>
+      <SectionReveal>
+        <HelpUs />
       </SectionReveal>
       <SectionReveal>
         <Contact />

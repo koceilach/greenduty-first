@@ -1043,7 +1043,7 @@ function GD_System_ReportModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="pointer-events-auto fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm"
+          className="pointer-events-auto fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-[var(--gd-scrim)] backdrop-blur-sm"
         >
           <motion.div
             initial={{ y: 40, opacity: 0, scale: 0.98 }}
@@ -1126,7 +1126,7 @@ function GD_System_ReportModal({
                       {capturedImage && (
                         <button
                           onClick={() => setCapturedImage(null)}
-                          className="absolute right-3 top-3 rounded-full border border-white/20 bg-black/40 p-2 text-white backdrop-blur-md transition hover:bg-black/60"
+                          className="absolute right-3 top-3 rounded-full border border-[var(--gd-float-border)] bg-[var(--gd-float-surface)] p-2 text-[var(--gd-float-ink)] backdrop-blur-md transition hover:bg-[var(--gd-float-surface-hover)]"
                           aria-label="Remove image"
                         >
                           <X className="h-4 w-4" />
@@ -3309,7 +3309,7 @@ export default function GD_System_ReportedAreaPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
+            className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-[var(--gd-scrim)] backdrop-blur-sm px-0 sm:px-4"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -3340,7 +3340,7 @@ export default function GD_System_ReportedAreaPage() {
                       GD_System_handleDeleteReport(GD_System_reportToDelete);
                     }
                   }}
-                  className="w-full sm:w-auto rounded-xl bg-red-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-red-700 active:scale-95"
+                  className="w-full sm:w-auto rounded-xl bg-[var(--gd-danger-solid)] px-6 py-2.5 text-sm font-bold text-[var(--gd-danger-contrast)] transition hover:bg-[var(--gd-danger-solid-hover)] active:scale-95"
                 >
                   Delete
                 </button>
@@ -3356,7 +3356,7 @@ export default function GD_System_ReportedAreaPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm px-0 sm:px-4"
+            className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center bg-[var(--gd-scrim)] backdrop-blur-sm px-0 sm:px-4"
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
@@ -3390,12 +3390,12 @@ export default function GD_System_ReportedAreaPage() {
                     </div>
                   )}
                   {GD_System_profileUploading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/60">
-                      <div className="h-6 w-6 animate-spin rounded-full border border-white/30 border-t-white" />
+                    <div className="absolute inset-0 flex items-center justify-center bg-[var(--gd-scrim-strong)]">
+                      <div className="h-6 w-6 animate-spin rounded-full border border-[var(--gd-border)] border-t-[var(--gd-ink)]" />
                     </div>
                   )}
                   {GD_System_profileCroppedBlob && (
-                    <div className="absolute bottom-1 right-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                    <div className="absolute bottom-1 right-1 rounded-full bg-[var(--gd-accent)] px-2 py-0.5 text-[10px] font-semibold text-[var(--gd-accent-ink)]">
                       Cropped
                     </div>
                   )}
@@ -3496,7 +3496,7 @@ export default function GD_System_ReportedAreaPage() {
                       <button
                         type="button"
                         onClick={GD_System_confirmCrop}
-                        className="rounded-xl bg-emerald-500 px-5 py-2.5 text-xs font-semibold text-white transition hover:bg-emerald-600 active:scale-95"
+                        className="rounded-xl bg-[var(--gd-accent)] px-5 py-2.5 text-xs font-semibold text-[var(--gd-accent-ink)] transition hover:brightness-110 active:scale-95"
                       >
                         Confirm Crop
                       </button>
@@ -3535,16 +3535,16 @@ export default function GD_System_ReportedAreaPage() {
                     GD_System_profileUploading ||
                     Boolean(GD_System_cropSource)
                   }
-                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-emerald-500 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
+                  className="w-full sm:w-auto inline-flex items-center justify-center rounded-xl bg-[var(--gd-accent)] px-6 py-2.5 text-sm font-bold text-[var(--gd-accent-ink)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95"
                 >
                   {GD_System_profileSaving ? (
                     <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border border-white/40 border-t-white" />
+                      <span className="h-4 w-4 animate-spin rounded-full border border-[var(--gd-accent-ink)] border-t-transparent" />
                       Saving...
                     </span>
                   ) : GD_System_profileUploading ? (
                     <span className="flex items-center gap-2">
-                      <span className="h-4 w-4 animate-spin rounded-full border border-white/40 border-t-white" />
+                      <span className="h-4 w-4 animate-spin rounded-full border border-[var(--gd-accent-ink)] border-t-transparent" />
                       Uploading...
                     </span>
                   ) : (
@@ -3622,7 +3622,7 @@ export default function GD_System_ReportedAreaPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+            className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center bg-[var(--gd-scrim)] backdrop-blur-sm"
           >
             <GD_System_GlassCard className="mx-0 sm:mx-6 w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] p-6 sm:p-8 text-center">
               <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
@@ -3635,7 +3635,7 @@ export default function GD_System_ReportedAreaPage() {
                 To pinpoint pollution precisely, please allow location access.
               </div>
               {GD_System_locationError && (
-                <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-left text-xs leading-relaxed text-red-300">
+                <div className="mt-4 rounded-2xl border border-[var(--gd-danger-border)] bg-[var(--gd-danger-surface)] px-4 py-3 text-left text-xs leading-relaxed text-[var(--gd-danger-ink)]">
                   {GD_System_locationError}
                 </div>
               )}
@@ -3675,7 +3675,7 @@ export default function GD_System_ReportedAreaPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-[var(--gd-scrim-strong)] backdrop-blur-sm"
           >
             <GD_System_GlassCard className="mx-0 sm:mx-6 w-full sm:max-w-md rounded-t-[28px] sm:rounded-[28px] p-7 sm:p-8 text-center">
               <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
@@ -3705,6 +3705,7 @@ export default function GD_System_ReportedAreaPage() {
           --gd-muted: rgba(232, 250, 243, 0.65);
           --gd-muted-2: rgba(232, 250, 243, 0.4);
           --gd-accent: #34d399;
+          --gd-accent-ink: #03241d;
           --gd-surface: rgba(10, 20, 30, 0.5);
           --gd-surface-strong: rgba(10, 20, 30, 0.65);
           --gd-border: rgba(255, 255, 255, 0.08);
@@ -3725,12 +3726,25 @@ export default function GD_System_ReportedAreaPage() {
           --gd-glow-2: rgba(14, 165, 233, 0.12);
           --gd-overlay-top: rgba(5, 14, 24, 0.1);
           --gd-overlay-bottom: rgba(5, 14, 24, 0.65);
+          --gd-scrim: rgba(5, 14, 24, 0.56);
+          --gd-scrim-strong: rgba(5, 14, 24, 0.68);
+          --gd-float-surface: rgba(4, 12, 22, 0.66);
+          --gd-float-surface-hover: rgba(4, 12, 22, 0.82);
+          --gd-float-border: rgba(255, 255, 255, 0.2);
+          --gd-float-ink: #f8fafc;
+          --gd-danger-ink: #fecaca;
+          --gd-danger-surface: rgba(248, 113, 113, 0.14);
+          --gd-danger-border: rgba(248, 113, 113, 0.32);
+          --gd-danger-solid: #dc2626;
+          --gd-danger-solid-hover: #b91c1c;
+          --gd-danger-contrast: #fef2f2;
         }
         .light {
           --gd-ink: #1e293b;
           --gd-muted: rgba(30, 41, 59, 0.6);
           --gd-muted-2: rgba(30, 41, 59, 0.4);
           --gd-accent: #059669;
+          --gd-accent-ink: #f8fafc;
           --gd-surface: rgba(255, 255, 255, 0.8);
           --gd-surface-strong: rgba(255, 255, 255, 0.92);
           --gd-border: rgba(15, 23, 42, 0.1);
@@ -3751,6 +3765,18 @@ export default function GD_System_ReportedAreaPage() {
           --gd-glow-2: rgba(14, 165, 233, 0.04);
           --gd-overlay-top: rgba(248, 250, 249, 0.08);
           --gd-overlay-bottom: rgba(248, 250, 249, 0.45);
+          --gd-scrim: rgba(15, 23, 42, 0.34);
+          --gd-scrim-strong: rgba(15, 23, 42, 0.46);
+          --gd-float-surface: rgba(255, 255, 255, 0.86);
+          --gd-float-surface-hover: rgba(255, 255, 255, 0.96);
+          --gd-float-border: rgba(15, 23, 42, 0.16);
+          --gd-float-ink: #0f172a;
+          --gd-danger-ink: #b91c1c;
+          --gd-danger-surface: rgba(220, 38, 38, 0.1);
+          --gd-danger-border: rgba(220, 38, 38, 0.22);
+          --gd-danger-solid: #dc2626;
+          --gd-danger-solid-hover: #b91c1c;
+          --gd-danger-contrast: #fef2f2;
         }
         .gd-light-scope {
           --gd-ink: #1e293b;
@@ -3868,6 +3894,10 @@ export default function GD_System_ReportedAreaPage() {
         }
         .gd-system-popup-dark .leaflet-popup-tip {
           background: rgba(8, 22, 20, 0.85);
+          box-shadow: none;
+        }
+        .gd-system-popup-light .leaflet-popup-tip {
+          background: rgba(255, 255, 255, 0.95);
           box-shadow: none;
         }
         .gd-system-popup .leaflet-popup-close-button {

@@ -609,9 +609,12 @@ export default function MapComponent({
         const wrapper = document.createElement('div');
         const root = createRoot(wrapper);
         popupRootsRef.current.push(root);
+        const popupIsDark = mapTheme === 'dark';
         const popupContainerClassName = [
-          'w-[min(80vw,19rem)] overflow-hidden rounded-[22px] border border-white/14',
-          'bg-[linear-gradient(158deg,rgba(9,14,27,0.96),rgba(25,38,56,0.92))] text-white shadow-[0_24px_55px_rgba(3,10,24,0.55)]',
+          'w-[min(80vw,19rem)] overflow-hidden rounded-[22px] border',
+          popupIsDark
+            ? 'border-white/14 bg-[linear-gradient(158deg,rgba(9,14,27,0.96),rgba(25,38,56,0.92))] text-white shadow-[0_24px_55px_rgba(3,10,24,0.55)]'
+            : 'border-slate-300/75 bg-[linear-gradient(158deg,rgba(255,255,255,0.96),rgba(239,246,242,0.94))] text-slate-900 shadow-[0_20px_44px_rgba(15,23,42,0.2)]',
           lowPowerMode ? '' : 'backdrop-blur-xl',
         ]
           .filter(Boolean)
@@ -656,21 +659,50 @@ export default function MapComponent({
                 </span>
               </div>
               {report.image_url ? (
-                <div className="group relative h-32 w-full overflow-hidden rounded-2xl border border-white/12">
+                <div
+                  className={[
+                    'group relative h-32 w-full overflow-hidden rounded-2xl border',
+                    popupIsDark ? 'border-white/12' : 'border-slate-200/80',
+                  ].join(' ')}
+                >
                   <img
                     src={report.image_url}
                     alt="Report evidence"
                     className="h-full w-full rounded-2xl object-cover transition-transform duration-700 ease-out group-hover:scale-110"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/5 to-transparent" />
+                  <div
+                    className={[
+                      'absolute inset-0 bg-gradient-to-t to-transparent',
+                      popupIsDark ? 'from-black/45 via-black/5' : 'from-slate-900/30 via-slate-900/5',
+                    ].join(' ')}
+                  />
                 </div>
               ) : (
-                <div className="flex h-24 items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[0.03] text-xs tracking-[0.18em] text-white/55">
+                <div
+                  className={[
+                    'flex h-24 items-center justify-center rounded-2xl border border-dashed text-xs tracking-[0.18em]',
+                    popupIsDark
+                      ? 'border-white/20 bg-white/[0.03] text-white/55'
+                      : 'border-slate-300/75 bg-slate-100/70 text-slate-500',
+                  ].join(' ')}
+                >
                   NO IMAGE
                 </div>
               )}
-              <div className="rounded-2xl border border-white/12 bg-white/[0.05] p-2.5">
-                <div className="mb-2 text-[10px] uppercase tracking-[0.2em] text-white/55">
+              <div
+                className={[
+                  'rounded-2xl border p-2.5',
+                  popupIsDark
+                    ? 'border-white/12 bg-white/[0.05]'
+                    : 'border-slate-200/80 bg-slate-100/70',
+                ].join(' ')}
+              >
+                <div
+                  className={[
+                    'mb-2 text-[10px] uppercase tracking-[0.2em]',
+                    popupIsDark ? 'text-white/55' : 'text-slate-500',
+                  ].join(' ')}
+                >
                   Reporter
                 </div>
                 <div className="flex items-center gap-2.5">
@@ -678,22 +710,47 @@ export default function MapComponent({
                     <img
                       src={report.user_avatar}
                       alt="Reporter avatar"
-                      className="h-9 w-9 rounded-full border border-white/18 object-cover"
+                      className={[
+                        'h-9 w-9 rounded-full border object-cover',
+                        popupIsDark ? 'border-white/18' : 'border-slate-300/80',
+                      ].join(' ')}
                     />
                   ) : (
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full border border-white/16 bg-white/10 text-xs font-semibold text-white/80">
+                    <div
+                      className={[
+                        'flex h-9 w-9 items-center justify-center rounded-full border text-xs font-semibold',
+                        popupIsDark
+                          ? 'border-white/16 bg-white/10 text-white/80'
+                          : 'border-slate-300/70 bg-white text-slate-700',
+                      ].join(' ')}
+                    >
                       {GD_buildInitials(report.user_name)}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-white">
+                    <div
+                      className={[
+                        'truncate text-sm font-semibold',
+                        popupIsDark ? 'text-white' : 'text-slate-900',
+                      ].join(' ')}
+                    >
                       {report.user_name ?? 'Anonymous Ranger'}
                     </div>
-                    <div className="truncate text-[11px] text-white/60">
+                    <div
+                      className={[
+                        'truncate text-[11px]',
+                        popupIsDark ? 'text-white/60' : 'text-slate-600',
+                      ].join(' ')}
+                    >
                       {areaLabel ?? `${lat.toFixed(4)}, ${lng.toFixed(4)}`}
                     </div>
                     {reportTime ? (
-                      <div className="text-[10px] uppercase tracking-[0.14em] text-white/45">
+                      <div
+                        className={[
+                          'text-[10px] uppercase tracking-[0.14em]',
+                          popupIsDark ? 'text-white/45' : 'text-slate-500',
+                        ].join(' ')}
+                      >
                         {reportTime}
                       </div>
                     ) : null}
@@ -701,7 +758,14 @@ export default function MapComponent({
                 </div>
               </div>
               {report.notes ? (
-                <div className="rounded-xl border border-white/12 bg-black/20 px-2.5 py-2 text-xs leading-relaxed text-white/80">
+                <div
+                  className={[
+                    'rounded-xl border px-2.5 py-2 text-xs leading-relaxed',
+                    popupIsDark
+                      ? 'border-white/12 bg-black/20 text-white/80'
+                      : 'border-slate-200/80 bg-slate-100/80 text-slate-700',
+                  ].join(' ')}
+                >
                   {report.notes}
                 </div>
               ) : null}
@@ -714,8 +778,12 @@ export default function MapComponent({
                     className={[
                       'inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition',
                       isConfirming
-                        ? 'cursor-not-allowed border border-emerald-300/25 bg-emerald-500/18 text-emerald-100/85'
-                        : 'border border-emerald-300/35 bg-gradient-to-r from-emerald-500/28 to-emerald-300/24 text-emerald-100 hover:brightness-110',
+                        ? popupIsDark
+                          ? 'cursor-not-allowed border border-emerald-300/25 bg-emerald-500/18 text-emerald-100/85'
+                          : 'cursor-not-allowed border border-emerald-300/60 bg-emerald-100 text-emerald-700'
+                        : popupIsDark
+                          ? 'border border-emerald-300/35 bg-gradient-to-r from-emerald-500/28 to-emerald-300/24 text-emerald-100 hover:brightness-110'
+                          : 'border border-emerald-400/50 bg-gradient-to-r from-emerald-500/16 to-emerald-300/18 text-emerald-700 hover:brightness-105',
                     ].join(' ')}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
@@ -727,8 +795,10 @@ export default function MapComponent({
                   target="_blank"
                   rel="noreferrer"
                   className={[
-                    'inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/18 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition',
-                    'bg-white/[0.06] text-white hover:border-white/35 hover:bg-white/[0.12]',
+                    'inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition',
+                    popupIsDark
+                      ? 'border-white/18 bg-white/[0.06] text-white hover:border-white/35 hover:bg-white/[0.12]'
+                      : 'border-slate-300/80 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50',
                   ].join(' ')}
                 >
                   <Compass className="h-3.5 w-3.5" />
@@ -753,7 +823,7 @@ export default function MapComponent({
         }
 
         const popup = L.popup({
-          className: 'gd-system-popup gd-system-popup-dark',
+          className: `gd-system-popup ${popupIsDark ? 'gd-system-popup-dark' : 'gd-system-popup-light'}`,
           closeButton: false,
           autoPan: true,
           maxWidth: 340,
@@ -793,6 +863,7 @@ export default function MapComponent({
     canConfirmReport,
     confirmingReportId,
     confirmButtonLabel,
+    mapTheme,
     lowPowerMode,
   ]);
 

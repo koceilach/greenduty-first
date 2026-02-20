@@ -78,7 +78,7 @@ export function StaggerContainer({
     [stagger, spring],
   );
 
-  const MotionTag = motion.create(as);
+  const MotionTag = useMemo(() => motion.create(as), [as]);
 
   return (
     <MotionTag
