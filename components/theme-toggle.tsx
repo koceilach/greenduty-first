@@ -29,18 +29,16 @@ export function ThemeToggle() {
     ? "text-slate-500 hover:bg-slate-900/8 hover:text-emerald-700"
     : "text-white/70 hover:bg-white/10 hover:text-emerald-200";
   const isReportedAreaPage = pathname?.startsWith("/reported-area");
-  const isReportedGreenPage = pathname?.startsWith("/greenspot/reported-green");
 
   if (isReportedAreaPage) {
     return null;
   }
 
-  const positionClass = isReportedGreenPage
-    ? "right-3 top-[calc(env(safe-area-inset-top)+8.9rem)] md:right-4 md:top-24"
-    : "right-4 top-24";
+  const positionClass =
+    "left-2 top-1/2 -translate-y-1/2 md:left-auto md:right-4 md:top-24 md:translate-y-0";
 
   return (
-    <div className={`pointer-events-auto fixed z-50 flex items-center gap-1 rounded-full p-1 text-xs backdrop-blur-xl ${positionClass} ${shellClass}`}>
+    <div className={`pointer-events-auto fixed z-40 flex flex-col gap-1 rounded-2xl p-1 text-xs backdrop-blur-xl md:flex-row md:items-center md:rounded-full ${positionClass} ${shellClass}`}>
       {themes.map(({ value, label, Icon }) => {
         const isActive = theme === value;
         return (
@@ -49,7 +47,7 @@ export function ThemeToggle() {
             type="button"
             onClick={() => setTheme(value)}
             aria-label={`Switch to ${label} mode`}
-            className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-full border transition md:h-8 md:w-8 ${
               isActive
                 ? "border-emerald-200/45 bg-emerald-400 text-emerald-950 shadow-[0_8px_18px_rgba(16,185,129,0.35)]"
                 : `border-transparent ${inactiveButtonClass}`

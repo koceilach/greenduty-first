@@ -92,104 +92,6 @@ const CheckIcon = ({ className }: { className?: string }) => (
 )
 
 
-// Floating Background
-
-
-function FloatingBackground() {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  if (!mounted) return null
-
-  const leaves = [
-    { left: "5%", top: "10%", delay: 0, duration: 20 },
-    { left: "15%", top: "60%", delay: 2, duration: 18 },
-    { left: "25%", top: "30%", delay: 4, duration: 22 },
-    { left: "70%", top: "15%", delay: 1, duration: 19 },
-    { left: "80%", top: "50%", delay: 3, duration: 21 },
-    { left: "90%", top: "75%", delay: 5, duration: 17 },
-    { left: "50%", top: "85%", delay: 2.5, duration: 23 },
-    { left: "35%", top: "5%", delay: 1.5, duration: 20 },
-  ]
-
-  const dots = Array.from({ length: 25 }, (_, i) => ({
-    left: `${Math.random() * 100}%`,
-    top: `${Math.random() * 100}%`,
-    size: 4 + Math.random() * 4,
-    delay: Math.random() * 5,
-    duration: 10 + Math.random() * 10,
-    opacity: 0.2 + Math.random() * 0.3,
-  }))
-
-  return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none">
-      {/* Gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-teal-50" />
-
-      {/* Floating leaves */}
-      {leaves.map((leaf, i) => (
-        <div
-          key={`leaf-${i}`}
-          className="absolute opacity-[0.07] text-emerald-600"
-          style={{
-            left: leaf.left,
-            top: leaf.top,
-            animation: `floatLeaf ${leaf.duration}s ease-in-out infinite`,
-            animationDelay: `${leaf.delay}s`,
-          }}
-        >
-          <LeafIcon className="w-16 h-16 md:w-20 md:h-20" />
-        </div>
-      ))}
-
-      {/* Floating dots */}
-      {dots.map((dot, i) => (
-        <div
-          key={`dot-${i}`}
-          className="absolute rounded-full bg-emerald-500"
-          style={{
-            left: dot.left,
-            top: dot.top,
-            width: dot.size,
-            height: dot.size,
-            opacity: dot.opacity,
-            animation: `floatDot ${dot.duration}s ease-in-out infinite`,
-            animationDelay: `${dot.delay}s`,
-          }}
-        />
-      ))}
-
-      <style jsx>{`
-        @keyframes floatLeaf {
-          0%, 100% {
-            transform: translateY(0) rotate(0deg);
-          }
-          50% {
-            transform: translateY(-20px) rotate(10deg);
-          }
-        }
-        @keyframes floatDot {
-          0%, 100% {
-            transform: translate(0, 0);
-          }
-          25% {
-            transform: translate(8px, -12px);
-          }
-          50% {
-            transform: translate(-4px, -20px);
-          }
-          75% {
-            transform: translate(12px, -8px);
-          }
-        }
-      `}</style>
-    </div>
-  )
-}
-
 // ============================================================
 // Success Overlay
 // ============================================================
@@ -501,7 +403,7 @@ function RegisterPage() {
   })
 
   return (
-    <div className="min-h-screen flex relative overflow-hidden">
+    <div className="gd-auth-shell min-h-screen flex relative overflow-hidden">
       <div className="absolute left-4 top-4 z-20">
         <Link
           href="/"
@@ -529,9 +431,8 @@ function RegisterPage() {
           </div>
         </div>
       )}
-
-      {/* Background */}
-      <FloatingBackground />
+      {/* Static background */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-50 via-white to-teal-50" />
 
       {/* Left Section - Form */}
       <div className="flex-1 flex items-center justify-center p-4 sm:p-6 md:p-8 relative z-10">
@@ -851,6 +752,4 @@ function RegisterPage() {
     </div>
   )
 }
-
-
 

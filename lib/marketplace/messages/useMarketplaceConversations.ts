@@ -41,6 +41,29 @@ type MarketplaceMessageRow = {
   created_at: string;
 };
 
+type MarketplaceConversationRpcRow = {
+  conversation_id: string;
+  conversation_type: "direct" | "group" | string;
+  conversation_name: string | null;
+  pinned_item_id: string | null;
+  pinned_item_title: string | null;
+  pinned_item_image_url: string | null;
+  pinned_item_price_dzd: number | string | null;
+  created_at: string;
+  updated_at: string;
+  unread_count: number | null;
+  last_message_id: string | null;
+  last_message_sender_id: string | null;
+  last_message_content: string | null;
+  last_message_type: "text" | "voice" | "image" | "system" | string | null;
+  last_message_created_at: string | null;
+  other_user_id: string | null;
+  other_email: string | null;
+  other_username: string | null;
+  other_store_name: string | null;
+  other_avatar_url: string | null;
+};
+
 type MarketplaceLastMessage = {
   id: string;
   senderId: string;
@@ -87,6 +110,14 @@ const resolveDisplayName = (profile: MarketplaceProfileRow | null): string => {
   return "Marketplace User";
 };
 
+const isMissingRpcFunctionError = (message?: string | null): boolean => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("could not find the function") ||
+    (normalized.includes("function") && normalized.includes("does not exist"))
+  );
+};
+
 export function useMarketplaceConversations() {
   const [conversations, setConversations] = useState<MarketplaceConversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +149,85 @@ export function useMarketplaceConversations() {
       }
 
       setCurrentUserId(user.id);
+
+      const { data: rpcRows, error: rpcError } = await supabase.rpc(
+        "marketplace_list_conversations"
+      );
+      if (!rpcError) {
+        const mapped = ((rpcRows ?? []) as MarketplaceConversationRpcRow[]).map((row) => {
+          const rawPrice =
+            typeof row.pinned_item_price_dzd === "number"
+              ? row.pinned_item_price_dzd
+              : typeof row.pinned_item_price_dzd === "string"
+                ? Number(row.pinned_item_price_dzd)
+                : null;
+          const pinnedPrice =
+            rawPrice !== null && Number.isFinite(rawPrice) ? rawPrice : null;
+
+          const messageType =
+            row.last_message_type === "voice" ||
+            row.last_message_type === "image" ||
+            row.last_message_type === "system"
+              ? row.last_message_type
+              : "text";
+
+          const otherProfile =
+            row.other_user_id
+              ? ({
+                  id: row.other_user_id,
+                  email: row.other_email,
+                  username: row.other_username,
+                  store_name: row.other_store_name,
+                  avatar_url: row.other_avatar_url,
+                } satisfies MarketplaceProfileRow)
+              : null;
+
+          return {
+            id: row.conversation_id,
+            type: row.conversation_type === "group" ? "group" : "direct",
+            name: row.conversation_name,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            unreadCount: Math.max(0, Number(row.unread_count ?? 0)),
+            lastMessage:
+              row.last_message_id && row.last_message_sender_id && row.last_message_created_at
+                ? {
+                    id: row.last_message_id,
+                    senderId: row.last_message_sender_id,
+                    content: row.last_message_content,
+                    messageType,
+                    createdAt: row.last_message_created_at,
+                  }
+                : null,
+            pinnedProduct: row.pinned_item_id
+              ? {
+                  id: row.pinned_item_id,
+                  title: row.pinned_item_title,
+                  imageUrl: resolveAvatarUrl(row.pinned_item_image_url),
+                  priceDzd: pinnedPrice,
+                }
+              : null,
+            otherUser: otherProfile
+              ? {
+                  id: otherProfile.id,
+                  name: resolveDisplayName(otherProfile),
+                  avatarUrl: resolveAvatarUrl(otherProfile.avatar_url),
+                }
+              : undefined,
+          } satisfies MarketplaceConversation;
+        });
+
+        setConversations(mapped);
+        setLoading(false);
+        return;
+      }
+
+      if (!isMissingRpcFunctionError(rpcError.message)) {
+        setConversations([]);
+        setError("Unable to refresh marketplace chats.");
+        setLoading(false);
+        return;
+      }
 
       const { data: myParticipantRows, error: myParticipantsError } = await supabase
         .from("marketplace_conversation_participants")
@@ -191,9 +301,26 @@ export function useMarketplaceConversations() {
 
       const participantList = (participantRows ?? []) as MarketplaceParticipantRow[];
       const messageList = (latestMessages ?? []) as MarketplaceMessageRow[];
+      const participantsByConversation = new Map<string, MarketplaceParticipantRow[]>();
+      const messagesByConversation = new Map<string, MarketplaceMessageRow[]>();
 
       const lastMessageMap = new Map<string, MarketplaceLastMessage>();
+      for (const participant of participantList) {
+        const existing = participantsByConversation.get(participant.conversation_id);
+        if (existing) {
+          existing.push(participant);
+        } else {
+          participantsByConversation.set(participant.conversation_id, [participant]);
+        }
+      }
+
       for (const message of messageList) {
+        const grouped = messagesByConversation.get(message.conversation_id);
+        if (grouped) {
+          grouped.push(message);
+        } else {
+          messagesByConversation.set(message.conversation_id, [message]);
+        }
         if (!lastMessageMap.has(message.conversation_id)) {
           lastMessageMap.set(message.conversation_id, {
             id: message.id,
@@ -206,9 +333,8 @@ export function useMarketplaceConversations() {
       }
 
       const mapped = ((conversationRows ?? []) as MarketplaceConversationRow[]).map((conversation) => {
-        const conversationParticipants = participantList.filter(
-          (participant) => participant.conversation_id === conversation.id
-        );
+        const conversationParticipants =
+          participantsByConversation.get(conversation.id) ?? [];
         const myParticipant = conversationParticipants.find(
           (participant) => participant.user_id === user.id
         );
@@ -218,9 +344,9 @@ export function useMarketplaceConversations() {
 
         const otherProfile = first(otherParticipant?.marketplace_profiles ?? null);
         const lastMessage = lastMessageMap.get(conversation.id) ?? null;
+        const conversationMessages = messagesByConversation.get(conversation.id) ?? [];
 
-        const unreadCount = messageList.filter((message) => {
-          if (message.conversation_id !== conversation.id) return false;
+        const unreadCount = conversationMessages.filter((message) => {
           if (message.sender_id === user.id) return false;
           if (!myParticipant?.last_read_at) return true;
           return new Date(message.created_at) > new Date(myParticipant.last_read_at);

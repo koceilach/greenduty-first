@@ -30,6 +30,14 @@ const GD_formatWilayaLabel = (value?: string | null) => {
   return value === "All Wilayas" ? "All Algeria" : value;
 };
 
+const GD_isMissingRpcFunction = (message?: string | null) => {
+  const normalized = (message ?? "").toLowerCase();
+  return (
+    normalized.includes("could not find the function") ||
+    (normalized.includes("function") && normalized.includes("does not exist"))
+  );
+};
+
 const GD_ESCROW_FILTERS = [
   { value: "pending_receipt", label: "Pending Receipt" },
   { value: "funds_held", label: "Funds Held" },
@@ -382,19 +390,71 @@ export default function AdminDashboardPage() {
     async (app: SellerApplication) => {
       if (!supabase || !isAdmin || !user) return;
       setActionLoading(app.id);
-      // 1. Update application status
-      const { error: appError } = await supabase
-        .from("marketplace_seller_applications")
-        .update({ status: "approved", reviewed_by: user.id, reviewed_at: new Date().toISOString() })
-        .eq("id", app.id);
-      if (appError) { setToast("Unable to approve application."); setActionLoading(null); return; }
-      // 2. Promote user role to seller
+
+      const rpc = await supabase.rpc("marketplace_admin_approve_seller_application", {
+        p_application_id: app.id,
+      });
+      if (!rpc.error) {
+        setToast("Seller approved and role updated.");
+        setActionLoading(null);
+        fetchApplications();
+        return;
+      }
+
+      if (!GD_isMissingRpcFunction(rpc.error.message)) {
+        setToast(rpc.error.message || "Unable to approve application.");
+        setActionLoading(null);
+        return;
+      }
+
+      const { data: previousProfile, error: previousProfileError } = await supabase
+        .from("marketplace_profiles")
+        .select("role, store_name, bio, location")
+        .eq("id", app.user_id)
+        .maybeSingle();
+      if (previousProfileError) {
+        setToast("Unable to load applicant profile.");
+        setActionLoading(null);
+        return;
+      }
+
+      // Promote user role first, then mark application approved.
       const { error: roleError } = await supabase
         .from("marketplace_profiles")
         .update({ role: "seller", store_name: app.store_name, bio: app.bio, location: app.location })
         .eq("id", app.user_id);
-      if (roleError) { setToast("Application approved but role update failed."); }
-      else { setToast("Seller approved and role updated!"); }
+      if (roleError) {
+        setToast("Unable to promote applicant to seller.");
+        setActionLoading(null);
+        return;
+      }
+
+      const { error: appError } = await supabase
+        .from("marketplace_seller_applications")
+        .update({ status: "approved", reviewed_by: user.id, reviewed_at: new Date().toISOString() })
+        .eq("id", app.id);
+
+      if (appError) {
+        const rollbackPayload = {
+          role: previousProfile?.role ?? "buyer",
+          store_name: previousProfile?.store_name ?? null,
+          bio: previousProfile?.bio ?? null,
+          location: previousProfile?.location ?? null,
+        };
+        const { error: rollbackError } = await supabase
+          .from("marketplace_profiles")
+          .update(rollbackPayload)
+          .eq("id", app.user_id);
+        if (rollbackError) {
+          setToast("Approval partially failed. Manual admin review is required.");
+        } else {
+          setToast("Approval failed before completion. Changes were rolled back.");
+        }
+        setActionLoading(null);
+        return;
+      }
+
+      setToast("Seller approved and role updated.");
       setActionLoading(null);
       fetchApplications();
     },
@@ -458,20 +518,44 @@ export default function AdminDashboardPage() {
     async (userId: string) => {
       if (!supabase || !isAdmin) return;
       setActionLoading(userId);
-      // Delete their products first
-      await supabase.from("marketplace_items").delete().eq("seller_id", userId);
-      // Delete profile
-      const { error } = await supabase
-        .from("marketplace_profiles")
+
+      const rpc = await supabase.rpc("marketplace_admin_delete_marketplace_user", {
+        p_user_id: userId,
+      });
+      if (!rpc.error) {
+        setActionLoading(null);
+        setConfirmDelete(null);
+        setToast("Marketplace user deleted.");
+        fetchUsers();
+        fetchApplications();
+        return;
+      }
+
+      if (!GD_isMissingRpcFunction(rpc.error.message)) {
+        setActionLoading(null);
+        setConfirmDelete(null);
+        setToast(rpc.error.message || "Unable to delete user.");
+        return;
+      }
+
+      const { error: productsError } = await supabase
+        .from("marketplace_items")
         .delete()
-        .eq("id", userId);
+        .eq("seller_id", userId);
+      if (productsError) {
+        setActionLoading(null);
+        setToast("Unable to delete user's products.");
+        return;
+      }
+
+      const { error } = await supabase.from("marketplace_profiles").delete().eq("id", userId);
       setActionLoading(null);
       setConfirmDelete(null);
       if (error) { setToast("Unable to delete user."); return; }
       setToast("User and their products deleted.");
       fetchUsers();
     },
-    [supabase, isAdmin, fetchUsers]
+    [supabase, isAdmin, fetchUsers, fetchApplications]
   );
 
   /* ─── products fetchers ───────────────────────────────────── */

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -142,6 +142,7 @@ export default function MarketplaceProfilePage() {
   const [editStoreName, setEditStoreName] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const avatarPreviewObjectUrlRef = useRef<string | null>(null);
 
   const cardBase =
     "rounded-3xl border border-white/10 bg-white/5 shadow-[0_18px_45px_rgba(0,0,0,0.35)] backdrop-blur-xl";
@@ -278,7 +279,7 @@ export default function MarketplaceProfilePage() {
           0
         );
         setSellerStats({ releasedCount: released.length, totalSales });
-      } else {
+      } else if (isSelf) {
         const { data, error } = await supabase
           .from("marketplace_orders")
           .select(
@@ -309,13 +310,21 @@ export default function MarketplaceProfilePage() {
           seedOrders,
           ecoScore,
         });
+      } else {
+        setOrders([]);
+        setBuyerStats({
+          totalOrders: 0,
+          totalSpend: 0,
+          seedOrders: 0,
+          ecoScore: 0,
+        });
       }
     };
     fetchOrders();
     return () => {
       active = false;
     };
-  }, [supabase, viewProfile?.id, isSeller]);
+  }, [supabase, viewProfile?.id, isSeller, isSelf]);
 
   useEffect(() => {
     if (!supabase || !viewProfile?.id || !isSeller) return;
@@ -369,7 +378,11 @@ export default function MarketplaceProfilePage() {
       (item) =>
         typeof item.latitude === "number" && typeof item.longitude === "number"
     );
-    if (itemWithCoords && itemWithCoords.latitude && itemWithCoords.longitude) {
+    if (
+      itemWithCoords &&
+      typeof itemWithCoords.latitude === "number" &&
+      typeof itemWithCoords.longitude === "number"
+    ) {
       return { lat: itemWithCoords.latitude, lon: itemWithCoords.longitude };
     }
     return null;
@@ -405,6 +418,10 @@ export default function MarketplaceProfilePage() {
 
   const openEditModal = useCallback(() => {
     if (!viewProfile) return;
+    if (avatarPreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarPreviewObjectUrlRef.current);
+      avatarPreviewObjectUrlRef.current = null;
+    }
     setEditName(viewProfile.username ?? "");
     setEditBio(viewProfile.bio ?? "");
     setEditLocation(viewProfile.location ?? "");
@@ -413,6 +430,24 @@ export default function MarketplaceProfilePage() {
     setAvatarFile(null);
     setEditOpen(true);
   }, [viewProfile]);
+
+  const closeEditModal = useCallback(() => {
+    if (avatarPreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarPreviewObjectUrlRef.current);
+      avatarPreviewObjectUrlRef.current = null;
+    }
+    setAvatarFile(null);
+    setAvatarPreview(viewProfile?.avatar_url ?? null);
+    setEditOpen(false);
+  }, [viewProfile?.avatar_url]);
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(avatarPreviewObjectUrlRef.current);
+      }
+    };
+  }, []);
 
   const uploadAvatar = useCallback(
     async (file: File) => {
@@ -449,6 +484,12 @@ export default function MarketplaceProfilePage() {
       store_name: editStoreName.trim() || null,
       avatar_url: avatarUrl,
     });
+    if (avatarPreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(avatarPreviewObjectUrlRef.current);
+      avatarPreviewObjectUrlRef.current = null;
+    }
+    setAvatarFile(null);
+    setAvatarPreview(avatarUrl);
     setEditOpen(false);
     setToast("Profile updated.");
   }, [
@@ -976,8 +1017,13 @@ export default function MarketplaceProfilePage() {
                   onChange={(event) => {
                     const file = event.target.files?.[0];
                     if (!file) return;
+                    if (avatarPreviewObjectUrlRef.current) {
+                      URL.revokeObjectURL(avatarPreviewObjectUrlRef.current);
+                    }
+                    const nextObjectUrl = URL.createObjectURL(file);
+                    avatarPreviewObjectUrlRef.current = nextObjectUrl;
                     setAvatarFile(file);
-                    setAvatarPreview(URL.createObjectURL(file));
+                    setAvatarPreview(nextObjectUrl);
                   }}
                 />
                 {avatarPreview && (
@@ -993,7 +1039,7 @@ export default function MarketplaceProfilePage() {
             <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
               <button
                 type="button"
-                onClick={() => setEditOpen(false)}
+                onClick={closeEditModal}
                 className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/60 transition hover:text-white"
               >
                 Cancel

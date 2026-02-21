@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -266,6 +266,26 @@ export default function ProductDetailsPage() {
     deliveryAddress.trim().length > 0 &&
     deliveryLocation.trim().length > 0;
   const canPlaceOrder = canCheckout && isDeliveryFormComplete;
+  const buyButtonLabel = useMemo(() => {
+    if (sourceTable !== "marketplace_items") return "Order unavailable";
+    if (isOutOfStock) return "Out of stock";
+    if (!derived?.priceValue) return "Price on request";
+    return "Buy item";
+  }, [sourceTable, isOutOfStock, derived?.priceValue]);
+
+  const handleOpenCheckout = useCallback(() => {
+    if (!canCheckout) {
+      if (sourceTable !== "marketplace_items") {
+        setToast("This listing cannot be ordered right now.");
+      } else if (isOutOfStock) {
+        setToast("This item is currently out of stock.");
+      } else {
+        setToast("Price on request. Please message the seller.");
+      }
+      return;
+    }
+    setCheckoutOpen(true);
+  }, [canCheckout, sourceTable, isOutOfStock]);
 
   const handlePlaceOrder = useCallback(async () => {
     if (!supabase) return;
@@ -581,10 +601,11 @@ export default function ProductDetailsPage() {
                 <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => setCheckoutOpen(true)}
-                    className="rounded-full bg-emerald-400 px-6 py-2 text-sm font-semibold text-emerald-950 transition hover:brightness-110"
+                    onClick={handleOpenCheckout}
+                    disabled={!canCheckout}
+                    className="rounded-full bg-emerald-400 px-6 py-2 text-sm font-semibold text-emerald-950 transition hover:brightness-110 disabled:cursor-not-allowed disabled:bg-emerald-200 disabled:text-emerald-900/70"
                   >
-                    Buy item
+                    {buyButtonLabel}
                   </button>
                   <button
                     type="button"
@@ -642,7 +663,7 @@ export default function ProductDetailsPage() {
                   <div>
                     <div className="text-sm font-semibold">{derived.title}</div>
                     <div className="mt-1 text-[11px] text-emerald-950/70">
-                      {derived.location ?? "Algeria"} · Qty 1
+                      {derived.location ?? "Algeria"} &middot; Qty 1
                     </div>
                   </div>
                 </div>
@@ -776,7 +797,7 @@ export default function ProductDetailsPage() {
                   >
                     {placingOrder
                       ? "Placing order..."
-                      : `Confirm order • ${
+                      : `Confirm order - ${
                           totalWithFee
                             ? `${totalWithFee.toLocaleString()} DZD`
                             : derived.price
@@ -809,3 +830,4 @@ export default function ProductDetailsPage() {
     </div>
   );
 }
+

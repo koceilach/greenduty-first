@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn as signInWithGoogle } from "next-auth/react";
 import { ArrowRight, Leaf, Lock, Mail } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 
@@ -19,7 +18,8 @@ function GoogleIcon({ className }: { className?: string }) {
 }
 
 export default function MarketplaceLoginPage() {
-  const { user, profile, signIn: signInWithPassword, loading } = useMarketplaceAuth();
+  const { user, profile, signIn: signInWithPassword, loading, supabase } =
+    useMarketplaceAuth();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -51,23 +51,29 @@ export default function MarketplaceLoginPage() {
     router.replace("/market-place");
   }, [canSubmit, submitting, signInWithPassword, email, password, router]);
 
-  const handleGoogleLogin = useCallback(() => {
+  const handleGoogleLogin = useCallback(async () => {
+    if (!supabase) {
+      setMessage("Google sign-in is unavailable right now.");
+      return;
+    }
     setGoogleLoading(true);
     setMessage(null);
-    void signInWithGoogle("google", { callbackUrl: "/market-place/dashboard" }).catch(() => {
+    const redirectTo =
+      typeof window === "undefined"
+        ? undefined
+        : `${window.location.origin}/market-place`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: redirectTo ? { redirectTo } : undefined,
+    });
+    if (error) {
       setGoogleLoading(false);
       setMessage("Google sign-in failed. Please try again.");
-    });
-  }, []);
+    }
+  }, [supabase]);
 
   return (
     <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
-        <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
-      </div>
-
       <div className="gd-mp-container relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="mb-4">
@@ -116,10 +122,19 @@ export default function MarketplaceLoginPage() {
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="••••••••"
+                    placeholder="Enter your password"
                     className="w-full rounded-2xl border border-white/10 bg-white/5 pl-10 pr-4 py-3 text-sm text-white placeholder:text-white/40"
                   />
                 </div>
+              </div>
+
+              <div className="text-right">
+                <Link
+                  href="/forgot-password"
+                  className="text-xs font-medium text-emerald-200 transition hover:text-emerald-100"
+                >
+                  Forgot password?
+                </Link>
               </div>
 
               {message && (
@@ -174,6 +189,7 @@ export default function MarketplaceLoginPage() {
     </div>
   );
 }
+
 
 
 

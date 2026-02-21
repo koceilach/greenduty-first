@@ -1,0 +1,59 @@
+.green .gd-marketplace-page {
+.green .gd-marketplace-page .bg-white {
+.green .gd-marketplace-page .bg-gray-50 {
+.green .gd-marketplace-page .bg-gray-100 {
+.green .gd-marketplace-page .hover\:bg-gray-50:hover {
+.green .gd-marketplace-page .hover\:bg-gray-100:hover {
+.green .gd-marketplace-page .hover\:bg-gray-200:hover {
+.green .gd-marketplace-page .text-gray-900 {
+.green .gd-marketplace-page .text-gray-800 {
+.green .gd-marketplace-page .text-gray-700 {
+.green .gd-marketplace-page .text-gray-600 {
+.green .gd-marketplace-page .text-gray-500 {
+.green .gd-marketplace-page .text-gray-400 {
+.green .gd-marketplace-page .text-gray-300 {
+.green .gd-marketplace-page .hover\:text-gray-800:hover {
+.green .gd-marketplace-page .border-gray-200 {
+.green .gd-marketplace-page .border-gray-100 {
+.green .gd-marketplace-page .border-gray-300 {
+.green .gd-marketplace-page .hover\:border-emerald-300:hover {
+.green .gd-marketplace-page .hover\:border-emerald-400:hover {
+.green .gd-marketplace-page .shadow-sm {
+.green .gd-marketplace-page .shadow-lg {
+.green .gd-marketplace-page .shadow-md {
+.green .gd-marketplace-page .hover\:shadow-md:hover {
+.green .gd-marketplace-page .hover\:shadow-lg:hover {
+.green .gd-marketplace-page .bg-emerald-50 {
+.green .gd-marketplace-page .bg-green-50 {
+.green .gd-marketplace-page .bg-green-100 {
+.green .gd-marketplace-page .bg-emerald-100 {
+.green .gd-marketplace-page .text-emerald-700 {
+.green .gd-marketplace-page .text-green-700 {
+.green .gd-marketplace-page .text-green-600 {
+.green .gd-marketplace-page .text-green-500 {
+.green .gd-marketplace-page .hover\:text-emerald-600:hover {
+.green .gd-marketplace-page .hover\:text-emerald-700:hover {
+.green .gd-marketplace-page .hover\:text-green-600:hover {
+.green .gd-marketplace-page .hover\:text-green-700:hover {
+.green .gd-marketplace-page .hover\:bg-emerald-100:hover {
+.green .gd-marketplace-page .hover\:bg-green-100:hover {
+.green .gd-marketplace-page .border-emerald-200 {
+.green .gd-marketplace-page .border-green-200 {
+.green .gd-marketplace-page .hover\:border-green-400:hover {
+.green .gd-marketplace-page .bg-red-100 {
+.green .gd-marketplace-page .text-red-600 {
+.green .gd-marketplace-page .bg-amber-50 {
+.green .gd-marketplace-page .text-amber-800 {
+.green .gd-marketplace-page .border-amber-200 {
+.green .gd-marketplace-page .bg-amber-200 {
+.green .gd-marketplace-page .text-amber-900 {
+.green .gd-marketplace-page .hover\:bg-amber-300:hover {
+.green .gd-marketplace-page input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.green .gd-marketplace-page textarea {
+.green .gd-marketplace-page input::placeholder,
+.green .gd-marketplace-page textarea::placeholder {
+.green .gd-marketplace-page input:focus,
+.green .gd-marketplace-page textarea:focus {
+.green .gd-marketplace-page .absolute.inset-4.rounded-full.bg-white {
+.green .gd-marketplace-page .fixed.bottom-24 .bg-white {
+.green .gd-marketplace-page {

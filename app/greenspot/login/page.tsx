@@ -171,9 +171,12 @@ function GreenspotLoginPage() {
 
           <div className="flex items-center justify-between text-xs text-slate-500 dark:text-white/60 green:text-white/60">
             <span>Keep your account secure.</span>
-            <button type="button" className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-200 green:text-emerald-200">
+            <Link
+              href="/forgot-password"
+              className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-200 green:text-emerald-200"
+            >
               Forgot password?
-            </button>
+            </Link>
           </div>
 
           {error && (

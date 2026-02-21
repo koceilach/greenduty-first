@@ -112,11 +112,14 @@ export function HelpUs() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.45 }}
-            className="relative overflow-hidden rounded-[26px] border border-white/12 bg-white/[0.05] p-5 backdrop-blur-sm light:border-slate-300/70 light:bg-white/70 sm:p-6"
+            dir={isArabic ? "rtl" : "ltr"}
+            className={`relative overflow-hidden rounded-[26px] border border-white/12 bg-white/[0.05] p-5 backdrop-blur-sm light:border-slate-300/70 light:bg-white/70 sm:p-6 ${
+              isArabic ? "text-right" : ""
+            }`}
           >
             <div className="pointer-events-none absolute -left-10 top-2 h-40 w-40 rounded-full bg-emerald-400/18 blur-3xl light:bg-emerald-400/12" />
             <div className="relative z-10">
-              <div className={`mb-4 flex items-center gap-3 ${isArabic ? "flex-row-reverse" : ""}`}>
+              <div className="mb-4 flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full border border-emerald-300/35 text-emerald-200 light:border-emerald-500/35 light:text-emerald-700">
                   <Bug className="h-4.5 w-4.5" />
                 </div>
@@ -139,7 +142,7 @@ export function HelpUs() {
                   <p
                     key={line}
                     className={`flex items-start gap-2 text-sm leading-relaxed text-slate-200 light:text-slate-700 ${
-                      isArabic ? "flex-row-reverse" : ""
+                      isArabic ? "flex-row-reverse text-right" : ""
                     }`}
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-300 light:bg-emerald-600" />
@@ -148,7 +151,7 @@ export function HelpUs() {
                 ))}
               </div>
 
-              <div className={`mt-4 inline-flex items-center gap-2 text-xs text-slate-300 light:text-slate-600 ${isArabic ? "flex-row-reverse" : ""}`}>
+              <div className="mt-4 inline-flex items-center gap-2 text-xs text-slate-300 light:text-slate-600">
                 <ShieldCheck className="h-4 w-4 text-emerald-300 light:text-emerald-700" />
                 {t("landing.help.panel.privacy")}
               </div>
@@ -161,7 +164,10 @@ export function HelpUs() {
             viewport={{ once: true }}
             transition={{ duration: 0.45 }}
             onSubmit={handleSubmit}
-            className="relative overflow-hidden rounded-[26px] border border-white/12 bg-white/[0.04] p-5 backdrop-blur-sm sm:p-6 md:p-8 light:border-slate-300/70 light:bg-white/70"
+            dir={isArabic ? "rtl" : "ltr"}
+            className={`relative overflow-hidden rounded-[26px] border border-white/12 bg-white/[0.04] p-5 backdrop-blur-sm sm:p-6 md:p-8 light:border-slate-300/70 light:bg-white/70 ${
+              isArabic ? "text-right" : ""
+            }`}
           >
             <div className="relative z-10">
               <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">

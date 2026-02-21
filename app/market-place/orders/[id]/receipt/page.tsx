@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Download, FileText, Printer } from "lucide-react";
+import { toDataURL as generateQrDataUrl } from "qrcode";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 
 type ReceiptOrder = {
@@ -58,6 +59,7 @@ export default function MarketplaceOrderReceiptPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [receiptPageUrl, setReceiptPageUrl] = useState("");
+  const [qrImageUrl, setQrImageUrl] = useState("");
 
   const fetchReceipt = useCallback(async () => {
     if (!supabase || !user || !orderId) return;
@@ -174,20 +176,41 @@ export default function MarketplaceOrderReceiptPage() {
       "GreenDutyReceipt",
       `invoice:${receiptData.invoiceNo}`,
       `order:${order.id}`,
-      `date:${order.created_at}`,
+      `issued_at:${order.created_at}`,
       `total_dzd:${receiptData.total}`,
       `escrow:${order.escrow_status ?? "pending_receipt"}`,
-      `buyer:${buyerName}`,
-      `seller:${seller?.store_name || seller?.username || "seller"}`,
       `verify_url:${targetUrl}`,
     ].join("|");
-  }, [order, receiptData, receiptPageUrl, buyerName, seller?.store_name, seller?.username]);
+  }, [order, receiptData, receiptPageUrl]);
 
-  const qrImageUrl = useMemo(() => {
-    if (!qrPayload) return "";
-    return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(
-      qrPayload
-    )}`;
+  useEffect(() => {
+    let active = true;
+    if (!qrPayload) {
+      setQrImageUrl("");
+      return;
+    }
+
+    void generateQrDataUrl(qrPayload, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 180,
+      color: {
+        dark: "#0f172a",
+        light: "#ffffff",
+      },
+    })
+      .then((url: string) => {
+        if (!active) return;
+        setQrImageUrl(url);
+      })
+      .catch(() => {
+        if (!active) return;
+        setQrImageUrl("");
+      });
+
+    return () => {
+      active = false;
+    };
   }, [qrPayload]);
 
   if (authLoading || loading) {
@@ -248,7 +271,7 @@ export default function MarketplaceOrderReceiptPage() {
               className="inline-flex items-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110"
             >
               <Download className="h-4 w-4" />
-              Save As PDF
+              Print / Save As PDF
             </button>
           </div>
         </div>

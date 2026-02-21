@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, type ReactNode } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { useRef, type ReactNode } from "react";
+import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
 import { Interactive3DSection } from "@/components/interactive-3d-section";
@@ -18,65 +18,47 @@ function SectionReveal({ children }: { children: ReactNode }) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
   const { scrollYProgress } = useScroll({
     target: sectionRef,
-    offset: ["start 92%", "start 55%"],
+    offset: ["start 96%", "start 42%"],
   });
 
-  const opacity = useTransform(scrollYProgress, [0, 1], [0, 1]);
-  const y = useTransform(scrollYProgress, [0, 1], [32, 0]);
+  const opacity = useTransform(scrollYProgress, [0, 0.55, 1], [0, 0.68, 1]);
+  const y = useTransform(scrollYProgress, [0, 1], [104, 0]);
+  const scale = useTransform(scrollYProgress, [0, 1], [0.965, 1]);
 
   return (
     <motion.div
       ref={sectionRef}
-      style={{ opacity, y, willChange: "opacity, transform" }}
-      className="relative z-10"
+      style={{ opacity, y, scale, willChange: "opacity, transform" }}
+      className="relative z-10 snap-start pb-8 sm:pb-12"
     >
       {children}
     </motion.div>
   );
 }
 
-function ParallaxParticles() {
-  const particles = useMemo(
-    () =>
-      Array.from({ length: 20 }).map((_, index) => ({
-        id: index,
-        left: ((index * 37 + 9) % 100) + 0.5,
-        top: ((index * 53 + 7) % 100) + 0.5,
-        size: (index % 3) + 1.8,
-        duration: 12 + (index % 5) * 2.4,
-        delay: (index % 7) * 0.8,
-        drift: ((index % 5) - 2) * 6,
-      })),
-    []
-  );
+function ScrollProgressRail() {
+  const { scrollYProgress } = useScroll();
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 120,
+    damping: 28,
+    mass: 0.35,
+  });
 
   return (
-    <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      {particles.map((particle) => (
-        <motion.span
-          key={particle.id}
-          className="gd-home-particle absolute rounded-full"
-          style={{
-            left: `${particle.left}%`,
-            top: `${particle.top}%`,
-            width: particle.size,
-            height: particle.size,
-            willChange: "transform, opacity",
-          }}
-          animate={{
-            y: [0, -220],
-            x: [0, particle.drift, 0],
-            opacity: [0, 0.8, 0],
-          }}
-          transition={{
-            duration: particle.duration,
-            delay: particle.delay,
-            ease: "linear",
-            repeat: Infinity,
-          }}
+    <>
+      <div className="pointer-events-none fixed left-0 right-0 top-0 z-40 h-0.5 bg-black/10 light:bg-slate-900/10">
+        <motion.div
+          className="h-full origin-left bg-gradient-to-r from-emerald-400 via-teal-400 to-sky-400"
+          style={{ scaleX: smoothProgress, willChange: "transform" }}
         />
-      ))}
-    </div>
+      </div>
+      <div className="pointer-events-none fixed bottom-8 right-4 z-40 hidden h-28 w-1 overflow-hidden rounded-full bg-white/15 sm:block light:bg-slate-900/15">
+        <motion.div
+          className="h-full w-full origin-bottom rounded-full bg-gradient-to-t from-emerald-500 to-sky-400"
+          style={{ scaleY: smoothProgress, willChange: "transform" }}
+        />
+      </div>
+    </>
   );
 }
 
@@ -108,10 +90,8 @@ function HeroEarthScrollCue() {
 
 export default function Home() {
   return (
-    <main className="relative min-h-screen overflow-x-clip text-[var(--gd-text-100)]">
-      <div className="gd-home-bg pointer-events-none fixed inset-0 -z-30" />
-      <div className="gd-home-grid pointer-events-none fixed inset-0 -z-20" />
-      <ParallaxParticles />
+    <main className="relative min-h-screen snap-y snap-proximity overflow-x-clip bg-[var(--gd-home-bg-gradient)] text-[var(--gd-text-100)]">
+      <ScrollProgressRail />
 
       <Navbar />
       <SectionReveal>

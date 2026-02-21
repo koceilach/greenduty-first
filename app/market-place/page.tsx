@@ -702,6 +702,16 @@ const GD_sellerInitials = (profile?: MarketplaceSellerProfile | null) => {
   return name.slice(0, 2).toUpperCase();
 };
 
+const GD_stableReviewCount = (seed?: string | null) => {
+  const base = (seed ?? "").trim();
+  if (!base) return 20;
+  let hash = 0;
+  for (let i = 0; i < base.length; i += 1) {
+    hash = (hash * 31 + base.charCodeAt(i)) >>> 0;
+  }
+  return 20 + (hash % 200);
+};
+
 const GD_matchesAnyTerm = (text: string, terms: string[]) =>
   terms.some((term) => text.includes(term));
 
@@ -802,6 +812,7 @@ export default function MarketPlacePage() {
   const [productImagePreview, setProductImagePreview] = useState<string | null>(
     null
   );
+  const productImagePreviewObjectUrlRef = useRef<string | null>(null);
   const [productForm, setProductForm] = useState({
     title: "",
     description: "",
@@ -927,7 +938,7 @@ export default function MarketPlacePage() {
         id: item.id,
         name: item.title ?? "Marketplace Item",
         description:
-          description.length > 92 ? `${description.slice(0, 92)}…` : description,
+          description.length > 92 ? `${description.slice(0, 92)}...` : description,
         match,
         price:
           typeof item.price_dzd === "number"
@@ -1323,12 +1334,21 @@ export default function MarketPlacePage() {
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) {
+        if (productImagePreviewObjectUrlRef.current) {
+          URL.revokeObjectURL(productImagePreviewObjectUrlRef.current);
+          productImagePreviewObjectUrlRef.current = null;
+        }
         setProductImageFile(null);
         setProductImagePreview(null);
         return;
       }
+      if (productImagePreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(productImagePreviewObjectUrlRef.current);
+      }
+      const previewUrl = URL.createObjectURL(file);
+      productImagePreviewObjectUrlRef.current = previewUrl;
       setProductImageFile(file);
-      setProductImagePreview(URL.createObjectURL(file));
+      setProductImagePreview(previewUrl);
     },
     []
   );
@@ -1367,8 +1387,20 @@ export default function MarketPlacePage() {
       stock: "10",
       wilaya: "Algiers",
     });
+    if (productImagePreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(productImagePreviewObjectUrlRef.current);
+      productImagePreviewObjectUrlRef.current = null;
+    }
     setProductImageFile(null);
     setProductImagePreview(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (productImagePreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(productImagePreviewObjectUrlRef.current);
+      }
+    };
   }, []);
 
   const handleCreateProduct = useCallback(async () => {
@@ -1537,23 +1569,26 @@ export default function MarketPlacePage() {
       {
         id: "marketplace-fruit-veg",
         title: "Fruits & Vegetables",
-        subtitle: "Seasonal harvest picks and fresh produce varieties.",
+        subtitle: "Farm-fresh produce sorted by quality, harvest window, and region.",
+        variant: "fresh",
         items: pickItems((item) =>
           isIn(item.plant_type, ["fruits", "vegetables"])
         ),
-        empty: "No fruit or vegetable listings yet.",
+        empty: "No fruit or vegetable stock has been listed yet.",
       },
       {
         id: "marketplace-seeds",
         title: "Seeds & Grains",
-        subtitle: "Seed packs and grain varieties ready to plant.",
+        subtitle: "Certified seeds and grain varieties prepared for sowing cycles.",
+        variant: "seed",
         items: pickItems((item) => isIn(item.category, ["seeds"])),
-        empty: "No seed listings yet.",
+        empty: "No seed or grain listings are available yet.",
       },
       {
         id: "marketplace-plants",
         title: "Plants & Trees",
         subtitle: "Live plants and young trees from local growers.",
+        variant: "standard",
         items: pickItems((item) => isIn(item.category, ["plants", "trees"])),
         empty: "No plant listings yet.",
       },
@@ -1561,6 +1596,7 @@ export default function MarketPlacePage() {
         id: "marketplace-tools",
         title: "Agronomy Tools",
         subtitle: "Equipment, fertilizers, and field-ready essentials.",
+        variant: "standard",
         items: pickItems((item) => isIn(item.category, ["tools", "fertilizers"])),
         empty: "No agronomy tools listed yet.",
       },
@@ -1725,10 +1761,10 @@ export default function MarketPlacePage() {
 
   return (
     <div className="gd-marketplace-page gd-mp-shell gd-mp-has-bottom-nav relative min-h-screen bg-[#f7f8fa] text-gray-900">
-      {/* ── Top accent bar ── */}
+      {/* -- Top accent bar -- */}
       <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400" />
 
-      {/* ── Sticky Header / Navbar ── */}
+      {/* -- Sticky Header / Navbar -- */}
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
         <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-3 lg:px-8">
           {/* Brand */}
@@ -1913,7 +1949,7 @@ export default function MarketPlacePage() {
       </header>
 
       <div className="gd-mp-container mx-auto flex w-full max-w-7xl flex-col gap-10 px-4 pb-32 pt-6 lg:px-8">
-        {/* ═══════ HERO BANNER ═══════ */}
+        {/* ------- HERO BANNER ------- */}
         <section id="marketplace-home" className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
           <div className="relative overflow-hidden rounded-[30px] border border-emerald-200/70 bg-gradient-to-br from-emerald-700 via-emerald-600 to-teal-500 p-6 shadow-[0_18px_45px_rgba(16,185,129,0.35)] sm:p-8 lg:min-h-[360px] lg:p-10">
             <div className="pointer-events-none absolute -left-12 top-12 h-44 w-44 rounded-full bg-white/15 blur-2xl" />
@@ -2003,20 +2039,20 @@ export default function MarketPlacePage() {
             </div>
           </div>
 
-          <div className="relative overflow-hidden rounded-[30px] border border-amber-200 bg-gradient-to-br from-[#fff4d8] via-[#ffe8be] to-[#ffd8a3] p-6 shadow-[0_14px_40px_rgba(180,83,9,0.18)] sm:p-7">
+          <div className="relative overflow-hidden rounded-[30px] border border-amber-200 bg-gradient-to-br from-amber-100 via-amber-50 to-orange-100 p-6 shadow-[0_14px_40px_rgba(180,83,9,0.18)] sm:p-7">
             <div className="pointer-events-none absolute -right-14 -top-16 h-48 w-48 rounded-full bg-amber-300/35 blur-2xl" />
             <div className="pointer-events-none absolute -left-10 bottom-0 h-32 w-32 rounded-full bg-emerald-200/50 blur-2xl" />
 
             <div className="relative z-10 flex h-full flex-col justify-between gap-5">
               <div>
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/70 bg-white/65 px-3 py-1 text-[11px] font-semibold text-[#7c3f0b]">
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/70 bg-white/65 px-3 py-1 text-[11px] font-semibold text-amber-900">
                   <Leaf className="h-3.5 w-3.5" />
                   Today&apos;s Field Pulse
                 </span>
-                <h2 className="mt-4 text-2xl font-black leading-tight text-[#2e1d09] sm:text-[2rem]">
+                <h2 className="mt-4 text-2xl font-black leading-tight text-amber-950 sm:text-[2rem]">
                   Marketplace Confidence Index
                 </h2>
-                <p className="mt-2 text-sm leading-relaxed text-[#6d3f14]">
+                <p className="mt-2 text-sm leading-relaxed text-amber-800">
                   Live listing quality, seller activity, and location coverage in one quick snapshot.
                 </p>
               </div>
@@ -2024,14 +2060,14 @@ export default function MarketPlacePage() {
               <div className="rounded-2xl border border-amber-200/80 bg-white/70 p-4">
                 <div className="flex items-end justify-between gap-3">
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-[#8a4b15]">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">
                       AI Match Today
                     </p>
-                    <p className="mt-1 text-4xl font-black leading-none text-[#1f2a10]">
+                    <p className="mt-1 text-4xl font-black leading-none text-emerald-950">
                       {heroMatch}
                     </p>
                   </div>
-                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#7a4320]">
+                  <span className="rounded-full bg-white/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-900">
                     {heroLocation}
                   </span>
                 </div>
@@ -2047,25 +2083,25 @@ export default function MarketPlacePage() {
 
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl border border-amber-200/70 bg-white/60 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8a4b15]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800">
                     Coverage
                   </p>
-                  <p className="mt-1 text-xl font-black text-[#1f2a10]">{heroCoverage}</p>
-                  <p className="text-[11px] text-[#74421b]">Wilayas</p>
+                  <p className="mt-1 text-xl font-black text-emerald-950">{heroCoverage}</p>
+                  <p className="text-[11px] text-amber-900">Wilayas</p>
                 </div>
                 <div className="rounded-xl border border-amber-200/70 bg-white/60 p-3">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#8a4b15]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-800">
                     Active Sellers
                   </p>
-                  <p className="mt-1 text-xl font-black text-[#1f2a10]">{heroSellers}</p>
-                  <p className="text-[11px] text-[#74421b]">Verified</p>
+                  <p className="mt-1 text-xl font-black text-emerald-950">{heroSellers}</p>
+                  <p className="text-[11px] text-amber-900">Verified</p>
                 </div>
               </div>
 
               <button
                 type="button"
                 onClick={() => scrollToSection("featured-marketplace")}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#d8a35c] bg-[#fff1d3] px-4 py-2 text-sm font-bold text-[#6b3d12] transition hover:bg-[#ffe7be]"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900 transition hover:bg-amber-200"
               >
                 Explore Today&apos;s Deals
                 <ArrowUpRight className="h-4 w-4" />
@@ -2074,7 +2110,7 @@ export default function MarketPlacePage() {
           </div>
         </section>
 
-        {/* ═══════ FILTER BAR ═══════ */}
+        {/* ------- FILTER BAR ------- */}
         <section className="relative overflow-hidden rounded-[26px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-sky-50/45 p-3.5 shadow-[0_14px_36px_rgba(16,185,129,0.14)] sm:p-4">
           <div className="pointer-events-none absolute -left-8 top-0 h-28 w-28 rounded-full bg-emerald-200/35 blur-2xl" />
           <div className="pointer-events-none absolute -right-8 bottom-0 h-24 w-24 rounded-full bg-sky-200/35 blur-2xl" />
@@ -2367,7 +2403,7 @@ export default function MarketPlacePage() {
             )}
           </div>
         </section>
-        {/* ═══════ FEATURED MARKETPLACE ═══════ */}
+        {/* ------- FEATURED MARKETPLACE ------- */}
         <section id="featured-marketplace" className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-lg font-bold text-gray-900">Today&apos;s Best Deals For You!</h2>
@@ -2450,7 +2486,9 @@ export default function MarketPlacePage() {
                         {Array.from({ length: 5 }).map((_, i) => (
                           <Star key={`${title}-star-${i}`} className={`h-3 w-3 ${i < 4 ? "fill-amber-400 text-amber-400" : "text-gray-300"}`} />
                         ))}
-                        <span className="ml-1 text-[10px] text-gray-400">({Math.floor(Math.random() * 200 + 20)})</span>
+                        <span className="ml-1 text-[10px] text-gray-400">
+                          ({GD_stableReviewCount(isLive ? item.id : title)})
+                        </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-bold text-gray-900">{price}</span>
@@ -2510,99 +2548,351 @@ export default function MarketPlacePage() {
           )}
         </section>
 
-        {/* ═══════ SPOTLIGHT SECTIONS ═══════ */}
-        {spotlightSections.map((section) => (
-          <section key={section.id} id={section.id} className="space-y-5">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">{section.title}</h2>
-                <p className="mt-1 text-sm text-gray-500">{section.subtitle}</p>
-              </div>
-              <span className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-500">
-                {section.items.length} items
-              </span>
-            </div>
+        {/* ------- SPOTLIGHT SECTIONS ------- */}
+        {spotlightSections.map((section) => {
+          const isFarmStoreSection =
+            section.variant === "fresh" || section.variant === "seed";
+          const isSeedSection = section.variant === "seed";
+          const SpotlightIcon = isSeedSection ? Sprout : Leaf;
+          const accentClass = isSeedSection
+            ? "border-amber-200 bg-amber-50 text-amber-700"
+            : "border-emerald-200 bg-emerald-50 text-emerald-700";
+          const primaryActionClass = isSeedSection
+            ? "bg-amber-600 hover:bg-amber-700"
+            : "bg-emerald-600 hover:bg-emerald-700";
 
-            {section.items.length === 0 ? (
-              <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
-                {section.empty}
-              </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {section.items.map((item) => {
-                  const price = typeof item.price_dzd === "number" ? `${item.price_dzd.toLocaleString()} DZD` : "Price on request";
-                  const tag = item.plant_type ?? item.category ?? "Seeds";
-                  const stockLabel = item.stock_quantity > 0 ? "In Stock" : "Out of Stock";
-                  const sellerName = GD_sellerDisplayName(item.seller_profile);
-                  return (
-                    <article
-                      key={item.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => handleViewDetails(item.id)}
-                      onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); handleViewDetails(item.id); } }}
-                      className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
-                      aria-label={`View ${item.title}`}
+          return (
+            <section
+              key={section.id}
+              id={section.id}
+              className={`space-y-5 ${
+                isFarmStoreSection
+                  ? "rounded-2xl border border-emerald-100 bg-emerald-50/30 p-4 shadow-sm sm:p-5"
+                  : ""
+              }`}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="space-y-2">
+                  {isFarmStoreSection && (
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] ${accentClass}`}
                     >
-                      <div className="relative flex h-40 items-center justify-center overflow-hidden bg-gray-50 p-4">
-                        <img
-                          src={item.image_url ?? "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=900&q=80"}
-                          alt={item.title ?? "Marketplace item"}
-                          className="h-full max-h-32 w-auto object-contain transition group-hover:scale-105"
-                          loading="lazy"
-                        />
-                        <span className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-                          stockLabel === "In Stock" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-600"
-                        }`}>{stockLabel}</span>
-                      </div>
-                      <div className="space-y-2 p-4">
-                        <span className="text-[10px] font-medium uppercase text-gray-400">{tag}</span>
-                        <h3 className="text-sm font-bold text-gray-900">{item.title ?? "Marketplace Item"}</h3>
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-emerald-700">{price}</span>
-                          <span className="flex items-center gap-1 text-gray-400">
-                            <MapPin className="h-3 w-3" />
-                            {GD_formatWilayaLabel(item.wilaya)}
+                      <SpotlightIcon className="h-3.5 w-3.5" />
+                      {isSeedSection ? "Seed & grain depot" : "Fresh produce aisle"}
+                    </span>
+                  )}
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">{section.title}</h2>
+                    <p className="mt-1 text-sm text-gray-500">{section.subtitle}</p>
+                  </div>
+                </div>
+                <span
+                  className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                    isFarmStoreSection
+                      ? accentClass
+                      : "border-gray-200 bg-white text-gray-500"
+                  }`}
+                >
+                  {section.items.length} items
+                </span>
+              </div>
+
+              {section.items.length === 0 ? (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">
+                  {section.empty}
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {section.items.map((item) => {
+                    const price =
+                      typeof item.price_dzd === "number"
+                        ? `${item.price_dzd.toLocaleString()} DZD`
+                        : "Price on request";
+                    const tag = item.plant_type ?? item.category ?? "Farm goods";
+                    const sellerName = GD_sellerDisplayName(item.seller_profile);
+                    const stockLabel =
+                      item.stock_quantity > 0
+                        ? `${item.stock_quantity} available`
+                        : "Out of stock";
+                    const stockClass =
+                      item.stock_quantity > 0
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-red-100 text-red-600";
+                    const sellerInitials = GD_sellerInitials(item.seller_profile);
+                    const itemDescription =
+                      item.description?.trim() ||
+                      "Fresh listing from a verified seller.";
+
+                    if (isFarmStoreSection) {
+                      return (
+                        <article
+                          key={item.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleViewDetails(item.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              handleViewDetails(item.id);
+                            }
+                          }}
+                          className="group cursor-pointer overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                          aria-label={`View ${item.title}`}
+                        >
+                          <div className="relative h-36 overflow-hidden border-b border-gray-100 bg-emerald-50/40">
+                            <img
+                              src={
+                                item.image_url ??
+                                "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=900&q=80"
+                              }
+                              alt={item.title ?? "Marketplace item"}
+                              className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                              loading="lazy"
+                            />
+                            <span
+                              className={`absolute left-2 top-2 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${accentClass}`}
+                            >
+                              {tag}
+                            </span>
+                            <span
+                              className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${stockClass}`}
+                            >
+                              {stockLabel}
+                            </span>
+                          </div>
+
+                          <div className="space-y-3.5 p-4">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 space-y-1">
+                                <h3 className="line-clamp-1 text-sm font-semibold text-gray-900">
+                                  {item.title ?? "Marketplace Item"}
+                                </h3>
+                                <p className="line-clamp-2 text-[11px] leading-relaxed text-gray-500">
+                                  {itemDescription}
+                                </p>
+                              </div>
+                              <span
+                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${accentClass}`}
+                              >
+                                {isSeedSection ? "Certified" : "Seasonal"}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-emerald-50/45 p-2">
+                              <div className="space-y-1 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
+                                  {isSeedSection ? "Pack price" : "Market price"}
+                                </p>
+                                <p
+                                  className={`truncate text-xs font-semibold ${
+                                    isSeedSection ? "text-amber-700" : "text-emerald-700"
+                                  }`}
+                                >
+                                  {price}
+                                </p>
+                              </div>
+                              <div className="space-y-1 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                                <p className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
+                                  Stock
+                                </p>
+                                <p className="truncate text-xs font-semibold text-gray-700">
+                                  {stockLabel}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-[11px]">
+                              <span className="inline-flex min-w-0 items-center gap-1 text-gray-500">
+                                <MapPin className="h-3.5 w-3.5 shrink-0" />
+                                <span className="truncate">
+                                  {GD_formatWilayaLabel(item.wilaya)}
+                                </span>
+                              </span>
+                              <span className="inline-flex items-center gap-1 text-gray-500">
+                                <BadgeCheck className="h-3.5 w-3.5 shrink-0" />
+                                Verified
+                              </span>
+                            </div>
+
+                            <div className="mt-2 rounded-xl border border-gray-200 bg-gray-50 p-1.5">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  router.push(`/market-place/profile/${item.seller_id}`);
+                                }}
+                                className="inline-flex w-full min-w-0 items-center justify-start gap-2 rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-[11px] font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                              >
+                                <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white text-[10px] uppercase">
+                                  {item.seller_profile?.avatar_url ? (
+                                    <img
+                                      src={item.seller_profile.avatar_url}
+                                      alt={sellerName}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    sellerInitials
+                                  )}
+                                </span>
+                                <span className="truncate">{sellerName}</span>
+                              </button>
+                            </div>
+
+                            <div className="mt-2 grid grid-cols-2 gap-2.5">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleViewDetails(item.id);
+                                }}
+                                className="rounded-lg border border-gray-200 bg-white py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                              >
+                                Details
+                              </button>
+                              {isSeller ? (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleViewDetails(item.id);
+                                  }}
+                                  className={`rounded-lg py-1.5 text-xs font-semibold text-white transition ${primaryActionClass}`}
+                                >
+                                  View listing
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleAddToCart(item as MarketplaceItem);
+                                  }}
+                                  disabled={item.stock_quantity <= 0}
+                                  className={`rounded-lg py-1.5 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 ${primaryActionClass}`}
+                                >
+                                  Add to Cart
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    }
+
+                    return (
+                      <article
+                        key={item.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => handleViewDetails(item.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            handleViewDetails(item.id);
+                          }
+                        }}
+                        className="group cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                        aria-label={`View ${item.title}`}
+                      >
+                        <div className="relative h-40 overflow-hidden border-b border-gray-100 bg-gray-50">
+                          <img
+                            src={
+                              item.image_url ??
+                              "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=900&q=80"
+                            }
+                            alt={item.title ?? "Marketplace item"}
+                            className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                            loading="lazy"
+                          />
+                          <span className="absolute left-2 top-2 rounded-full border border-gray-200 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-600">
+                            {tag}
+                          </span>
+                          <span
+                            className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${stockClass}`}
+                          >
+                            {stockLabel}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            router.push(`/market-place/profile/${item.seller_id}`);
-                          }}
-                          className="inline-flex min-w-0 items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50/60 px-2.5 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100"
-                        >
-                          <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-emerald-200 bg-white text-[10px] uppercase">
-                            {item.seller_profile?.avatar_url ? (
-                              <img
-                                src={item.seller_profile.avatar_url}
-                                alt={sellerName}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              GD_sellerInitials(item.seller_profile)
-                            )}
-                          </span>
-                          <span className="truncate">{sellerName}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => { event.stopPropagation(); handleViewDetails(item.id); }}
-                          className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-100"
-                        >
-                          View details
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-        ))}
+                        <div className="space-y-3 p-4">
+                          <div className="space-y-1">
+                            <h3 className="line-clamp-1 text-sm font-semibold text-gray-900">
+                              {item.title ?? "Marketplace Item"}
+                            </h3>
+                            <p className="line-clamp-2 text-[11px] leading-relaxed text-gray-500">
+                              {itemDescription}
+                            </p>
+                          </div>
 
-        {/* ═══════ PROMOTIONAL BANNER ═══════ */}
+                          <div className="grid grid-cols-3 gap-2 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-2">
+                            <div className="min-w-0">
+                              <p className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
+                                Price
+                              </p>
+                              <p className="truncate text-[11px] font-semibold text-emerald-700">
+                                {price}
+                              </p>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
+                                Stock
+                              </p>
+                              <p className="truncate text-[11px] font-semibold text-gray-700">
+                                {item.stock_quantity}
+                              </p>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
+                                Wilaya
+                              </p>
+                              <p className="truncate text-[11px] font-semibold text-gray-700">
+                                {GD_formatWilayaLabel(item.wilaya)}
+                              </p>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              router.push(`/market-place/profile/${item.seller_id}`);
+                            }}
+                            className="inline-flex min-w-0 items-center gap-2 rounded-full border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-gray-700 transition hover:border-gray-300 hover:bg-gray-50"
+                          >
+                            <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-gray-200 bg-white text-[10px] uppercase">
+                              {item.seller_profile?.avatar_url ? (
+                                <img
+                                  src={item.seller_profile.avatar_url}
+                                  alt={sellerName}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                sellerInitials
+                              )}
+                            </span>
+                            <span className="truncate">{sellerName}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleViewDetails(item.id);
+                            }}
+                            className="w-full rounded-lg bg-emerald-600 py-1.5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+                          >
+                            View details
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })}
+
+        {/* ------- PROMOTIONAL BANNER ------- */}
         <section className="overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-700 via-emerald-600 to-teal-600 shadow-lg">
           <div className="relative flex flex-col items-center gap-6 px-6 py-8 md:flex-row md:px-10 md:py-6">
             {/* Decorative arch shape */}
@@ -2654,7 +2944,7 @@ export default function MarketPlacePage() {
           </div>
         </section>
 
-        {/* ═══════ SELLER SHOWCASE ═══════ */}
+        {/* ------- SELLER SHOWCASE ------- */}
         <section id="seller-showcase" className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-lg font-bold text-gray-900">Latest From Sellers</h2>
@@ -2693,7 +2983,7 @@ export default function MarketPlacePage() {
                           handleViewDetails(item.id);
                         }
                       }}
-                      className="group flex min-w-[220px] flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                      className="gd-seller-showcase-card group flex min-w-[190px] flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md sm:min-w-[220px]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="text-sm font-bold text-gray-900">{title}</div>
@@ -2739,63 +3029,116 @@ export default function MarketPlacePage() {
             </div>
           )}
         </section>
-        {/* ═══════ EXPLORE CATEGORIES (circular icons) ═══════ */}
-        <section id="marketplace-categories" className="space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold text-gray-900">Explore Popular Categories</h2>
+        {/* ------- EXPLORE CATEGORIES (circular icons) ------- */}
+        <section id="marketplace-categories" className="space-y-4 sm:space-y-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-gray-900">Explore Popular Categories</h2>
+              <p className="text-xs text-gray-500 sm:text-sm">
+                Browse the most active product groups and jump directly into what is trending.
+              </p>
+            </div>
             <button
               type="button"
               onClick={() => scrollToSection("featured-marketplace")}
-              className="flex items-center gap-1 text-sm font-semibold text-emerald-600 transition hover:text-emerald-700"
+              className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 sm:text-sm"
             >
               View All <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-2">
-            {categoryCards.map((card) => {
-              const Icon = card.icon;
-              const isActive = selectedCategory === card.title;
-              const popularity = card.count / categoryMaxCount;
-              const hasItems = card.count > 0;
-              const countLabel = `${card.count} ${card.count === 1 ? "item" : "items"}`;
-              return (
-                <button
-                  key={card.title}
-                  type="button"
-                  onClick={() => setSelectedCategory(card.title)}
-                  className="group flex shrink-0 flex-col items-center gap-2"
-                  title={`${card.title}: ${countLabel}`}
-                >
-                  <div className={`flex h-20 w-20 items-center justify-center rounded-full border-2 transition-all duration-200 group-hover:border-emerald-500 group-hover:bg-emerald-50 group-hover:shadow-md ${
-                    isActive
-                      ? "border-emerald-500 bg-emerald-50 shadow-md"
-                      : hasItems
-                      ? "border-emerald-200 bg-emerald-50/40"
-                      : "border-gray-200 bg-gray-50"
-                  }`}>
-                    <Icon
-                      className={`h-8 w-8 transition ${
-                        isActive
-                          ? "text-emerald-600"
-                          : hasItems
-                          ? "text-emerald-500 group-hover:text-emerald-600"
-                          : "text-gray-500 group-hover:text-emerald-600"
-                      }`}
-                      style={{ opacity: hasItems ? 0.65 + popularity * 0.35 : 0.55 }}
-                    />
-                  </div>
-                  <span className={`text-xs font-medium ${isActive ? "text-emerald-700" : "text-gray-600"}`}>
-                    {card.title}
-                  </span>
-                  <span className={`text-[10px] ${hasItems ? "text-emerald-600" : "text-gray-400"}`}>
-                    {countLabel}
-                  </span>
-                </button>
-              );
-            })}
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-3 shadow-sm sm:p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+              <div className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 sm:text-xs">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Live category pulse</span>
+              </div>
+              <span className="text-[11px] text-gray-500 sm:text-xs">
+                {categoryCards.length} popular segments
+              </span>
+            </div>
+
+            <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 pr-0.5 scrollbar-none md:grid md:grid-cols-2 md:gap-4 md:overflow-visible md:pb-0 lg:grid-cols-3">
+              {categoryCards.map((card) => {
+                const Icon = card.icon;
+                const isActive = selectedCategory === card.title;
+                const popularity = card.count / categoryMaxCount;
+                const hasItems = card.count > 0;
+                const density = Math.round(popularity * 100);
+                const barWidth = hasItems ? Math.max(12, density) : 6;
+                const countLabel = `${card.count} ${card.count === 1 ? "item" : "items"}`;
+                return (
+                  <button
+                    key={card.title}
+                    type="button"
+                    onClick={() => setSelectedCategory(card.title)}
+                    className={`group flex min-w-[220px] shrink-0 snap-start flex-col gap-3 rounded-2xl border p-3.5 text-left transition-all duration-200 sm:min-w-[240px] md:min-w-0 ${
+                      isActive
+                        ? "border-emerald-300 bg-emerald-50 shadow-md"
+                        : hasItems
+                        ? "border-gray-200 bg-white hover:border-emerald-300 hover:bg-gray-50"
+                        : "border-gray-200 bg-gray-50 hover:border-emerald-200"
+                    }`}
+                    title={`${card.title}: ${countLabel}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <span
+                        className={`flex h-10 w-10 items-center justify-center rounded-xl border sm:h-11 sm:w-11 ${
+                          isActive
+                            ? "border-emerald-200 bg-white"
+                            : hasItems
+                            ? "border-emerald-200 bg-emerald-50"
+                            : "border-gray-200 bg-white"
+                        }`}
+                      >
+                        <Icon
+                          className={`h-5 w-5 transition ${
+                            isActive
+                              ? "text-emerald-700"
+                              : hasItems
+                              ? "text-emerald-600 group-hover:text-emerald-700"
+                              : "text-gray-500"
+                          }`}
+                          style={{ opacity: hasItems ? 0.7 + popularity * 0.3 : 0.55 }}
+                        />
+                      </span>
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                          hasItems ? "bg-emerald-100 text-emerald-700" : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        {countLabel}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-sm font-bold text-gray-900">{card.title}</div>
+                      <p className="line-clamp-2 text-[11px] text-gray-500">{card.description}</p>
+                    </div>
+
+                    <div className="mt-auto space-y-1.5">
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                        <span
+                          className={`block h-full rounded-full transition-all duration-300 ${
+                            hasItems ? "bg-emerald-500" : "bg-gray-400"
+                          }`}
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] font-medium">
+                        <span className={hasItems ? "text-emerald-700" : "text-gray-500"}>
+                          {hasItems ? "Trending now" : "Awaiting listings"}
+                        </span>
+                        <span className="text-gray-500">{density}% density</span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </section>
-        {/* ═══════ WEATHER DASHBOARD ═══════ */}
+        {/* ------- WEATHER DASHBOARD ------- */}
         <section id="weather-dashboard" className="space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -3323,10 +3666,10 @@ export default function MarketPlacePage() {
 
       {toast && (
         <div
-          className="fixed z-40 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-medium text-green-700 shadow-lg"
+          className="gd-marketplace-toast fixed z-40 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-medium text-green-700 shadow-lg"
           style={{
             right: "max(env(safe-area-inset-right), 24px)",
-            bottom: "calc(env(safe-area-inset-bottom) + 78px)",
+            bottom: "calc(env(safe-area-inset-bottom) + 96px)",
           }}
         >
           {toast}
@@ -3336,10 +3679,10 @@ export default function MarketPlacePage() {
       {!isSeller && (
         <Link
           href="/market-place/seller-onboarding"
-          className="fixed z-40 flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition hover:bg-green-700"
+          className="gd-marketplace-fab fixed z-40 flex h-11 w-11 items-center justify-center rounded-full bg-green-600 text-white shadow-lg transition hover:bg-green-700"
           style={{
             right: "max(env(safe-area-inset-right), 24px)",
-            bottom: "calc(env(safe-area-inset-bottom) + 12px)",
+            bottom: "calc(env(safe-area-inset-bottom) + 88px)",
           }}
           aria-label="Become a seller"
         >
@@ -3348,9 +3691,9 @@ export default function MarketPlacePage() {
       )}
 
       {productModalOpen && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="flex w-full max-w-4xl max-h-[90vh] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-5">
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:px-4 sm:py-6">
+          <div className="gd-product-modal-panel flex h-[96dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl border border-gray-200 bg-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4 sm:px-6 sm:py-5">
               <div className="space-y-1">
                 <div className="text-xs font-semibold uppercase tracking-wider text-green-600">
                   Seller Studio
@@ -3369,7 +3712,7 @@ export default function MarketPlacePage() {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-5">
+            <div className="flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">
               <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr]">
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
@@ -3804,7 +4147,7 @@ export default function MarketPlacePage() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 px-4 py-4 sm:px-5">
               <div className="text-xs text-gray-500">
                 Your listing goes live instantly after submission.
               </div>
@@ -3822,7 +4165,7 @@ export default function MarketPlacePage() {
       )}
 
       <nav
-        className="gd-bottom-nav fixed left-1/2 z-30 flex w-[min(96vw,560px)] -translate-x-1/2 items-center gap-1 rounded-[999px] px-2 py-2 max-[360px]:w-[min(98vw,380px)] max-[360px]:gap-0.5 max-[360px]:px-1.5 sm:w-[min(94vw,620px)] sm:gap-1.5 sm:px-3 sm:py-2.5"
+        className="gd-bottom-nav fixed left-1/2 z-30 flex w-[calc(100vw-12px)] max-w-[560px] -translate-x-1/2 items-center gap-1 rounded-[999px] px-2 py-2 sm:w-[min(94vw,620px)] sm:gap-1.5 sm:px-3 sm:py-2.5"
         style={{ bottom: "calc(env(safe-area-inset-bottom) + 8px)" }}
         aria-label="Marketplace quick actions"
       >
@@ -3897,3 +4240,6 @@ export default function MarketPlacePage() {
     </div>
   );
 }
+
+
+

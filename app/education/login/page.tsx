@@ -254,7 +254,7 @@ function EduLoginPage() {
               {/* Forgot password */}
               <div className="text-right">
                 <Link
-                  href="#"
+                  href="/forgot-password"
                   className="text-xs font-medium text-[#1E7F43] transition hover:text-emerald-700"
                 >
                   Forgot password?

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -102,6 +102,7 @@ export default function VendorStudioPage() {
   const [messageOrderId, setMessageOrderId] = useState<string | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const imagePreviewObjectUrlRef = useRef<string | null>(null);
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -128,8 +129,20 @@ export default function VendorStudioPage() {
       latitude: "",
       longitude: "",
     });
+    if (imagePreviewObjectUrlRef.current) {
+      URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+      imagePreviewObjectUrlRef.current = null;
+    }
     setImageFile(null);
     setImagePreview(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (imagePreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+      }
+    };
   }, []);
 
   const fetchItems = useCallback(async () => {
@@ -313,12 +326,21 @@ export default function VendorStudioPage() {
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) {
+        if (imagePreviewObjectUrlRef.current) {
+          URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+          imagePreviewObjectUrlRef.current = null;
+        }
         setImageFile(null);
         setImagePreview(null);
         return;
       }
+      if (imagePreviewObjectUrlRef.current) {
+        URL.revokeObjectURL(imagePreviewObjectUrlRef.current);
+      }
+      const previewUrl = URL.createObjectURL(file);
+      imagePreviewObjectUrlRef.current = previewUrl;
       setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      setImagePreview(previewUrl);
     },
     []
   );

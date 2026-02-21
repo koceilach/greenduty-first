@@ -86,6 +86,8 @@ function MarketplaceSearchPage() {
   const rawQuery = searchParams.get("q") ?? "";
   const query = useMemo(() => rawQuery.trim(), [rawQuery]);
   const [queryInput, setQueryInput] = useState(query);
+  const [exactMatchOnly, setExactMatchOnly] = useState(false);
+  const [inStockOnly, setInStockOnly] = useState(false);
   const [items, setItems] = useState<MarketplaceItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,13 +108,20 @@ function MarketplaceSearchPage() {
     setLoading(true);
     setError(null);
 
-    const { data, error: fetchError } = await supabase
+    let queryBuilder = supabase
       .from("marketplace_items")
       .select(
         "id, seller_id, title, description, price_dzd, image_url, stock_quantity, plant_type, category, wilaya, marketplace_profiles:seller_id ( id, username, store_name, avatar_url )"
       )
-      .ilike("title", `%${query}%`)
-      .order("created_at", { ascending: false });
+      .ilike("title", exactMatchOnly ? query : `%${query}%`);
+
+    if (inStockOnly) {
+      queryBuilder = queryBuilder.gt("stock_quantity", 0);
+    }
+
+    const { data, error: fetchError } = await queryBuilder.order("created_at", {
+      ascending: false,
+    });
 
     if (fetchError) {
       setError("Unable to load search results.");
@@ -143,7 +152,7 @@ function MarketplaceSearchPage() {
 
     setItems(normalized as MarketplaceItem[]);
     setLoading(false);
-  }, [supabase, query]);
+  }, [supabase, query, exactMatchOnly, inStockOnly]);
 
   useEffect(() => {
     fetchItems();
@@ -186,7 +195,7 @@ function MarketplaceSearchPage() {
                   Results for "{query || "..."}"
                 </h1>
                 <p className="mt-2 text-xs text-white/60">
-                  Exact-name search across all live marketplace listings.
+                  Keyword search across live marketplace listings.
                 </p>
               </div>
             </div>
@@ -200,10 +209,10 @@ function MarketplaceSearchPage() {
 
           <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/60">
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-              Exact name match
+              {exactMatchOnly ? "Exact title match" : "Keyword match (title)"}
             </span>
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-              Live inventory only
+              {inStockOnly ? "In-stock only" : "All stock states"}
             </span>
             <span className="rounded-full border border-emerald-200/30 bg-emerald-200/10 px-3 py-1 text-emerald-100">
               Updated in real time
@@ -240,6 +249,31 @@ function MarketplaceSearchPage() {
               Browse all
             </Link>
           </form>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setExactMatchOnly((prev) => !prev)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                exactMatchOnly
+                  ? "border-emerald-200/50 bg-emerald-200/20 text-emerald-100"
+                  : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+              }`}
+            >
+              Exact title
+            </button>
+            <button
+              type="button"
+              onClick={() => setInStockOnly((prev) => !prev)}
+              className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                inStockOnly
+                  ? "border-emerald-200/50 bg-emerald-200/20 text-emerald-100"
+                  : "border-white/15 bg-white/5 text-white/70 hover:bg-white/10"
+              }`}
+            >
+              In-stock only
+            </button>
+          </div>
         </section>
 
         {loading ? (
@@ -261,7 +295,7 @@ function MarketplaceSearchPage() {
           </div>
         ) : items.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-white/5 p-8 text-center text-sm text-white/60">
-            No products found with the exact name "{query}".
+            No products found for "{query}" with current filters.
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">

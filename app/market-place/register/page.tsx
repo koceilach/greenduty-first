@@ -44,14 +44,14 @@ export default function MarketplaceRegisterPage() {
           password,
         });
         if (!signInResult.error) {
-          // Signed in successfully — marketplace profile auto-created
+          // Signed in successfully; marketplace profile is auto-created.
           setMessage("Welcome! Your marketplace profile has been set up.");
           setMessageType("info");
           setSubmitting(false);
           router.replace("/market-place");
           return;
         }
-        // Sign-in also failed — they used the wrong password
+        // Sign-in also failed, likely due to an incorrect password.
         setMessage(
           "This email already has a GreenDuty account. Please go to the login page and use your existing GreenDuty password."
         );
@@ -72,12 +72,6 @@ export default function MarketplaceRegisterPage() {
 
   return (
     <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#0b2b25] text-white">
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-32 top-10 h-72 w-72 rounded-full bg-emerald-400/20 blur-3xl" />
-        <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-teal-300/20 blur-3xl" />
-        <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl" />
-      </div>
-
       <div className="gd-mp-container relative z-10 mx-auto flex min-h-screen w-full max-w-5xl flex-col items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           <div className="mb-4">
@@ -196,6 +190,7 @@ export default function MarketplaceRegisterPage() {
     </div>
   );
 }
+
 
 
 

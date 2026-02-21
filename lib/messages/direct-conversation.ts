@@ -123,11 +123,24 @@ export async function GD_findOrCreateDirectConversation(
     ]);
 
   if (participantInsertError) {
+    const { error: rollbackError } = await supabase
+      .from("conversations")
+      .delete()
+      .eq("id", createdConversation.id);
+
+    if (rollbackError) {
+      return {
+        conversationId: null,
+        error:
+          "Conversation setup failed and cleanup failed. Please retry or contact support.",
+      };
+    }
+
     return {
       conversationId: null,
       error: GD_pickErrorMessage(
         participantInsertError,
-        "Conversation was created but participants could not be attached."
+        "Conversation setup failed before participants were attached."
       ),
     };
   }

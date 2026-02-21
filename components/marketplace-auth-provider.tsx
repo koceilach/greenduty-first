@@ -85,9 +85,6 @@ export function MarketplaceAuthProvider({
   const [profile, setProfile] = useState<MarketplaceProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // The single admin email — used as client-side failsafe
-  const ADMIN_EMAIL = "osgamer804@gmail.com";
-
   const MP_SELECT_COLS =
     "id, email, username, role, bio, store_name, avatar_url, location, store_latitude, store_longitude, created_at, updated_at";
 
@@ -97,7 +94,6 @@ export function MarketplaceAuthProvider({
    *  - Row exists but email/username are null (from backfill migrations)
    *  - Row doesn't exist at all
    *  - RPC function not deployed yet
-   *  - admin email gets admin role
    */
   const ensureProfile = useCallback(
     async (authUser: User): Promise<MarketplaceProfile | null> => {
@@ -107,9 +103,8 @@ export function MarketplaceAuthProvider({
       const username =
         (authUser.user_metadata?.username as string | undefined) ??
         (email.split("@")[0] || "user");
-      const isAdmin = email.toLowerCase() === ADMIN_EMAIL;
 
-      // ── Step 1: Check if profile row already exists ──
+      // Step 1: Check if profile row already exists.
       const { data: existing, error: selectError } = await supabase
         .from("marketplace_profiles")
         .select(MP_SELECT_COLS)
@@ -123,26 +118,23 @@ export function MarketplaceAuthProvider({
       if (existing) {
         let mp = existing as MarketplaceProfile;
 
-        // Fix missing email/username and admin role on existing rows
+        // Fix missing email/username on existing rows
         const needsFix =
           !mp.email ||
-          !mp.username ||
-          (isAdmin && mp.role !== "admin");
+          !mp.username;
 
         if (needsFix) {
-          // Try RPC first (bypasses RLS, can change role)
+          // Try RPC first (bypasses RLS).
           const { error: rpcErr } = await supabase.rpc(
             "ensure_marketplace_profile",
             { p_email: email, p_username: username }
           );
 
           if (rpcErr) {
-            // RPC not available — try direct update (role change may fail due to RLS)
+            // RPC not available, try direct update.
             const updates: Record<string, string> = {};
             if (!mp.email) updates.email = email;
             if (!mp.username) updates.username = username;
-            // Note: role update will fail for non-admins due to RLS (that's fine)
-            if (isAdmin && mp.role !== "admin") updates.role = "admin";
 
             if (Object.keys(updates).length > 0) {
               await supabase
@@ -162,17 +154,12 @@ export function MarketplaceAuthProvider({
           if (refreshed) mp = refreshed as MarketplaceProfile;
         }
 
-        // Client-side admin failsafe: even if DB update failed, show admin UI
-        if (isAdmin && mp.role !== "admin") {
-          mp = { ...mp, role: "admin" };
-        }
-
         return mp;
       }
 
-      // ── Step 2: No row exists — create one ──
+      // Step 2: No row exists, create one.
 
-      // Try RPC first (SECURITY DEFINER — always works, sets admin too)
+      // Try RPC first (SECURITY DEFINER).
       const { error: rpcCreateErr } = await supabase.rpc(
         "ensure_marketplace_profile",
         { p_email: email, p_username: username }
@@ -186,9 +173,7 @@ export function MarketplaceAuthProvider({
           .maybeSingle();
 
         if (afterRpc) {
-          let mp = afterRpc as MarketplaceProfile;
-          if (isAdmin && mp.role !== "admin") mp = { ...mp, role: "admin" };
-          return mp;
+          return afterRpc as MarketplaceProfile;
         }
       } else {
         console.warn("[Marketplace] RPC unavailable:", rpcCreateErr.message);
@@ -201,7 +186,7 @@ export function MarketplaceAuthProvider({
           id: authUser.id,
           email,
           username,
-          role: isAdmin ? "admin" : "buyer",
+          role: "buyer",
         });
 
       if (insertErr) {
@@ -216,9 +201,7 @@ export function MarketplaceAuthProvider({
         .maybeSingle();
 
       if (afterInsert) {
-        let mp = afterInsert as MarketplaceProfile;
-        if (isAdmin && mp.role !== "admin") mp = { ...mp, role: "admin" };
-        return mp;
+        return afterInsert as MarketplaceProfile;
       }
 
       // Absolute last resort: return a synthetic profile so UI doesn't break
@@ -227,7 +210,7 @@ export function MarketplaceAuthProvider({
           id: authUser.id,
           email,
           username,
-          role: isAdmin ? "admin" : "buyer",
+          role: "buyer",
           bio: null,
           store_name: null,
           avatar_url: null,
@@ -445,12 +428,13 @@ export function MarketplaceAuthProvider({
         const { error: uploadError } = await supabase.storage
           .from("avatars")
           .upload(path, payload.id_file, { upsert: true });
-        if (!uploadError) {
-          const { data: urlData } = supabase.storage
-            .from("avatars")
-            .getPublicUrl(path);
-          idFileUrl = urlData?.publicUrl ?? null;
+        if (uploadError) {
+          return { error: "ID upload failed. Please retry with a clear file." };
         }
+        const { data: urlData } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(path);
+        idFileUrl = urlData?.publicUrl ?? null;
       }
 
       const { error } = await supabase

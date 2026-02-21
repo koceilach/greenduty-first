@@ -260,19 +260,16 @@ export default function SellerOnboardingPage() {
                   Back to Marketplace
                 </button>
               </div>
-            ) : existingApp?.status === "rejected" ? (
-              <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-red-200/40 bg-red-200/10 text-red-300">
-                  <ShieldCheck className="h-6 w-6" />
-                </div>
-                <div className="text-xl font-semibold">Application Rejected</div>
-                <p className="text-sm text-white/60">
-                  Your previous application was not approved. You can submit a new
-                  application with updated information below.
-                </p>
-              </div>
             ) : (
               <div className="space-y-6">
+                {existingApp?.status === "rejected" && (
+                  <div className="rounded-2xl border border-red-200/40 bg-red-200/10 p-4 text-sm text-red-100">
+                    <div className="font-semibold">Previous application rejected</div>
+                    <p className="mt-1 text-red-100/90">
+                      Update your details and submit a new application.
+                    </p>
+                  </div>
+                )}
                 <div className="text-sm font-semibold">Seller Details</div>
 
                 <div className="grid gap-4 md:grid-cols-2">

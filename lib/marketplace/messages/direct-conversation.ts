@@ -169,52 +169,10 @@ export async function GD_findOrCreateMarketplaceDirectConversation(
     }
   }
 
-  const { data: createdConversation, error: createConversationError } = await supabase
-    .from("marketplace_conversations")
-    .insert({
-      type: "direct",
-      pinned_item_id: context?.itemId ?? null,
-      pinned_item_title: context?.itemTitle ?? null,
-      pinned_item_image_url: context?.itemImageUrl ?? null,
-      pinned_item_price_dzd: context?.itemPriceDzd ?? null,
-      pinned_by: context?.itemId ? currentUserId : null,
-      pinned_at: context?.itemId ? new Date().toISOString() : null,
-    })
-    .select("id")
-    .single();
-
-  if (createConversationError || !createdConversation?.id) {
-    return {
-      conversationId: null,
-      error: GD_pickErrorMessage(
-        createConversationError,
-        "Unable to create marketplace chat right now."
-      ),
-    };
-  }
-
-  const { error: participantsError } = await supabase
-    .from("marketplace_conversation_participants")
-    .insert([
-      {
-        conversation_id: createdConversation.id,
-        user_id: currentUserId,
-      },
-      {
-        conversation_id: createdConversation.id,
-        user_id: otherUserId,
-      },
-    ]);
-
-  if (participantsError) {
-    return {
-      conversationId: null,
-      error: GD_pickErrorMessage(
-        participantsError,
-        "Chat was created but participants were not attached."
-      ),
-    };
-  }
-
-  return { conversationId: createdConversation.id, error: null };
+  // Do not create direct conversations from the client: this must stay transactional in SQL.
+  return {
+    conversationId: null,
+    error:
+      "Unable to start a new marketplace chat right now. Please run the latest marketplace chat migrations and retry.",
+  };
 }

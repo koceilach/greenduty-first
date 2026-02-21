@@ -113,7 +113,7 @@ export default function MarketplaceMessagesPage() {
       setRecentLoading(true);
       try {
         if (profile?.role === "seller") {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("marketplace_orders")
             .select(
               `
@@ -137,6 +137,9 @@ export default function MarketplaceMessagesPage() {
             .eq("marketplace_items.seller_id", user.id)
             .order("created_at", { ascending: false })
             .limit(40);
+          if (error) {
+            throw new Error(error.message || "Unable to load recent buyer contacts.");
+          }
 
           if (!active) return;
 
@@ -163,7 +166,7 @@ export default function MarketplaceMessagesPage() {
           }
           setRecentPartners(Array.from(partnerMap.values()).slice(0, 8));
         } else {
-          const { data } = await supabase
+          const { data, error } = await supabase
             .from("marketplace_orders")
             .select(
               `
@@ -186,6 +189,9 @@ export default function MarketplaceMessagesPage() {
             .eq("buyer_id", user.id)
             .order("created_at", { ascending: false })
             .limit(40);
+          if (error) {
+            throw new Error(error.message || "Unable to load recent seller contacts.");
+          }
 
           if (!active) return;
 
@@ -233,6 +239,14 @@ export default function MarketplaceMessagesPage() {
           }
           setRecentPartners(Array.from(partnerMap.values()).slice(0, 8));
         }
+      } catch (fetchError) {
+        if (!active) return;
+        setRecentPartners([]);
+        const message =
+          fetchError instanceof Error
+            ? fetchError.message
+            : "Unable to load recent contacts.";
+        setToast(message);
       } finally {
         if (active) {
           setRecentLoading(false);
