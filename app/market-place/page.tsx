@@ -48,10 +48,6 @@ import {
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 import { GD_WILAYAS } from "@/lib/wilayas";
 
-const GD_NAV_ITEMS = [
-  "AI",
-] as const;
-
 const GD_HERO_STATS = [
   {
     label: "AI Match",
@@ -1914,36 +1910,24 @@ export default function MarketPlacePage() {
         </div>
 
         {/* Category navbar */}
-        <div className="border-t border-gray-100 bg-white">
-          <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center gap-1 overflow-x-auto px-4 py-1.5 text-[13px] lg:px-8">
-            {GD_NAV_ITEMS.map((item) => (
-              <button
-                key={item}
-                type="button"
-                className={`whitespace-nowrap rounded-lg px-3 py-1.5 font-medium transition ${
-                  item === "AI"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-                }`}
-              >
-                {item}
-              </button>
-            ))}
-            <div className="mx-2 h-4 w-px bg-gray-200" />
-            {GD_FEATURED_FILTERS.map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => setActiveFeaturedFilter(filter)}
-                className={`whitespace-nowrap rounded-lg px-3 py-1.5 font-medium transition ${
-                  activeFeaturedFilter === filter
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-                }`}
-              >
-                {filter}
-              </button>
-            ))}
+        <div className="border-t border-gray-100 bg-white/95 backdrop-blur-sm">
+          <div className="gd-mp-container mx-auto w-full max-w-7xl px-3 py-2 sm:px-4 lg:px-8">
+            <div className="flex snap-x snap-mandatory flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {GD_FEATURED_FILTERS.map((filter) => (
+                <button
+                  key={filter}
+                  type="button"
+                  onClick={() => setActiveFeaturedFilter(filter)}
+                  className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold leading-none transition ${
+                    activeFeaturedFilter === filter
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-[0_6px_18px_rgba(16,185,129,0.18)]"
+                      : "border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/40 hover:text-emerald-700"
+                  }`}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </header>

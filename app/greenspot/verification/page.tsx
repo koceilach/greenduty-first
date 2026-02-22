@@ -48,6 +48,12 @@ export default function GreenSpotVerificationPage() {
       return;
     }
 
+    if (documentFile.size > 8 * 1024 * 1024) {
+      setError("Document is too large. Maximum size is 8MB.");
+      setSubmitting(false);
+      return;
+    }
+
     const fileExt = documentFile.name.split(".").pop() || "pdf";
     const filePath = `verification/${user.id}/${Date.now()}-${Math.random()
       .toString(36)
@@ -66,58 +72,23 @@ export default function GreenSpotVerificationPage() {
       return;
     }
 
-    const { data: publicDoc } = greenspotClient.storage
-      .from("greenspot-verification")
-      .getPublicUrl(filePath);
-    const documentUrl = publicDoc?.publicUrl ?? null;
+    const documentPath = filePath;
 
-    const fallbackName =
-      user.user_metadata?.full_name ||
-      user.user_metadata?.username ||
-      user.email?.split("@")[0] ||
-      "Eco Ranger";
+    const { error: submitError } = await greenspotClient.rpc(
+      "submit_verification_request",
+      {
+        p_type: type,
+        p_document_path: documentPath,
+      }
+    );
 
-    const { error: profileUpsertError } = await greenspotClient
-      .from("greenspot_profiles")
-      .upsert(
-        {
-          id: user.id,
-          email: user.email ?? null,
-          username: user.user_metadata?.username ?? fallbackName,
-          full_name: user.user_metadata?.full_name ?? fallbackName,
-          avatar_url:
-            user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
-          role: "member",
-          account_tier: "basic",
-          verification_status: profile?.verification_status ?? "unverified",
-          verification_type: profile?.verification_type ?? null,
-        },
-        { onConflict: "id" }
-      );
-
-    if (profileUpsertError) {
-      setError(profileUpsertError.message ?? "Unable to create GreenSpot profile.");
+    if (submitError) {
+      setError(submitError.message ?? "Unable to submit verification request.");
       setSubmitting(false);
       return;
     }
 
-    const { error: requestError } = await greenspotClient
-      .from("verification_requests")
-      .insert({ user_id: user.id, type, document_url: documentUrl });
-
-    const { error: profileError } = await greenspotClient
-      .from("greenspot_profiles")
-      .update({ verification_status: "pending", verification_type: type })
-      .eq("id", user.id);
-
-    if (requestError || profileError) {
-      setError(
-        (requestError ?? profileError)?.message ??
-          "Unable to submit verification request."
-      );
-    } else {
-      await refreshProfile();
-    }
+    await refreshProfile();
 
     setSubmitting(false);
   };

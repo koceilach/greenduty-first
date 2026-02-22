@@ -22,12 +22,20 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  themeColor: '#059669',
 }
 
 export const metadata: Metadata = {
+  applicationName: 'Greenduty',
   title: 'GreenDuty - Empowering Nature, Knowledge, and Commerce',
   description: 'GreenDuty is an Algerian eco-system connecting pollution tracking, agricultural marketplace, and eco-logistics for a sustainable future.',
   generator: 'v0.app',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Greenduty',
+  },
   icons: {
     icon: [
       {
@@ -41,6 +49,16 @@ export const metadata: Metadata = {
       {
         url: '/icon.svg',
         type: 'image/svg+xml',
+      },
+      {
+        url: '/icon-192x192.png',
+        sizes: '192x192',
+        type: 'image/png',
+      },
+      {
+        url: '/icon-512x512.png',
+        sizes: '512x512',
+        type: 'image/png',
       },
     ],
     apple: '/apple-icon.png',

@@ -336,7 +336,11 @@ export default function GreenSpotReportPage() {
                 >
                   {isSubmitting ? "Submitting..." : "Submit report"}
                 </Button>
-                <Button variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="border-white/20 text-white hover:bg-white/10"
+                >
                   Save draft
                 </Button>
               </div>

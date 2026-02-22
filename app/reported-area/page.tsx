@@ -19,12 +19,8 @@ import {
   ShieldCheck,
   X,
   Plus,
-  Flame,
-  Droplets,
   Leaf,
   Trash2,
-  Skull,
-  Factory,
   Sparkles,
   Sun,
   Moon,
@@ -36,7 +32,17 @@ import clsx from "clsx";
 import { useTheme } from "next-themes";
 import { useAuth } from "@/components/auth-provider";
 import { setActivePage, subscribeActivePage } from "@/lib/active-page";
-import { supabaseClient } from "@/lib/supabase/client";
+import { greenspotClient, supabaseClient } from "@/lib/supabase/client";
+import {
+  GD_formatHotspotLabel as GD_System_formatHotspotLabel,
+  GD_getNearestCity as GD_System_getNearestCity,
+} from "@/lib/reported-area/geo";
+import {
+  GD_REPORTED_AREA_LEGEND_ITEMS as GD_System_LEGEND_ITEMS,
+  GD_REPORTED_AREA_RECOVERY_WEIGHTS as GD_System_RECOVERY_WEIGHTS,
+  GD_REPORTED_AREA_WASTE_TYPES as GD_System_WASTE_TYPES,
+  GD_isLowPowerPhone as GD_System_isLowPowerPhone,
+} from "@/lib/reported-area/ui";
 
 const GD_System_REPORT_XP = 120;
 const GD_System_DEFAULT_CENTER = { lat: 36.7538, lng: 3.0588 };
@@ -44,107 +50,10 @@ const GD_System_disableAuthRedirect = false;
 const GD_System_STORAGE_BUCKET = "pollution_images";
 const GD_System_AVATAR_BUCKET = "avatars";
 const GD_System_LOCATION_PULSE_MS = 1600;
-const GD_System_LOW_POWER_MAX_DEVICE_MEMORY_GB = 4;
-const GD_System_LOW_POWER_MAX_CPU_CORES = 6;
 const GD_System_MapComponent = dynamic(
   () => import("@/components/MapComponent"),
   { ssr: false }
 );
-
-const GD_System_WASTE_TYPES = [
-  { id: "plastic", label: "Plastic Dump", icon: Trash2 },
-  { id: "toxic", label: "Toxic Spill", icon: Skull },
-  { id: "forest_fire", label: "Forest Fire", icon: Flame },
-  { id: "chemical", label: "Chemical Leak", icon: Droplets },
-  { id: "logging", label: "Illegal Logging", icon: Leaf },
-  { id: "industrial", label: "Industrial Smoke", icon: Factory },
-] as const;
-
-const GD_System_CITY_LOOKUP = [
-  { name: "Algiers", lat: 36.7538, lng: 3.0588 },
-  { name: "Oran", lat: 35.6971, lng: -0.6308 },
-  { name: "Constantine", lat: 36.365, lng: 6.6147 },
-  { name: "Annaba", lat: 36.9, lng: 7.7667 },
-  { name: "Blida", lat: 36.47, lng: 2.83 },
-  { name: "Tizi Ouzou", lat: 36.7118, lng: 4.045 },
-  { name: "Setif", lat: 36.19, lng: 5.41 },
-  { name: "Bejaia", lat: 36.75, lng: 5.06 },
-] as const;
-
-const GD_System_RECOVERY_WEIGHTS: Record<string, number> = {
-  "Plastic Dump": 180,
-  "Toxic Spill": 120,
-  "Forest Fire": 45,
-  "Chemical Leak": 90,
-  "Illegal Logging": 70,
-  "Industrial Smoke": 110,
-};
-
-const GD_System_LEGEND_ITEMS = [
-  { label: "Organic", detail: "Illegal Logging", color: "#31f2b2" },
-  { label: "Toxic", detail: "Spill / Chemical", color: "#ff5f6d" },
-  { label: "Recyclable", detail: "Plastic Dump", color: "#4cc9f0" },
-] as const;
-
-const GD_System_getNearestCity = (lat: number, lng: number): string => {
-  let nearest: string = GD_System_CITY_LOOKUP[0]?.name ?? "Unknown";
-  let minDistance = Number.POSITIVE_INFINITY;
-  GD_System_CITY_LOOKUP.forEach((city) => {
-    const distance = Math.hypot(lat - city.lat, lng - city.lng);
-    if (distance < minDistance) {
-      minDistance = distance;
-      nearest = city.name;
-    }
-  });
-  return nearest;
-};
-
-const GD_System_formatHotspotLabel = (lat: number, lng: number) => {
-  const city = GD_System_getNearestCity(lat, lng);
-  const latKey = (Math.round(lat * 100) / 100).toFixed(2);
-  const lngKey = (Math.round(lng * 100) / 100).toFixed(2);
-  return `${city} - Sector ${latKey}, ${lngKey}`;
-};
-
-const GD_System_isLowPowerPhone = () => {
-  if (typeof window === "undefined" || typeof navigator === "undefined") {
-    return false;
-  }
-  const nav = navigator as Navigator & {
-    deviceMemory?: number;
-    hardwareConcurrency?: number;
-    connection?: { saveData?: boolean; effectiveType?: string };
-  };
-  const ua = nav.userAgent ?? "";
-  const likelyPhone =
-    /android|iphone|mobile/i.test(ua) ||
-    Math.min(window.innerWidth, window.innerHeight) <= 900;
-  if (!likelyPhone) {
-    return false;
-  }
-  const memoryWeak =
-    typeof nav.deviceMemory === "number" &&
-    nav.deviceMemory <= GD_System_LOW_POWER_MAX_DEVICE_MEMORY_GB;
-  const cpuWeak =
-    typeof nav.hardwareConcurrency === "number" &&
-    nav.hardwareConcurrency <= GD_System_LOW_POWER_MAX_CPU_CORES;
-  const saveData = Boolean(nav.connection?.saveData);
-  const slowNetwork = ["slow-2g", "2g", "3g"].includes(
-    nav.connection?.effectiveType ?? ""
-  );
-  const reducedMotion = window.matchMedia(
-    "(prefers-reduced-motion: reduce)"
-  ).matches;
-  const explicitLowTierUA = /(condor|android go|itel|tecno)/i.test(ua);
-  return (
-    memoryWeak ||
-    cpuWeak ||
-    saveData ||
-    slowNetwork ||
-    reducedMotion ||
-    explicitLowTierUA
-  );
-};
 
 type GD_System_Report = {
   id: string | number;
@@ -2018,17 +1927,40 @@ export default function GD_System_ReportedAreaPage() {
       );
       if (ids.length === 0) return reports;
 
-      const { data, error } = await GD_System_supabase
-        .from("marketplace_profiles")
+      let data:
+        | Array<{
+            id: string;
+            full_name?: string | null;
+            avatar_url?: string | null;
+            username?: string | null;
+          }>
+        | null = null;
+
+      const greenspotProfiles = await greenspotClient
+        .from("greenspot_profiles")
         .select("id, full_name, avatar_url, username")
         .in("id", ids);
 
-      if (error || !data) {
-        if (error) {
-          console.warn("Profile lookup failed:", error.message);
+      if (!greenspotProfiles.error && greenspotProfiles.data) {
+        data = greenspotProfiles.data;
+      } else {
+        const legacyProfiles = await GD_System_supabase
+          .from("marketplace_profiles")
+          .select("id, full_name, avatar_url, username")
+          .in("id", ids);
+
+        if (legacyProfiles.error || !legacyProfiles.data) {
+          const errorMessage =
+            greenspotProfiles.error?.message ?? legacyProfiles.error?.message;
+          if (errorMessage) {
+            console.warn("Profile lookup failed:", errorMessage);
+          }
+          return reports;
         }
-        return reports;
+        data = legacyProfiles.data;
       }
+
+      if (!data) return reports;
 
       const profileMap = new Map(
         data.map((profile) => [profile.id, profile])
@@ -2077,9 +2009,13 @@ export default function GD_System_ReportedAreaPage() {
       if (bucketError) {
         setGD_System_deployToast("Storage unavailable. Check Supabase settings.");
       }
-      const bucketData = bucketList?.find((bucket) => bucket.name === "avatars");
+      const bucketData = bucketList?.find(
+        (bucket) => bucket.name === GD_System_STORAGE_BUCKET
+      );
       if (!bucketData) {
-        setGD_System_deployToast("Create avatars bucket in Supabase!");
+        setGD_System_deployToast(
+          `Create ${GD_System_STORAGE_BUCKET} bucket in Supabase!`
+        );
       }
       const extension = blob.type?.split("/")[1] ?? "png";
       const filePath = `reports/${GD_System_authState.user.id}/${Date.now()}-${Math.random()
@@ -2131,8 +2067,8 @@ export default function GD_System_ReportedAreaPage() {
 
       if (error) {
         console.error("Report fetch failed:", error);
-        setGD_System_syncLabel("Syncing");
-        setGD_System_reportsLoading(true);
+        setGD_System_syncLabel("Offline");
+        setGD_System_reportsLoading(false);
         return;
       }
 
@@ -2145,8 +2081,8 @@ export default function GD_System_ReportedAreaPage() {
       setGD_System_reportsLoading(false);
     } catch (error) {
       console.error("Report fetch failed:", error);
-      setGD_System_syncLabel("Syncing");
-      setGD_System_reportsLoading(true);
+      setGD_System_syncLabel("Offline");
+      setGD_System_reportsLoading(false);
     }
   }, [
     GD_System_supabase,
@@ -2265,8 +2201,8 @@ export default function GD_System_ReportedAreaPage() {
         const { data, error } = await GD_System_supabase.from("reports").select("*");
         if (error) {
           console.error("Report fetch failed:", error);
-          setGD_System_syncLabel("Syncing");
-          setGD_System_reportsLoading(true);
+          setGD_System_syncLabel("Offline");
+          setGD_System_reportsLoading(false);
           return;
         }
         if (!active) return;
@@ -2282,8 +2218,8 @@ export default function GD_System_ReportedAreaPage() {
         setGD_System_reportsLoading(false);
       } catch (error) {
         console.error("Report fetch failed:", error);
-        setGD_System_syncLabel("Syncing");
-        setGD_System_reportsLoading(true);
+        setGD_System_syncLabel("Offline");
+        setGD_System_reportsLoading(false);
       }
     };
     loadReports();
@@ -2716,9 +2652,11 @@ export default function GD_System_ReportedAreaPage() {
         if (bucketError) {
           console.error("Bucket check failed:", bucketError);
         }
-        const bucketData = bucketList?.find((bucket) => bucket.name === "avatars");
+        const bucketData = bucketList?.find(
+          (bucket) => bucket.name === GD_System_AVATAR_BUCKET
+        );
         if (!bucketData) {
-          console.error("Create avatars bucket in Supabase!");
+          console.error(`Create ${GD_System_AVATAR_BUCKET} bucket in Supabase!`);
         }
         const extension = "png";
         const filePath = `${GD_System_currentUserId}/${Date.now()}.${extension}`;
@@ -2775,12 +2713,25 @@ export default function GD_System_ReportedAreaPage() {
       return;
     }
 
-    const { error } = await GD_System_supabase
-      .from("marketplace_profiles")
+    let profileErrorMessage: string | null = null;
+
+    const greenspotUpsert = await greenspotClient
+      .from("greenspot_profiles")
       .upsert(payload, { onConflict: "id" });
 
-    if (error) {
-      console.error("Profile update failed:", error.message);
+    if (greenspotUpsert.error) {
+      const legacyUpsert = await GD_System_supabase
+        .from("marketplace_profiles")
+        .upsert(payload, { onConflict: "id" });
+
+      if (legacyUpsert.error) {
+        profileErrorMessage =
+          legacyUpsert.error.message ?? greenspotUpsert.error.message;
+      }
+    }
+
+    if (profileErrorMessage) {
+      console.error("Profile update failed:", profileErrorMessage);
       setGD_System_deployToast("Profile update failed. Please try again.");
       setGD_System_profileSaving(false);
       return;

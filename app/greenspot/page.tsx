@@ -347,7 +347,7 @@ export default function GreenSpotPage() {
       setReportsLoading(true);
       setReportsError("");
       try {
-        const response = await fetch("/api/greenspot/reports?public=1", {
+        const response = await fetch("/api/greenspot/reports?public=1&safe=1", {
           cache: "no-store",
         });
         const payload = (await response.json().catch(() => null)) as
@@ -580,35 +580,65 @@ export default function GreenSpotPage() {
 
 
   const markTaskDone = async (task: CareTaskRow, file?: File | null) => {
+    const previousTasks = careTasks;
+    setCareError("");
+    setCareTasks((prev) =>
+      prev.map((item) =>
+        item.id === task.id ? { ...item, status: "done" } : item
+      )
+    );
+
+    let photoUrl: string | null = null;
+    let uploadedPath: string | null = null;
+
     try {
-      let photoUrl: string | null = null;
       const userId = user?.id;
       if (file && userId) {
-        const filePath = `${userId}/${task.id}-${file.name}`;
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "-");
+        uploadedPath = `${userId}/${task.id}-${Date.now()}-${safeName}`;
         const { error: uploadError } = await greenspotClient.storage
           .from("greenspot-care")
-          .upload(filePath, file);
-        if (!uploadError) {
-          const { data } = greenspotClient.storage
-            .from("greenspot-care")
-            .getPublicUrl(filePath);
-          photoUrl = data.publicUrl;
+          .upload(uploadedPath, file, { upsert: true });
+        if (uploadError) {
+          throw new Error(uploadError.message || "Failed to upload proof photo.");
         }
+        const { data } = greenspotClient.storage
+          .from("greenspot-care")
+          .getPublicUrl(uploadedPath);
+        photoUrl = data.publicUrl;
       }
 
-      await fetch(`/api/greenspot/care/${task.id}`, {
+      const response = await fetch(`/api/greenspot/care/${task.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "done", photoUrl }),
       });
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string }
+        | null;
+
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error ?? "Failed to update care task.");
+      }
 
       setCareTasks((prev) =>
         prev.map((item) =>
-          item.id === task.id ? { ...item, status: "done", photo_url: photoUrl ?? item.photo_url } : item
+          item.id === task.id
+            ? { ...item, status: "done", photo_url: photoUrl ?? item.photo_url }
+            : item
         )
       );
-    } catch {
-      setCareError("Failed to update care task.");
+    } catch (error) {
+      setCareTasks(previousTasks);
+      if (uploadedPath) {
+        await greenspotClient.storage
+          .from("greenspot-care")
+          .remove([uploadedPath])
+          .catch(() => undefined);
+      }
+      setCareError(
+        error instanceof Error ? error.message : "Failed to update care task."
+      );
     }
   };
 
@@ -719,36 +749,12 @@ export default function GreenSpotPage() {
       {/* Hero */}
       <section className="relative overflow-hidden pt-28 pb-20">
         <div className="absolute inset-0 pointer-events-none">
-          <motion.div
-            className="absolute -top-24 -right-16 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl"
-            animate={{ scale: [1, 1.08, 1], opacity: [0.35, 0.7, 0.35] }}
-            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div
-            className="absolute top-12 left-10 h-16 w-16 rounded-full bg-emerald-300/20 blur-xl"
-            animate={{ y: [0, -16, 0], x: [0, 10, 0], opacity: [0.2, 0.5, 0.2] }}
-            transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div
-            className="absolute bottom-16 right-20 h-16 w-16 rounded-full bg-emerald-400/30"
-            animate={{ y: [0, -12, 0], opacity: [0.4, 0.8, 0.4] }}
-            transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div
-            className="absolute bottom-24 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full border border-dashed border-emerald-400/30"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-          />
-          <motion.div
-            className="absolute top-40 right-32 h-32 w-32 rounded-[40%] bg-emerald-400/20 blur-2xl"
-            animate={{ rotate: [0, 12, 0], scale: [1, 1.05, 1] }}
-            transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-          />
-          <motion.div
-            className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-emerald-500/10 via-transparent to-transparent"
-            animate={{ opacity: [0.15, 0.4, 0.15] }}
-            transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
-          />
+          <div className="absolute -top-24 -right-16 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
+          <div className="absolute top-12 left-10 h-16 w-16 rounded-full bg-emerald-300/20 blur-xl" />
+          <div className="absolute bottom-16 right-20 h-16 w-16 rounded-full bg-emerald-400/30" />
+          <div className="absolute bottom-24 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full border border-dashed border-emerald-400/30" />
+          <div className="absolute top-40 right-32 h-32 w-32 rounded-[40%] bg-emerald-400/20 blur-2xl" />
+          <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-emerald-500/10 via-transparent to-transparent" />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -933,23 +939,11 @@ export default function GreenSpotPage() {
                 whileTap={{ scale: 0.99 }}
                 className="group relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-6 shadow-[0_22px_60px_rgba(0,0,0,0.45)]"
               >
-                <motion.div
-                  className="absolute inset-0 opacity-60"
-                  animate={{ opacity: [0.55, 0.7, 0.55] }}
-                  transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <motion.div
-                    className="absolute -top-8 right-6 h-20 w-20 rounded-full bg-emerald-400/20 blur-2xl"
-                    animate={{ y: [0, -6, 0], scale: [1, 1.04, 1] }}
-                    transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                  <motion.div
-                    className="absolute bottom-10 left-8 h-24 w-24 rounded-full bg-emerald-500/15 blur-3xl"
-                    animate={{ y: [0, 8, 0], scale: [1, 1.03, 1] }}
-                    transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
-                  />
+                <div className="absolute inset-0 opacity-60">
+                  <div className="absolute -top-8 right-6 h-20 w-20 rounded-full bg-emerald-400/20 blur-2xl" />
+                  <div className="absolute bottom-10 left-8 h-24 w-24 rounded-full bg-emerald-500/15 blur-3xl" />
                   <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.16),_transparent_55%)]" />
-                </motion.div>
+                </div>
 
                 <div className="relative">
                   <div className="flex items-center justify-between text-xs uppercase tracking-[0.3em] text-white/50">
@@ -962,19 +956,11 @@ export default function GreenSpotPage() {
                     </span>
                   </div>
 
-                  <motion.div
-                    className="mt-8"
-                    animate={{ y: [0, -1, 0] }}
-                    transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                  >
+                  <div className="mt-8">
                     <div className="flex items-center justify-between">
-                      <motion.div
-                        className="text-4xl font-semibold text-white"
-                        animate={{ opacity: [0.92, 1, 0.92] }}
-                        transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-                      >
+                      <div className="text-4xl font-semibold text-white">
                         {card.metric}%
-                      </motion.div>
+                      </div>
                       <div className="rounded-full border border-white/10 bg-white/10 p-2 text-white/70 transition group-hover:scale-105">
                         <ArrowUpRight className="h-4 w-4" />
                       </div>
@@ -985,7 +971,7 @@ export default function GreenSpotPage() {
                     <p className="mt-4 text-sm text-white/70 leading-relaxed">
                       {card.description}
                     </p>
-                  </motion.div>
+                  </div>
 
                   <div className="mt-6 flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs text-white/60">
@@ -1020,14 +1006,12 @@ export default function GreenSpotPage() {
                           Active Cluster
                         </span>
                       </div>
-                      <motion.span
+                      <span
                         className="inline-flex items-center gap-1 rounded-full border border-emerald-400/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-200"
-                        animate={{ opacity: [0.75, 1, 0.75] }}
-                        transition={{ duration: 2.8, repeat: Infinity, ease: "easeInOut" }}
                       >
                         <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
                         Live
-                      </motion.span>
+                      </span>
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2">
                       {[68, 84, 57].map((value, barIndex) => (

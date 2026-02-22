@@ -29,8 +29,12 @@ function LoginPage() {
 
   const redirectTarget = useMemo(() => {
     const redirectParam = searchParams.get("redirect")?.trim();
-    if (!redirectParam) return "/reported-area/dashboard";
-    if (!redirectParam.startsWith("/")) return "/reported-area/dashboard";
+    if (!redirectParam) return "/reported-area";
+    if (!redirectParam.startsWith("/")) return "/reported-area";
+    const redirectPath = redirectParam.split("?")[0] ?? redirectParam;
+    if (redirectPath === "/reported-area/dashboard") {
+      return "/reported-area";
+    }
     return redirectParam;
   }, [searchParams]);
 

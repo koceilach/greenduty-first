@@ -36,6 +36,17 @@ import { useAuth } from "@/components/auth-provider";
 import { useGreenspotProfile } from "@/lib/greenspot/use-greenspot-profile";
 import { greenspotClient } from "@/lib/supabase/client";
 import { useTheme } from "next-themes";
+import {
+  clearReportDraft,
+  enqueueRetryItem,
+  generateSubmissionId,
+  loadReportDraft,
+  loadRetryQueue,
+  saveReportDraft,
+  saveRetryQueue,
+  type GreenspotReportDraft,
+  type GreenspotRetryItem,
+} from "@/lib/greenspot/report-draft-queue";
 
 const MapComponent = dynamic(() => import("@/components/MapComponent"), {
   ssr: false,
@@ -157,6 +168,24 @@ type ProfileRouteResponse = {
   };
 };
 
+type NotificationItem = {
+  id: number;
+  type: string;
+  title: string;
+  body: string | null;
+  metadata?: Record<string, unknown> | null;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+};
+
+type NotificationApiPayload = {
+  notifications?: NotificationItem[];
+  unread?: number;
+  total?: number;
+  error?: string;
+};
+
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -170,6 +199,23 @@ const fileToDataUrl = (file: File) =>
     reader.onerror = () => reject(new Error("Failed to read file as data URL."));
     reader.readAsDataURL(file);
   });
+
+const dataUrlToFile = (dataUrl: string, name: string) => {
+  const match = dataUrl.match(/^data:(.*?);base64,(.*)$/);
+  if (!match) return null;
+  const mime = match[1] || "image/jpeg";
+  const base64 = match[2];
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return new File([bytes], name, { type: mime });
+  } catch {
+    return null;
+  }
+};
 
 const particleField = Array.from({ length: 36 }, (_, index) => ({
   left: `${(index * 17 + 9) % 100}%`,
@@ -228,6 +274,7 @@ export default function ReportedGreenPage() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [photoName, setPhotoName] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [reportTitle, setReportTitle] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
@@ -257,6 +304,18 @@ export default function ReportedGreenPage() {
   const [dueReminderCount, setDueReminderCount] = useState(0);
   const [confirmingReportId, setConfirmingReportId] = useState<string | null>(null);
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
+  const [retryQueue, setRetryQueue] = useState<GreenspotRetryItem[]>([]);
+  const [retrySyncing, setRetrySyncing] = useState(false);
+  const [draftLoaded, setDraftLoaded] = useState(false);
+  const [reportClientSubmissionId, setReportClientSubmissionId] = useState(() =>
+    generateSubmissionId()
+  );
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [markingNotificationId, setMarkingNotificationId] = useState<number | null>(null);
   const activeTheme = mounted ? theme ?? "green" : "green";
   const isLight = activeTheme === "light";
   const isGreen = activeTheme === "green";
@@ -598,6 +657,7 @@ export default function ReportedGreenPage() {
         setDashboardOpen(true);
         setRemindersOpen(false);
         setProfileOpen(false);
+        setNotificationsOpen(false);
         setPanelOpen(false);
         return;
       }
@@ -605,6 +665,7 @@ export default function ReportedGreenPage() {
         setRemindersOpen(true);
         setDashboardOpen(false);
         setProfileOpen(false);
+        setNotificationsOpen(false);
         setPanelOpen(false);
         setReminderTab("opportunities");
         setRemindersNotice(null);
@@ -614,12 +675,14 @@ export default function ReportedGreenPage() {
         setProfileOpen(true);
         setDashboardOpen(false);
         setRemindersOpen(false);
+        setNotificationsOpen(false);
         setPanelOpen(false);
         return;
       }
       setDashboardOpen(false);
       setRemindersOpen(false);
       setProfileOpen(false);
+      setNotificationsOpen(false);
     },
     [openAuth, user]
   );
@@ -636,6 +699,7 @@ export default function ReportedGreenPage() {
     setDashboardOpen(false);
     setRemindersOpen(false);
     setProfileOpen(false);
+    setNotificationsOpen(false);
 
     try {
       const { error } = await supabase.auth.signOut();
@@ -845,6 +909,7 @@ export default function ReportedGreenPage() {
       blobPreviewUrlRef.current = null;
     }
     setPhotoPreview(null);
+    setPhotoDataUrl(null);
     setPhotoName(null);
     setPhotoFile(null);
     if (fileInputRef.current) {
@@ -891,6 +956,7 @@ export default function ReportedGreenPage() {
       blobPreviewUrlRef.current = null;
     }
     setPhotoPreview(imageDataUrl);
+    setPhotoDataUrl(imageDataUrl);
     const captureName = `capture-${Date.now()}.jpg`;
     setPhotoName(captureName);
     canvas.toBlob(
@@ -904,7 +970,7 @@ export default function ReportedGreenPage() {
     stopCameraStream();
   };
 
-  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     stopCameraStream();
@@ -916,6 +982,8 @@ export default function ReportedGreenPage() {
     setPhotoPreview(objectUrl);
     setPhotoName(file.name);
     setPhotoFile(file);
+    const fileDataUrl = await fileToDataUrl(file).catch(() => null);
+    setPhotoDataUrl(fileDataUrl);
     setCameraError(null);
     setReportFormError(null);
   };
@@ -1063,23 +1131,22 @@ export default function ReportedGreenPage() {
   };
 
   const loadReports = useCallback(async () => {
-    if (!user) {
-      setReports([]);
-      setProfileData(null);
-      return;
-    }
     setReportsLoading(true);
     setReportsError(null);
     try {
-      const response = await fetch("/api/greenspot/reports?public=1", {
-        cache: "no-store",
-      });
+      const query = user ? "/api/greenspot/reports?public=1&safe=0" : "/api/greenspot/reports?public=1&safe=1";
+      const response = await fetch(query, { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as
         | (Partial<ReportApiResponse> & { error?: string })
         | null;
 
       if (response.status === 401) {
-        openAuth();
+        if (user) {
+          openAuth();
+        } else {
+          setReports([]);
+          setProfileData(null);
+        }
         return;
       }
       if (!response.ok) {
@@ -1087,7 +1154,7 @@ export default function ReportedGreenPage() {
       }
 
       setReports(Array.isArray(payload?.reports) ? payload.reports : []);
-      setProfileData(payload?.me ?? null);
+      setProfileData(user ? (payload?.me ?? null) : null);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unable to load GreenSpot reports.";
@@ -1098,13 +1165,8 @@ export default function ReportedGreenPage() {
   }, [openAuth, user]);
 
   useEffect(() => {
-    if (!user) {
-      setReports([]);
-      setProfileData(null);
-      return;
-    }
     void loadReports();
-  }, [loadReports, user]);
+  }, [loadReports]);
 
   const loadReminders = useCallback(async () => {
     if (!user) {
@@ -1160,6 +1222,281 @@ export default function ReportedGreenPage() {
     }
     void loadReminders();
   }, [loadReminders, user]);
+
+  const buildCurrentDraft = useCallback((): GreenspotReportDraft => {
+    return {
+      title: reportTitle.trim(),
+      description: reportDescription.trim(),
+      category: selectedCategory,
+      expert,
+      lat: userLocation?.lat ?? null,
+      lng: userLocation?.lng ?? null,
+      accuracy: userLocation?.accuracy ?? null,
+      photoDataUrl,
+      photoName,
+      clientSubmissionId: reportClientSubmissionId,
+      updatedAt: new Date().toISOString(),
+    };
+  }, [
+    reportTitle,
+    reportDescription,
+    selectedCategory,
+    expert,
+    userLocation?.lat,
+    userLocation?.lng,
+    userLocation?.accuracy,
+    photoDataUrl,
+    photoName,
+    reportClientSubmissionId,
+  ]);
+
+  const loadNotifications = useCallback(async () => {
+    if (!user) {
+      setNotifications([]);
+      setUnreadNotifications(0);
+      setNotificationsError(null);
+      return;
+    }
+
+    setNotificationsLoading(true);
+    setNotificationsError(null);
+    try {
+      const response = await fetch("/api/greenspot/notifications?limit=60", {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as NotificationApiPayload | null;
+      if (!response.ok) {
+        throw new Error(payload?.error ?? "Unable to load notifications.");
+      }
+      setNotifications(Array.isArray(payload?.notifications) ? payload.notifications : []);
+      setUnreadNotifications(Number(payload?.unread ?? 0));
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to load notifications.";
+      setNotificationsError(message);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  }, [user]);
+
+  const markNotificationRead = useCallback(
+    async (id: number) => {
+      if (!user) return;
+      setMarkingNotificationId(id);
+      try {
+        const response = await fetch(`/api/greenspot/notifications/${encodeURIComponent(String(id))}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ read: true }),
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | { ok?: boolean; error?: string }
+          | null;
+        if (!response.ok || payload?.ok === false) {
+          throw new Error(payload?.error ?? "Unable to mark notification as read.");
+        }
+        setNotifications((previous) =>
+          previous.map((item) =>
+            item.id === id
+              ? { ...item, is_read: true, read_at: new Date().toISOString() }
+              : item
+          )
+        );
+        setUnreadNotifications((value) => Math.max(value - 1, 0));
+      } catch (error) {
+        setNotificationsError(
+          error instanceof Error
+            ? error.message
+            : "Unable to mark notification as read."
+        );
+      } finally {
+        setMarkingNotificationId(null);
+      }
+    },
+    [user]
+  );
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!user) return;
+    try {
+      const response = await fetch("/api/greenspot/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark_all_read" }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string }
+        | null;
+      if (!response.ok || payload?.ok === false) {
+        throw new Error(payload?.error ?? "Unable to mark all as read.");
+      }
+      setNotifications((previous) =>
+        previous.map((item) => ({ ...item, is_read: true, read_at: new Date().toISOString() }))
+      );
+      setUnreadNotifications(0);
+    } catch (error) {
+      setNotificationsError(
+        error instanceof Error ? error.message : "Unable to mark all as read."
+      );
+    }
+  }, [user]);
+
+  const openNotifications = useCallback(() => {
+    setPanelOpen(false);
+    setDashboardOpen(false);
+    setRemindersOpen(false);
+    setProfileOpen(false);
+    setNotificationsOpen(true);
+    void loadNotifications();
+  }, [loadNotifications]);
+
+  const processRetryQueue = useCallback(async () => {
+    if (!user || retrySyncing || typeof navigator === "undefined" || !navigator.onLine) {
+      return;
+    }
+
+    const queue = loadRetryQueue();
+    if (queue.length === 0) {
+      setRetryQueue([]);
+      return;
+    }
+
+    setRetrySyncing(true);
+    const remaining: GreenspotRetryItem[] = [];
+    let anySuccess = false;
+
+    for (const item of queue) {
+      try {
+        let imageUrl: string | null = null;
+        if (item.photoDataUrl) {
+          const safeName = (item.photoName ?? `retry-${Date.now()}.jpg`).replace(
+            /[^a-zA-Z0-9._-]/g,
+            "-"
+          );
+          const file = dataUrlToFile(item.photoDataUrl, safeName);
+          if (!file) {
+            throw new Error("Draft image is invalid.");
+          }
+          const uploadPath = `${user.id}/reported-green/retry-${Date.now()}-${safeName}`;
+          const { error: uploadError } = await greenspotClient.storage
+            .from("greenspot-uploads")
+            .upload(uploadPath, file, { upsert: true });
+          if (uploadError) {
+            throw new Error(uploadError.message || "Retry upload failed.");
+          }
+          const { data: imageData } = greenspotClient.storage
+            .from("greenspot-uploads")
+            .getPublicUrl(uploadPath);
+          imageUrl = imageData?.publicUrl ?? null;
+        }
+
+        const response = await fetch("/api/greenspot/reports", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: item.title,
+            description: item.description,
+            category: item.category,
+            expert: expertOptions.find((option) => option.value === item.expert)?.label ?? item.expert,
+            lat: item.lat,
+            lng: item.lng,
+            imageUrl,
+            clientSubmissionId: item.clientSubmissionId,
+          }),
+        });
+
+        const payload = (await response.json().catch(() => null)) as
+          | { report?: ReportItem; error?: string }
+          | null;
+        if (!response.ok || !payload?.report) {
+          throw new Error(payload?.error ?? "Retry submit failed.");
+        }
+
+        setReports((previous) => {
+          const exists = previous.some((entry) => entry.id === payload.report?.id);
+          if (exists || !payload.report) return previous;
+          return [payload.report, ...previous];
+        });
+        anySuccess = true;
+      } catch (error) {
+        remaining.push({
+          ...item,
+          attempts: (item.attempts ?? 0) + 1,
+          lastError: error instanceof Error ? error.message : "Retry failed",
+        });
+      }
+    }
+
+    saveRetryQueue(remaining);
+    setRetryQueue(remaining);
+    setRetrySyncing(false);
+    if (anySuccess) {
+      void loadNotifications();
+    }
+  }, [loadNotifications, retrySyncing, user]);
+
+  useEffect(() => {
+    setRetryQueue(loadRetryQueue());
+    if (draftLoaded) return;
+    const draft = loadReportDraft();
+    if (draft) {
+      setReportTitle(draft.title ?? "");
+      setReportDescription(draft.description ?? "");
+      setSelectedCategory((draft.category as CategoryKey | null) ?? null);
+      setExpert(draft.expert ?? "planting-team");
+      if (draft.lat !== null && draft.lng !== null) {
+        setUserLocation({
+          lat: draft.lat,
+          lng: draft.lng,
+          accuracy: draft.accuracy ?? null,
+        });
+      }
+      if (draft.photoDataUrl) {
+        setPhotoPreview(draft.photoDataUrl);
+        setPhotoDataUrl(draft.photoDataUrl);
+      }
+      setPhotoName(draft.photoName ?? null);
+      setReportClientSubmissionId(draft.clientSubmissionId || generateSubmissionId());
+    }
+    setDraftLoaded(true);
+  }, [draftLoaded]);
+
+  useEffect(() => {
+    if (!draftLoaded) return;
+    const draft = buildCurrentDraft();
+    const isEmptyDraft =
+      draft.title.length === 0 &&
+      draft.description.length === 0 &&
+      !draft.category &&
+      !draft.photoDataUrl &&
+      draft.lat === null &&
+      draft.lng === null;
+    if (isEmptyDraft) {
+      clearReportDraft();
+      return;
+    }
+    saveReportDraft(draft);
+  }, [buildCurrentDraft, draftLoaded]);
+
+  useEffect(() => {
+    void loadNotifications();
+  }, [loadNotifications]);
+
+  useEffect(() => {
+    if (!user) return;
+    void processRetryQueue();
+  }, [processRetryQueue, user]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      void processRetryQueue();
+    };
+    if (typeof window === "undefined") return;
+    window.addEventListener("online", handleOnline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
+  }, [processRetryQueue]);
 
   const confirmReportForPlanting = useCallback(
     async (report: ReportItem) => {
@@ -1221,6 +1558,7 @@ export default function ReportedGreenPage() {
             ? `Accepted by ${payload.acceptedBy ?? currentUser}. ${payload.createdTasks} reminder tasks were created.`
             : `Accepted by ${payload?.acceptedBy ?? currentUser}.`
         );
+        void loadNotifications();
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unable to accept this report.";
@@ -1229,7 +1567,7 @@ export default function ReportedGreenPage() {
         setConfirmingReportId(null);
       }
     },
-    [currentUser, loadReminders, openAuth, user]
+    [currentUser, loadNotifications, loadReminders, openAuth, user]
   );
 
   const handleMapConfirmReport = useCallback(
@@ -1328,6 +1666,7 @@ export default function ReportedGreenPage() {
         );
         await loadReminders();
         setRemindersNotice("Proof submitted. Reminder marked as completed.");
+        void loadNotifications();
       } catch (error) {
         const message =
           error instanceof Error ? error.message : "Unable to complete this reminder task.";
@@ -1336,7 +1675,7 @@ export default function ReportedGreenPage() {
         setCompletingTaskId(null);
       }
     },
-    [loadReminders, openAuth, user]
+    [loadNotifications, loadReminders, openAuth, user]
   );
 
   const requestCurrentLocation = () => {
@@ -1416,6 +1755,7 @@ export default function ReportedGreenPage() {
       "General";
     const cleanTitle = reportTitle.trim();
     const cleanDescription = reportDescription.trim();
+    const submissionId = reportClientSubmissionId || generateSubmissionId();
     setReportSubmitting(true);
 
     try {
@@ -1454,6 +1794,7 @@ export default function ReportedGreenPage() {
           lat: userLocation.lat,
           lng: userLocation.lng,
           imageUrl,
+          clientSubmissionId: submissionId,
         }),
       });
 
@@ -1476,11 +1817,23 @@ export default function ReportedGreenPage() {
       setCameraError(null);
       setLocationError(null);
       setUserLocation(null);
+      clearReportDraft();
+      const nextQueue = loadRetryQueue().filter(
+        (item) => item.clientSubmissionId !== submissionId
+      );
+      saveRetryQueue(nextQueue);
+      setRetryQueue(nextQueue);
+      setReportClientSubmissionId(generateSubmissionId());
       stopCameraStream();
+      void loadNotifications();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to submit report.";
-      setReportFormError(message);
+      const queued = enqueueRetryItem(buildCurrentDraft(), message);
+      setRetryQueue(loadRetryQueue());
+      setReportFormError(
+        `${message} Saved to retry queue (${queued.attempts + 1} pending attempt).`
+      );
     } finally {
       setReportSubmitting(false);
     }
@@ -1496,6 +1849,7 @@ export default function ReportedGreenPage() {
     setDashboardOpen(false);
     setRemindersOpen(false);
     setProfileOpen(false);
+    setNotificationsOpen(false);
   }, [authLoading, user]);
 
   useEffect(() => {
@@ -1703,6 +2057,12 @@ export default function ReportedGreenPage() {
           </div>
         ) : null}
 
+        {retryQueue.length > 0 ? (
+          <div className="pointer-events-none absolute left-1/2 top-[5.8rem] z-40 -translate-x-1/2 rounded-full border border-amber-300/35 bg-amber-500/15 px-3 py-1 text-[11px] text-amber-100 backdrop-blur-xl">
+            {retryQueue.length} report draft{retryQueue.length > 1 ? "s" : ""} pending retry
+          </div>
+        ) : null}
+
         <aside
           className={`pointer-events-auto absolute left-4 top-1/2 z-30 hidden w-[92px] -translate-y-1/2 rounded-[24px] border px-2 py-3 backdrop-blur-2xl md:flex md:flex-col ${leftNavShellClass}`}
         >
@@ -1818,6 +2178,27 @@ export default function ReportedGreenPage() {
           <div
             className={`hidden items-center gap-2.5 rounded-full border px-3.5 py-2 backdrop-blur-2xl md:flex ${profileChipClass}`}
           >
+            <button
+              type="button"
+              onClick={openNotifications}
+              className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
+                isLight
+                  ? "bg-slate-900/8 text-slate-700 hover:bg-slate-900/14"
+                  : "bg-white/10 text-white/90 hover:bg-white/16"
+              }`}
+              aria-label="Open notifications"
+            >
+              <Bell className="h-4 w-4" />
+              {unreadNotifications > 0 ? (
+                <span
+                  className={`absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold ${
+                    isLight ? "bg-emerald-600 text-white" : "bg-emerald-400 text-emerald-950"
+                  }`}
+                >
+                  {Math.min(unreadNotifications, 9)}
+                </span>
+              ) : null}
+            </button>
             <div className={`relative flex h-8 w-8 items-center justify-center rounded-full ${iconWrapClass}`}>
               {avatarDisplayUrl ? (
                 <img
@@ -1872,6 +2253,26 @@ export default function ReportedGreenPage() {
               {panelOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
             </button>
 
+            <button
+              type="button"
+              aria-label="Open notifications"
+              onClick={openNotifications}
+              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] transition ${
+                notificationsOpen ? mobileDockActionActiveClass : mobileDockActionClass
+              }`}
+            >
+              <Bell className="h-4 w-4" />
+              {unreadNotifications > 0 ? (
+                <span
+                  className={`absolute -right-1.5 -top-1.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold ${
+                    isLight ? "bg-emerald-600 text-white" : "bg-emerald-400 text-emerald-950"
+                  }`}
+                >
+                  {Math.min(unreadNotifications, 9)}
+                </span>
+              ) : null}
+            </button>
+
             {sidebarItems
               .filter((item) => item.key !== "home")
               .map((item) => {
@@ -1885,7 +2286,7 @@ export default function ReportedGreenPage() {
                     onClick={() => handleSidebarSelect(item.key)}
                     className={`relative flex h-10 shrink-0 items-center rounded-[12px] transition-all duration-200 ${
                       isActive
-                        ? `min-w-[118px] flex-1 justify-center gap-1.5 px-3 ${mobileDockItemActiveClass}`
+                        ? `min-w-[86px] flex-1 justify-center gap-1.5 px-2 ${mobileDockItemActiveClass}`
                         : `w-10 justify-center ${mobileDockItemClass}`
                     }`}
                   >
@@ -2329,24 +2730,212 @@ export default function ReportedGreenPage() {
                     ) : null}
                   </div>
 
+                  <div className="grid gap-2">
+                    <button
+                      type="button"
+                      onClick={submitReportWithLocation}
+                      disabled={locationLoading || reportSubmitting || !canSubmitReport}
+                      className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition sm:min-w-[300px] ${
+                        locationLoading || reportSubmitting || !canSubmitReport
+                          ? isLight
+                            ? "cursor-not-allowed bg-slate-900/10 text-slate-400"
+                            : "cursor-not-allowed bg-white/10 text-white/40"
+                          : "bg-gradient-to-r from-emerald-400 to-green-600 text-emerald-950 shadow-[0_12px_28px_rgba(16,185,129,0.35)]"
+                      }`}
+                    >
+                      <MapPin className="h-4 w-4" />
+                      {reportSubmitting ? "Submitting..." : "Submit and Mark Planting Spot"}
+                    </button>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => saveReportDraft(buildCurrentDraft())}
+                        className={`inline-flex h-9 items-center justify-center rounded-xl text-xs font-semibold transition ${
+                          isLight
+                            ? "bg-slate-900/10 text-slate-700 hover:bg-slate-900/14"
+                            : "bg-white/10 text-white/85 hover:bg-white/15"
+                        }`}
+                      >
+                        Save Draft
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          clearReportDraft();
+                          setReportClientSubmissionId(generateSubmissionId());
+                          setReportTitle("");
+                          setReportDescription("");
+                          setSelectedCategory(null);
+                          setUserLocation(null);
+                          clearPhoto();
+                        }}
+                        className={`inline-flex h-9 items-center justify-center rounded-xl text-xs font-semibold transition ${
+                          isLight
+                            ? "bg-rose-500/12 text-rose-700 hover:bg-rose-500/16"
+                            : "bg-rose-500/14 text-rose-100 hover:bg-rose-500/20"
+                        }`}
+                      >
+                        Clear Draft
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  <p className={`text-[11px] ${tertiaryTextClass}`}>
+                    Queue: {retryQueue.length} pending {retrySyncing ? "(syncing)" : ""}
+                  </p>
                   <button
                     type="button"
-                    onClick={submitReportWithLocation}
-                    disabled={locationLoading || reportSubmitting || !canSubmitReport}
-                    className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition sm:min-w-[300px] ${
-                      locationLoading || reportSubmitting || !canSubmitReport
+                    onClick={() => void processRetryQueue()}
+                    disabled={retrySyncing || retryQueue.length === 0}
+                    className={`inline-flex h-8 items-center justify-center rounded-full px-3 text-[11px] font-semibold transition ${
+                      retrySyncing || retryQueue.length === 0
                         ? isLight
-                          ? "cursor-not-allowed bg-slate-900/10 text-slate-400"
+                          ? "cursor-not-allowed bg-slate-900/8 text-slate-400"
                           : "cursor-not-allowed bg-white/10 text-white/40"
-                        : "bg-gradient-to-r from-emerald-400 to-green-600 text-emerald-950 shadow-[0_12px_28px_rgba(16,185,129,0.35)]"
+                        : isLight
+                          ? "bg-emerald-500/18 text-emerald-800 hover:bg-emerald-500/24"
+                          : "bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/28"
                     }`}
                   >
-                    <MapPin className="h-4 w-4" />
-                    {reportSubmitting ? "Submitting..." : "Submit and Mark Planting Spot"}
+                    Retry queue now
                   </button>
                 </div>
               </div>
             </motion.aside>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {notificationsOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className={`pointer-events-auto absolute inset-0 z-[69] flex items-start justify-center overflow-hidden p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:items-center sm:p-4 ${
+                isLight ? "bg-slate-900/20" : "bg-black/45"
+              }`}
+            >
+              <motion.section
+                initial={{ opacity: 0, y: 24, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 16, scale: 0.98 }}
+                transition={{ duration: 0.28, ease: "easeOut" }}
+                className={`relative my-1 flex w-full max-w-3xl flex-col overflow-hidden rounded-[24px] p-4 backdrop-blur-2xl sm:rounded-[28px] sm:p-6 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] ${dashboardCardClass}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => setNotificationsOpen(false)}
+                  className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full transition ${dashboardSubcardClass}`}
+                >
+                  <X className={`h-4 w-4 ${primaryTextClass}`} />
+                </button>
+
+                <div className="mb-4 pr-10">
+                  <p className={`text-xs uppercase tracking-[0.22em] ${tertiaryTextClass}`}>
+                    Notification Center
+                  </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <h2 className={`text-2xl font-semibold ${primaryTextClass}`}>Updates & Alerts</h2>
+                    <span className={`rounded-full px-2.5 py-1 text-[11px] ${badgeClass}`}>
+                      {unreadNotifications} unread
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadNotifications()}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      isLight
+                        ? "bg-slate-900/10 text-slate-700 hover:bg-slate-900/14"
+                        : "bg-white/10 text-white/85 hover:bg-white/15"
+                    }`}
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void markAllNotificationsRead()}
+                    disabled={unreadNotifications === 0}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                      unreadNotifications === 0
+                        ? isLight
+                          ? "cursor-not-allowed bg-slate-900/8 text-slate-400"
+                          : "cursor-not-allowed bg-white/10 text-white/40"
+                        : isLight
+                          ? "bg-emerald-500/16 text-emerald-800 hover:bg-emerald-500/22"
+                          : "bg-emerald-500/20 text-emerald-100 hover:bg-emerald-500/30"
+                    }`}
+                  >
+                    Mark all read
+                  </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  {notificationsError ? (
+                    <div className={`mb-3 rounded-xl px-3 py-2 text-xs ${
+                      isLight ? "bg-rose-500/12 text-rose-700" : "bg-rose-500/14 text-rose-100"
+                    }`}>
+                      {notificationsError}
+                    </div>
+                  ) : null}
+                  {notificationsLoading ? (
+                    <div className={`rounded-xl p-3 text-sm ${secondaryTextClass}`}>
+                      Loading notifications...
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <div className={`rounded-xl p-3 text-sm ${secondaryTextClass}`}>
+                      No notifications yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {notifications.map((item) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => void markNotificationRead(item.id)}
+                          disabled={item.is_read || markingNotificationId === item.id}
+                          className={`w-full rounded-xl border p-3 text-left transition ${
+                            item.is_read
+                              ? isLight
+                                ? "border-slate-900/10 bg-white/60"
+                                : "border-white/10 bg-white/6"
+                              : isLight
+                                ? "border-emerald-500/25 bg-emerald-500/10"
+                                : "border-emerald-300/25 bg-emerald-500/14"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className={`text-sm font-semibold ${primaryTextClass}`}>
+                                {item.title}
+                              </p>
+                              {item.body ? (
+                                <p className={`mt-1 text-xs ${secondaryTextClass}`}>{item.body}</p>
+                              ) : null}
+                              <p className={`mt-1 text-[11px] ${tertiaryTextClass}`}>
+                                {new Date(item.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                            {!item.is_read ? (
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                isLight ? "bg-emerald-600 text-white" : "bg-emerald-300 text-emerald-950"
+                              }`}>
+                                New
+                              </span>
+                            ) : null}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.section>
+            </motion.div>
           )}
         </AnimatePresence>
 

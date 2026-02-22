@@ -32,7 +32,14 @@ type GreenspotReportRow = {
   user_avatar?: string | null;
   verified_count?: number | null;
   status?: string | null;
+  lifecycle_state?: string | null;
+  reported_at?: string | null;
+  accepted_at?: string | null;
+  accepted_by?: string | null;
+  completed_at?: string | null;
+  completed_by?: string | null;
   created_at?: string | null;
+  client_submission_id?: string | null;
 };
 
 type LegacyPublicReportRow = {
@@ -64,6 +71,10 @@ type ReportResponse = {
   user_avatar: string | null;
   verified_count: number;
   status: string;
+  lifecycle_state?: string;
+  reported_at?: string | null;
+  accepted_at?: string | null;
+  completed_at?: string | null;
   image_url: string | null;
   created_at: string;
 };
@@ -78,6 +89,8 @@ type CreateInput = {
   category: string;
   expert: string;
   imageUrl: string | null;
+  clientSubmissionId: string | null;
+  captchaToken: string | null;
   lat: number;
   lng: number;
 };
@@ -91,7 +104,7 @@ const ALGIERS_CENTER = { lat: 36.7538, lng: 3.0588 };
 const NAME_COOLDOWN_DAYS = 14;
 const NAME_COOLDOWN_MS = NAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
 const REPORT_SELECT_FIELDS =
-  "id, user_id, area, location_name, category, waste_type, description, notes, lat, lng, image_url, photos, user_name, user_avatar, verified_count, status, created_at";
+  "id, user_id, area, location_name, category, waste_type, description, notes, lat, lng, image_url, photos, user_name, user_avatar, verified_count, status, lifecycle_state, reported_at, accepted_at, accepted_by, completed_at, completed_by, client_submission_id, created_at";
 const ACCEPTED_STATUS_PREFIX = "Accepted by";
 
 const isSchemaMismatch = (message: string) =>
@@ -100,6 +113,26 @@ const isSchemaMismatch = (message: string) =>
   );
 const isPermissionIssue = (message: string) =>
   /permission denied|not allowed|row-level security/i.test(message);
+const isUniqueViolation = (message: string) =>
+  /duplicate key|unique constraint|violates unique/i.test(message);
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const roundCoordinate = (value: number, precision = 2) => {
+  const factor = 10 ** precision;
+  return Math.round(value * factor) / factor;
+};
+
+const maskNotesForPublic = (wasteType: string) =>
+  `${wasteType || "General"} report shared in privacy-safe mode.`;
+
+const getClientFingerprint = (request: Request) => {
+  const forwardedFor = request.headers.get("x-forwarded-for") ?? "";
+  const firstIp = forwardedFor.split(",")[0]?.trim() || "unknown-ip";
+  const userAgent = request.headers.get("user-agent") ?? "unknown-ua";
+  return `${firstIp}|${userAgent.slice(0, 80)}`;
+};
 
 const getFallbackName = (user: User) =>
   user.user_metadata?.full_name ||
@@ -148,6 +181,41 @@ const parseDate = (value?: string | null) => {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const verifyTurnstileToken = async (token: string, ip?: string | null) => {
+  const secret = process.env.GREENDUTY_TURNSTILE_SECRET?.trim();
+  if (!secret) {
+    return { ok: true };
+  }
+
+  if (!token) {
+    return { ok: false, message: "Captcha token is required." };
+  }
+
+  const response = await fetch(
+    "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        secret,
+        response: token,
+        ...(ip ? { remoteip: ip } : {}),
+      }),
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as
+    | { success?: boolean; "error-codes"?: string[] }
+    | null;
+
+  if (!response.ok || payload?.success !== true) {
+    const code = payload?.["error-codes"]?.[0] ?? "invalid-captcha";
+    return { ok: false, message: `Captcha verification failed (${code}).` };
+  }
+
+  return { ok: true };
 };
 
 const mergeRowsById = <T extends { id: string; created_at?: string | null }>(
@@ -214,6 +282,25 @@ const applyClaimStatuses = (
     return {
       ...report,
       status: toAcceptedStatus(acceptedBy),
+    };
+  });
+
+const toPrivacySafePublicReports = (reports: ReportResponse[]) =>
+  reports.map((report) => {
+    const created = parseDate(report.created_at);
+    const safeLat = roundCoordinate(clamp(report.lat, -90, 90), 2);
+    const safeLng = roundCoordinate(clamp(report.lng, -180, 180), 2);
+    return {
+      ...report,
+      user_id: "public",
+      user_name: "Community Member",
+      user_avatar: null,
+      area: `Zone ${safeLat.toFixed(2)}, ${safeLng.toFixed(2)}`,
+      lat: safeLat,
+      lng: safeLng,
+      notes: maskNotesForPublic(report.waste_type),
+      image_url: null,
+      created_at: created ? created.toISOString().slice(0, 10) : report.created_at,
     };
   });
 
@@ -303,6 +390,10 @@ const normalizeReportRow = (
     user_avatar: relatedProfile?.avatar_url || row.user_avatar || null,
     verified_count: row.verified_count ?? 0,
     status: normalizeStatus(row.status),
+    lifecycle_state: row.lifecycle_state ?? undefined,
+    reported_at: row.reported_at ?? null,
+    accepted_at: row.accepted_at ?? null,
+    completed_at: row.completed_at ?? null,
     image_url: row.image_url || firstPhoto,
     created_at: row.created_at || new Date().toISOString(),
   };
@@ -632,6 +723,8 @@ const createLegacyReport = async (
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const isPublicFeed = requestUrl.searchParams.get("public") === "1";
+  const isPrivacySafeMode =
+    requestUrl.searchParams.get("safe") !== "0" || !requestUrl.searchParams.has("safe");
   const greenspotClient = await createServerSupabaseClient({ schema: "greenspot" });
   const publicClient = await createServerSupabaseClient();
   const {
@@ -653,6 +746,40 @@ export async function GET(request: Request) {
   }
 
   try {
+    if (isPublicFeed && !activeUser) {
+      const publicQuota = await greenspotFeedClient.rpc(
+        "consume_public_endpoint_quota",
+        {
+          p_endpoint: "greenspot.reports.public.feed",
+          p_fingerprint: getClientFingerprint(request),
+          p_per_minute: 120,
+          p_per_hour: 3000,
+        }
+      );
+
+      if (publicQuota.error && !isSchemaMismatch(publicQuota.error.message)) {
+        return NextResponse.json({ error: publicQuota.error.message }, { status: 500 });
+      }
+
+      if (!publicQuota.error && publicQuota.data) {
+        const payload = publicQuota.data as {
+          ok?: boolean;
+          reason?: string;
+          retry_after_seconds?: number;
+        };
+        if (payload.ok === false) {
+          return NextResponse.json(
+            {
+              error: "Public map request limit reached. Please retry shortly.",
+              reason: payload.reason ?? "rate_limited",
+              retryAfterSeconds: Number(payload.retry_after_seconds ?? 60),
+            },
+            { status: 429 }
+          );
+        }
+      }
+    }
+
     let meProfile: GreenspotProfileRow | null = null;
     if (activeUser) {
       try {
@@ -698,6 +825,9 @@ export async function GET(request: Request) {
     if (reportsError) {
       if (isSchemaMismatch(reportsError.message)) {
         const legacyPayload = await loadLegacyReports(legacyFeedClient, legacyFeedUser);
+        if (isPublicFeed && isPrivacySafeMode) {
+          legacyPayload.reports = toPrivacySafePublicReports(legacyPayload.reports);
+        }
         return NextResponse.json(legacyPayload);
       }
       return NextResponse.json({ error: reportsError.message }, { status: 500 });
@@ -746,6 +876,10 @@ export async function GET(request: Request) {
       reports = applyClaimStatuses(reports, claimMap);
     }
 
+    if (isPublicFeed && isPrivacySafeMode) {
+      reports = toPrivacySafePublicReports(reports);
+    }
+
     return NextResponse.json({
       reports,
       me: activeUser ? buildMePayload(activeUser, meProfile) : null,
@@ -757,6 +891,9 @@ export async function GET(request: Request) {
     if (isSchemaMismatch(message)) {
       try {
         const legacyPayload = await loadLegacyReports(legacyFeedClient, legacyFeedUser);
+        if (isPublicFeed && isPrivacySafeMode) {
+          legacyPayload.reports = toPrivacySafePublicReports(legacyPayload.reports);
+        }
         return NextResponse.json(legacyPayload);
       } catch (legacyError) {
         const legacyMessage =
@@ -790,6 +927,8 @@ export async function POST(request: Request) {
         category?: string;
         expert?: string;
         imageUrl?: string | null;
+        clientSubmissionId?: string | null;
+        captchaToken?: string | null;
         lat?: number;
         lng?: number;
       }
@@ -803,6 +942,15 @@ export async function POST(request: Request) {
     imageUrl:
       typeof payload?.imageUrl === "string" && payload.imageUrl.trim().length > 0
         ? payload.imageUrl.trim()
+        : null,
+    clientSubmissionId:
+      typeof payload?.clientSubmissionId === "string" &&
+      payload.clientSubmissionId.trim().length > 0
+        ? payload.clientSubmissionId.trim().slice(0, 96)
+        : null,
+    captchaToken:
+      typeof payload?.captchaToken === "string" && payload.captchaToken.trim().length > 0
+        ? payload.captchaToken.trim()
         : null,
     lat: Number(payload?.lat),
     lng: Number(payload?.lng),
@@ -826,6 +974,15 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
+  if (
+    input.clientSubmissionId &&
+    !/^[a-zA-Z0-9._:-]{8,96}$/.test(input.clientSubmissionId)
+  ) {
+    return NextResponse.json(
+      { error: "clientSubmissionId format is invalid." },
+      { status: 400 }
+    );
+  }
 
   const createFromLegacySchema = async () => {
     const report = await createLegacyReport(publicClient, user, input);
@@ -833,6 +990,44 @@ export async function POST(request: Request) {
   };
 
   try {
+    const submitQuota = await greenspotClient.rpc("consume_report_submission_quota", {
+      p_per_10m: 5,
+      p_per_day: 40,
+    });
+
+    if (submitQuota.error && !isSchemaMismatch(submitQuota.error.message)) {
+      return NextResponse.json({ error: submitQuota.error.message }, { status: 500 });
+    }
+
+    if (!submitQuota.error && submitQuota.data) {
+      const quotaPayload = submitQuota.data as {
+        ok?: boolean;
+        reason?: string;
+        retry_after_seconds?: number;
+      };
+      if (quotaPayload.ok === false) {
+        return NextResponse.json(
+          {
+            error:
+              quotaPayload.reason === "limit_day"
+                ? "Daily submission limit reached. Please try tomorrow."
+                : "Too many submissions in a short time. Please retry later.",
+            reason: quotaPayload.reason ?? "rate_limited",
+            retryAfterSeconds: Number(quotaPayload.retry_after_seconds ?? 600),
+          },
+          { status: 429 }
+        );
+      }
+    }
+
+    if (process.env.GREENDUTY_REQUIRE_CAPTCHA_ON_REPORT_SUBMIT === "true") {
+      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+      const captchaCheck = await verifyTurnstileToken(input.captchaToken ?? "", ip);
+      if (!captchaCheck.ok) {
+        return NextResponse.json({ error: captchaCheck.message }, { status: 400 });
+      }
+    }
+
     const meProfile = await ensureProfile(greenspotClient, user);
     const displayName =
       meProfile.full_name || meProfile.username || getFallbackName(user);
@@ -859,6 +1054,10 @@ export async function POST(request: Request) {
         user_avatar: meProfile.avatar_url ?? null,
         verified_count: 0,
         status: "pending",
+        lifecycle_state: "reported",
+        reported_at: new Date().toISOString(),
+        reported_by: user.id,
+        client_submission_id: input.clientSubmissionId,
       })
       .select(
         "id, user_id, area, location_name, category, waste_type, description, notes, lat, lng, image_url, photos, user_name, user_avatar, verified_count, status, created_at"
@@ -866,6 +1065,26 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
+      if (isUniqueViolation(insertError.message) && input.clientSubmissionId) {
+        const existingResult = await greenspotClient
+          .from("greenspot_reports")
+          .select(REPORT_SELECT_FIELDS)
+          .eq("client_submission_id", input.clientSubmissionId)
+          .maybeSingle();
+
+        if (!existingResult.error && existingResult.data) {
+          const profileMap = new Map([[user.id, meProfile]]);
+          const normalizedExisting = normalizeReportRow(
+            existingResult.data as GreenspotReportRow,
+            profileMap,
+            { allowFallbackCoords: true }
+          );
+          if (normalizedExisting) {
+            return NextResponse.json({ report: normalizedExisting, deduped: true }, { status: 200 });
+          }
+        }
+      }
+
       if (isSchemaMismatch(insertError.message)) {
         return await createFromLegacySchema();
       }
@@ -884,6 +1103,38 @@ export async function POST(request: Request) {
         { error: "Report was created but returned invalid coordinates." },
         { status: 500 }
       );
+    }
+
+    const createdEvent = await greenspotClient.from("report_lifecycle_events").insert({
+      report_id: normalizedReport.id,
+      actor_user_id: user.id,
+      action: "report.created",
+      previous_state: null,
+      next_state: "reported",
+      metadata: {
+        title: input.title,
+        category: input.category,
+      },
+    });
+
+    if (createdEvent.error && !isSchemaMismatch(createdEvent.error.message)) {
+      console.warn("Report lifecycle event insert failed:", createdEvent.error.message);
+    }
+
+    const createdNotification = await greenspotClient.rpc("push_notification", {
+      p_user_id: user.id,
+      p_type: "report.created",
+      p_title: "Report submitted",
+      p_body: "Your GreenSpot report was submitted and is now visible on the map.",
+      p_dedupe_key: `report:created:${normalizedReport.id}`,
+      p_metadata: { report_id: normalizedReport.id, category: input.category },
+    });
+
+    if (
+      createdNotification.error &&
+      !isSchemaMismatch(createdNotification.error.message)
+    ) {
+      console.warn("Report creation notification failed:", createdNotification.error.message);
     }
 
     // Keep legacy table in sync for projects still reading from public schema.

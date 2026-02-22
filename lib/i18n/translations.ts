@@ -372,6 +372,48 @@ const en: Record<string, string> = {
   "landing.footer.legal.terms": "Terms of Use",
   "landing.footer.legal.legal": "Legal",
   "landing.footer.legal.sitemap": "Site Map",
+  "landing.impact.report.eyebrow": "Impact report",
+  "landing.impact.report.title": "GreenDuty Full Impact Report",
+  "landing.impact.report.subtitle":
+    "Verified outcomes across cleanup, planting, and community action.",
+  "landing.impact.report.close": "Close report",
+  "landing.impact.report.periodLabel": "Reporting period",
+  "landing.impact.report.periodValue": "January 2025 - February 2026",
+  "landing.impact.report.methodLabel": "Methodology",
+  "landing.impact.report.methodValue":
+    "Numbers are aggregated from verified reports, completed tasks, and partner checks.",
+  "landing.impact.report.coverage.title": "Coverage and execution",
+  "landing.impact.report.coverage.wilayas.label": "National coverage",
+  "landing.impact.report.coverage.wilayas.value": "48 / 58 wilayas",
+  "landing.impact.report.coverage.wilayas.copy":
+    "Active operations in 82% of Algeria's wilayas.",
+  "landing.impact.report.coverage.hubs.label": "Local coordination hubs",
+  "landing.impact.report.coverage.hubs.value": "126 hubs",
+  "landing.impact.report.coverage.hubs.copy":
+    "Volunteer and municipality teams coordinating field actions.",
+  "landing.impact.report.coverage.sla.label": "On-time response rate",
+  "landing.impact.report.coverage.sla.value": "93%",
+  "landing.impact.report.coverage.sla.copy":
+    "Reports acknowledged within the first 24 hours.",
+  "landing.impact.report.timeline.title": "Latest milestones",
+  "landing.impact.report.timeline.q1.title": "Community cleanup acceleration",
+  "landing.impact.report.timeline.q1.copy":
+    "Reported-area missions increased with faster claim and verification flows.",
+  "landing.impact.report.timeline.q2.title": "GreenSpot expansion",
+  "landing.impact.report.timeline.q2.copy":
+    "More planting spots transitioned from reports to active care plans.",
+  "landing.impact.report.timeline.q3.title": "Marketplace sustainability lift",
+  "landing.impact.report.timeline.q3.copy":
+    "Eco product adoption and seller participation grew month over month.",
+  "landing.impact.report.focus.title": "Next 90-day focus",
+  "landing.impact.report.focus.item1":
+    "Increase verified cleanup completion in underserved zones.",
+  "landing.impact.report.focus.item2":
+    "Expand GreenSpot follow-up care with more recurring volunteers.",
+  "landing.impact.report.focus.item3":
+    "Publish monthly transparency snapshots for all platform modules.",
+  "landing.impact.report.note":
+    "Need custom data exports for your municipality or partner team? Contact support.",
 };
 
 const frOverrides: Record<string, string> = {
@@ -705,6 +747,48 @@ const frOverrides: Record<string, string> = {
   "landing.footer.legal.terms": "Conditions d'utilisation",
   "landing.footer.legal.legal": "Mentions legales",
   "landing.footer.legal.sitemap": "Plan du site",
+  "landing.impact.report.eyebrow": "Rapport d'impact",
+  "landing.impact.report.title": "Rapport d'impact complet GreenDuty",
+  "landing.impact.report.subtitle":
+    "Resultats verifies sur le nettoyage, la plantation et l'action communautaire.",
+  "landing.impact.report.close": "Fermer le rapport",
+  "landing.impact.report.periodLabel": "Periode de suivi",
+  "landing.impact.report.periodValue": "Janvier 2025 - Fevrier 2026",
+  "landing.impact.report.methodLabel": "Methodologie",
+  "landing.impact.report.methodValue":
+    "Les chiffres sont consolides depuis les signalements verifies, les taches terminees et les controles partenaires.",
+  "landing.impact.report.coverage.title": "Couverture et execution",
+  "landing.impact.report.coverage.wilayas.label": "Couverture nationale",
+  "landing.impact.report.coverage.wilayas.value": "48 / 58 wilayas",
+  "landing.impact.report.coverage.wilayas.copy":
+    "Operations actives dans 82% des wilayas d'Algerie.",
+  "landing.impact.report.coverage.hubs.label": "Hubs de coordination locale",
+  "landing.impact.report.coverage.hubs.value": "126 hubs",
+  "landing.impact.report.coverage.hubs.copy":
+    "Des equipes volontaires et municipales coordonnent les actions terrain.",
+  "landing.impact.report.coverage.sla.label": "Taux de reponse a temps",
+  "landing.impact.report.coverage.sla.value": "93%",
+  "landing.impact.report.coverage.sla.copy":
+    "Les signalements sont pris en charge dans les 24 premieres heures.",
+  "landing.impact.report.timeline.title": "Dernieres etapes",
+  "landing.impact.report.timeline.q1.title": "Acceleration du nettoyage communautaire",
+  "landing.impact.report.timeline.q1.copy":
+    "Les missions sur les zones signalees ont augmente avec des flux de validation plus rapides.",
+  "landing.impact.report.timeline.q2.title": "Expansion GreenSpot",
+  "landing.impact.report.timeline.q2.copy":
+    "Davantage de zones de plantation sont passees du signalement au plan d'entretien actif.",
+  "landing.impact.report.timeline.q3.title": "Progression durable du marketplace",
+  "landing.impact.report.timeline.q3.copy":
+    "L'adoption de produits eco et la participation vendeurs progressent chaque mois.",
+  "landing.impact.report.focus.title": "Priorites des 90 prochains jours",
+  "landing.impact.report.focus.item1":
+    "Augmenter les nettoyages verifies dans les zones sous-servies.",
+  "landing.impact.report.focus.item2":
+    "Etendre le suivi GreenSpot avec plus de volontaires recurrents.",
+  "landing.impact.report.focus.item3":
+    "Publier des bilans de transparence mensuels pour chaque module.",
+  "landing.impact.report.note":
+    "Besoin d'un export de donnees pour votre commune ou votre equipe partenaire ? Contactez le support.",
 };
 
 const arOverrides: Record<string, string> = {
@@ -1068,6 +1152,47 @@ const arOverrides: Record<string, string> = {
   "landing.footer.legal.terms": "شروط الاستخدام",
   "landing.footer.legal.legal": "قانوني",
   "landing.footer.legal.sitemap": "خريطة الموقع",
+  "landing.impact.report.eyebrow": "تقرير الأثر",
+  "landing.impact.report.title": "تقرير الأثر الكامل لمنصة GreenDuty",
+  "landing.impact.report.subtitle": "نتائج موثقة من مسارات التنظيف والغرس والعمل المجتمعي.",
+  "landing.impact.report.close": "اغلاق التقرير",
+  "landing.impact.report.periodLabel": "فترة التقرير",
+  "landing.impact.report.periodValue": "يناير 2025 - فبراير 2026",
+  "landing.impact.report.methodLabel": "منهجية القياس",
+  "landing.impact.report.methodValue":
+    "يتم تجميع الارقام من البلاغات الموثقة والمهام المكتملة ومراجعة الشركاء.",
+  "landing.impact.report.coverage.title": "التغطية والتنفيذ",
+  "landing.impact.report.coverage.wilayas.label": "التغطية الوطنية",
+  "landing.impact.report.coverage.wilayas.value": "48 / 58 ولاية",
+  "landing.impact.report.coverage.wilayas.copy":
+    "تشغيل ميداني نشط في 82% من ولايات الجزائر.",
+  "landing.impact.report.coverage.hubs.label": "مراكز التنسيق المحلية",
+  "landing.impact.report.coverage.hubs.value": "126 مركز",
+  "landing.impact.report.coverage.hubs.copy":
+    "فرق المتطوعين والبلديات تنسق تنفيذ المهام الميدانية.",
+  "landing.impact.report.coverage.sla.label": "معدل الاستجابة في الوقت",
+  "landing.impact.report.coverage.sla.value": "93%",
+  "landing.impact.report.coverage.sla.copy":
+    "يتم التعامل مع البلاغات خلال اول 24 ساعة.",
+  "landing.impact.report.timeline.title": "احدث المحطات",
+  "landing.impact.report.timeline.q1.title": "تسارع حملات التنظيف المجتمعي",
+  "landing.impact.report.timeline.q1.copy":
+    "ارتفعت مهام المناطق المبلغ عنها مع تدفق اسرع للاعتماد والتحقق.",
+  "landing.impact.report.timeline.q2.title": "توسع GreenSpot",
+  "landing.impact.report.timeline.q2.copy":
+    "تحولت مواقع غرس اكثر من البلاغ الى خطة عناية نشطة.",
+  "landing.impact.report.timeline.q3.title": "نمو الاستدامة في السوق",
+  "landing.impact.report.timeline.q3.copy":
+    "زاد تبني المنتجات البيئية ومشاركة البائعين بشكل شهري.",
+  "landing.impact.report.focus.title": "اولوية التسعين يوما القادمة",
+  "landing.impact.report.focus.item1":
+    "رفع نسبة اتمام مهام التنظيف الموثقة في المناطق الاقل خدمة.",
+  "landing.impact.report.focus.item2":
+    "توسيع متابعة GreenSpot مع متطوعين متكررين اكثر.",
+  "landing.impact.report.focus.item3":
+    "نشر ملخصات شفافية شهرية لكل وحدات المنصة.",
+  "landing.impact.report.note":
+    "تحتاج تصدير بيانات مخصص لبلديتك او فريقك الشريك؟ تواصل مع الدعم.",
 };
 
 export const translations: Record<Locale, Record<string, string>> = {

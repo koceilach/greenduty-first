@@ -129,9 +129,6 @@ function GreenspotRegisterPage() {
                   (user.user_metadata as { avatar_url?: string; picture?: string } | null)?.avatar_url ??
                   (user.user_metadata as { avatar_url?: string; picture?: string } | null)?.picture ??
                   null,
-                role: "member",
-                account_tier: "basic",
-                verification_status: "unverified",
               },
               { onConflict: "id" }
             );

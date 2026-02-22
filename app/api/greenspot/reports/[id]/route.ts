@@ -298,12 +298,15 @@ export async function PATCH(
   const payload = (await request.json().catch(() => null)) as
     | {
         action?: string;
+        nextState?: string;
+        reason?: string;
       }
     | null;
 
-  if (payload?.action !== "accept") {
+  const action = payload?.action ?? "accept";
+  if (action !== "accept" && action !== "set_lifecycle") {
     return NextResponse.json(
-      { error: "Unsupported action. Use action=\"accept\"." },
+      { error: "Unsupported action. Use action=\"accept\" or action=\"set_lifecycle\"." },
       { status: 400 }
     );
   }
@@ -320,11 +323,131 @@ export async function PATCH(
   }
 
   try {
+    if (action === "set_lifecycle") {
+      const nextState = payload?.nextState?.trim().toLowerCase() ?? "";
+      if (!nextState) {
+        return NextResponse.json(
+          { error: "nextState is required for action=\"set_lifecycle\"." },
+          { status: 400 }
+        );
+      }
+
+      const transition = await greenspotClient.rpc("transition_report_lifecycle", {
+        p_report_id: id,
+        p_next_state: nextState,
+        p_reason: payload?.reason?.trim() || null,
+      });
+
+      if (transition.error) {
+        const message = transition.error.message;
+        if (isSchemaMismatch(message)) {
+          return NextResponse.json(
+            { error: "Lifecycle transition function is unavailable. Apply latest GreenSpot migrations." },
+            { status: 501 }
+          );
+        }
+        const normalized = message.toLowerCase();
+        const statusCode = normalized.includes("report not found")
+          ? 404
+          : normalized.includes("not authorized")
+            ? 403
+            : normalized.includes("invalid lifecycle transition") ||
+                normalized.includes("invalid lifecycle state")
+              ? 400
+              : 500;
+        return NextResponse.json({ error: message }, { status: statusCode });
+      }
+
+      const result = (transition.data ?? {}) as {
+        ok?: boolean;
+        report_id?: string;
+        previous_state?: string;
+        next_state?: string;
+        status?: string;
+        accepted_at?: string | null;
+        accepted_by?: string | null;
+        in_progress_at?: string | null;
+        in_progress_by?: string | null;
+        verified_at?: string | null;
+        verified_by?: string | null;
+        completed_at?: string | null;
+        completed_by?: string | null;
+        rejected_at?: string | null;
+        rejected_by?: string | null;
+        rejected_reason?: string | null;
+        unchanged?: boolean;
+      };
+
+      return NextResponse.json({
+        ok: result.ok !== false,
+        reportId: result.report_id ?? id,
+        previousState: result.previous_state ?? null,
+        lifecycleState: result.next_state ?? nextState,
+        status: result.status ?? null,
+        unchanged: result.unchanged ?? false,
+        acceptedAt: result.accepted_at ?? null,
+        acceptedBy: result.accepted_by ?? null,
+        inProgressAt: result.in_progress_at ?? null,
+        inProgressBy: result.in_progress_by ?? null,
+        verifiedAt: result.verified_at ?? null,
+        verifiedBy: result.verified_by ?? null,
+        completedAt: result.completed_at ?? null,
+        completedBy: result.completed_by ?? null,
+        rejectedAt: result.rejected_at ?? null,
+        rejectedBy: result.rejected_by ?? null,
+        rejectedReason: result.rejected_reason ?? null,
+      });
+    }
+
     const displayName = await resolveDisplayName(user, greenspotClient, publicClient);
+
+    const transactionalAccept = await greenspotClient.rpc(
+      "accept_report_transactional",
+      { p_report_id: id }
+    );
+
+    if (!transactionalAccept.error && transactionalAccept.data) {
+      const payload = transactionalAccept.data as {
+        report_id?: string;
+        accepted_by?: string;
+        accepted_by_user_id?: string;
+        status?: string;
+        lifecycle_state?: string;
+        accepted_at?: string;
+        created_tasks?: number;
+      };
+
+      return NextResponse.json({
+        ok: true,
+        reportId: payload.report_id ?? id,
+        acceptedBy: payload.accepted_by ?? displayName,
+        acceptedByUserId: payload.accepted_by_user_id ?? user.id,
+        status: payload.status ?? `Accepted by ${displayName}`,
+        lifecycleState: payload.lifecycle_state ?? "accepted",
+        acceptedAt: payload.accepted_at ?? new Date().toISOString(),
+        createdTasks: Number(payload.created_tasks ?? 0),
+      });
+    }
+
+    if (
+      transactionalAccept.error &&
+      !isSchemaMismatch(transactionalAccept.error.message)
+    ) {
+      const message = transactionalAccept.error.message;
+      const normalized = message.toLowerCase();
+      const statusCode = normalized.includes("report not found")
+        ? 404
+        : normalized.includes("cannot accept your own report")
+          ? 403
+          : normalized.includes("already been accepted")
+            ? 409
+            : 500;
+      return NextResponse.json({ error: message }, { status: statusCode });
+    }
 
     const reportQuery = await greenspotClient
       .from("greenspot_reports")
-      .select("id, user_id, area, location_name, category, waste_type, lat, lng, status, verified_count")
+      .select("id, user_id, area, location_name, category, waste_type, lat, lng, status, verified_count, lifecycle_state")
       .eq("id", id)
       .maybeSingle();
 
@@ -463,6 +586,11 @@ export async function PATCH(
         .update({
           status: acceptedStatus,
           verified_count: nextVerified,
+          lifecycle_state: "accepted",
+          accepted_at: new Date().toISOString(),
+          accepted_by: user.id,
+          in_progress_at: new Date().toISOString(),
+          in_progress_by: user.id,
         })
         .eq("id", id);
 
@@ -472,6 +600,31 @@ export async function PATCH(
         !isPermissionIssue(updateError.message)
       ) {
         return NextResponse.json({ error: updateError.message }, { status: 500 });
+      }
+
+      const lifecycleEvent = await greenspotClient
+        .from("report_lifecycle_events")
+        .insert({
+          report_id: id,
+          actor_user_id: user.id,
+          action: "report.accepted",
+          previous_state: report.lifecycle_state ?? "reported",
+          next_state: "accepted",
+          metadata: {
+            accepted_by_name: claim.acceptedBy,
+            created_tasks: createdTasks,
+          },
+        });
+
+      if (
+        lifecycleEvent.error &&
+        !isSchemaMismatch(lifecycleEvent.error.message) &&
+        !isPermissionIssue(lifecycleEvent.error.message)
+      ) {
+        console.warn(
+          "Lifecycle event write failed:",
+          lifecycleEvent.error.message
+        );
       }
     }
 

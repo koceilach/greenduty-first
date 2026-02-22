@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type ChatRole = "assistant" | "user";
 
@@ -79,6 +80,17 @@ const REPLY_SCHEMA = {
     required: ["inScope", "reply", "summary", "suggestedPlants", "designPrompt"],
   },
 } as const;
+
+const MAX_REQUEST_BYTES = 4 * 1024 * 1024;
+const MAX_PROMPT_CHARS = 1400;
+const MAX_IMAGE_DATA_URL_CHARS = 3_000_000;
+const MAX_HISTORY_ITEMS = 8;
+const MAX_HISTORY_TEXT_CHARS = 600;
+
+const isSchemaMismatch = (message: string) =>
+  /function .* does not exist|relation .* does not exist|schema cache|column .* does not exist/i.test(
+    message
+  );
 
 const isInScopePrompt = (prompt: string) => {
   const lower = prompt.toLowerCase();
@@ -190,6 +202,25 @@ const generateDesignImage = async (apiKey: string, prompt: string): Promise<stri
 };
 
 export async function POST(request: Request) {
+  const supabase = await createServerSupabaseClient({ schema: "greenspot" });
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const contentLengthHeader = request.headers.get("content-length");
+  const contentLength = contentLengthHeader ? Number(contentLengthHeader) : 0;
+  if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
+    return NextResponse.json(
+      { error: "Request payload is too large." },
+      { status: 413 }
+    );
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
@@ -209,6 +240,20 @@ export async function POST(request: Request) {
   const imageDataUrl = body.imageDataUrl?.trim() ?? "";
   const hasImage = imageDataUrl.startsWith("data:image/");
 
+  if (prompt.length > MAX_PROMPT_CHARS) {
+    return NextResponse.json(
+      { error: `Prompt is too long. Maximum length is ${MAX_PROMPT_CHARS} characters.` },
+      { status: 400 }
+    );
+  }
+
+  if (hasImage && imageDataUrl.length > MAX_IMAGE_DATA_URL_CHARS) {
+    return NextResponse.json(
+      { error: "Image payload is too large. Please upload a smaller image." },
+      { status: 413 }
+    );
+  }
+
   if (!prompt && !hasImage) {
     return NextResponse.json({ error: "Provide text or an image." }, { status: 400 });
   }
@@ -217,6 +262,16 @@ export async function POST(request: Request) {
   const inScopeByKeyword = hasImage || isInScopePrompt(scopedPrompt);
   const fallback = buildFallbackReply(inScopeByKeyword);
 
+  if (!inScopeByKeyword && !hasImage) {
+    return NextResponse.json({
+      inScope: false,
+      reply: fallback.reply,
+      summary: "",
+      suggestedPlants: [],
+      designImageUrl: null,
+    });
+  }
+
   const history = Array.isArray(body.history)
     ? body.history
         .filter(
@@ -224,10 +279,43 @@ export async function POST(request: Request) {
             Boolean(item) &&
             (item.role === "assistant" || item.role === "user") &&
             typeof item.text === "string" &&
-            item.text.trim().length > 0
+            item.text.trim().length > 0 &&
+            item.text.trim().length <= MAX_HISTORY_TEXT_CHARS
         )
-        .slice(-8)
+        .slice(-MAX_HISTORY_ITEMS)
     : [];
+
+  const quotaResult = await supabase.rpc("consume_ai_chat_quota", {
+    p_per_minute: 6,
+    p_per_hour: 40,
+  });
+
+  if (quotaResult.error && !isSchemaMismatch(quotaResult.error.message)) {
+    return NextResponse.json(
+      { error: quotaResult.error.message },
+      { status: 500 }
+    );
+  }
+
+  if (!quotaResult.error && quotaResult.data) {
+    const quotaData = quotaResult.data as {
+      ok?: boolean;
+      reason?: string;
+      retry_after_seconds?: number;
+    };
+    if (quotaData.ok === false) {
+      return NextResponse.json(
+        {
+          error:
+            quotaData.reason === "hour_limit"
+              ? "Hourly AI limit reached. Please try again later."
+              : "Too many AI requests. Please wait a minute and try again.",
+          retryAfterSeconds: Number(quotaData.retry_after_seconds ?? 60),
+        },
+        { status: 429 }
+      );
+    }
+  }
 
   const messages = [
     { role: "system", content: SYSTEM_PROMPT },

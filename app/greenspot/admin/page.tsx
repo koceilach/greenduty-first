@@ -33,6 +33,17 @@ type VerificationRequestRow = {
   } | null;
 };
 
+type AuditLogRow = {
+  id: number;
+  action: string;
+  reason?: string | null;
+  target_type: string;
+  target_id: string;
+  target_user_id?: string | null;
+  metadata?: Record<string, unknown> | null;
+  created_at: string;
+};
+
 const statusPill = (status: VerificationStatus) => {
   if (status === "approved") return "bg-emerald-500/15 text-emerald-200 border-emerald-500/30";
   if (status === "rejected") return "bg-rose-500/15 text-rose-200 border-rose-500/30";
@@ -40,6 +51,29 @@ const statusPill = (status: VerificationStatus) => {
 };
 
 const formatDate = (value: string) => new Date(value).toLocaleString();
+
+const isAbsoluteHttpUrl = (value: string) =>
+  /^https?:\/\//i.test(value.trim());
+
+const resolveVerificationObjectPath = (value: string) => {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (!isAbsoluteHttpUrl(raw)) {
+    return raw.replace(/^greenspot-verification\//i, "");
+  }
+  try {
+    const parsed = new URL(raw);
+    const publicPrefix = "/storage/v1/object/public/greenspot-verification/";
+    const signedPrefix = "/storage/v1/object/sign/greenspot-verification/";
+    if (parsed.pathname.includes(publicPrefix)) {
+      return decodeURIComponent(parsed.pathname.split(publicPrefix)[1] ?? "");
+    }
+    if (parsed.pathname.includes(signedPrefix)) {
+      return decodeURIComponent(parsed.pathname.split(signedPrefix)[1] ?? "");
+    }
+  } catch {}
+  return null;
+};
 
 export default function GreenSpotAdminVerificationPage() {
   const { user, loading: authLoading } = useAuth();
@@ -50,6 +84,9 @@ export default function GreenSpotAdminVerificationPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [filter, setFilter] = useState<VerificationStatus | "all">("pending");
+  const [decisionReasons, setDecisionReasons] = useState<Record<string, string>>({});
+  const [auditRows, setAuditRows] = useState<AuditLogRow[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
 
   const isAdmin = greenspotProfile?.role === "admin";
 
@@ -63,6 +100,25 @@ export default function GreenSpotAdminVerificationPage() {
     if (filter === "all") return requests;
     return requests.filter((row) => row.status === filter);
   }, [requests, filter]);
+
+  const fetchAuditRows = useCallback(async () => {
+    if (!user || !isAdmin) return;
+    setAuditLoading(true);
+    const { data, error } = await greenspotClient
+      .from("admin_audit_log")
+      .select("id, action, reason, target_type, target_id, target_user_id, metadata, created_at")
+      .order("created_at", { ascending: false })
+      .limit(40);
+
+    if (error) {
+      setToast(error.message ?? "Unable to load admin audit history.");
+      setAuditLoading(false);
+      return;
+    }
+
+    setAuditRows((data ?? []) as AuditLogRow[]);
+    setAuditLoading(false);
+  }, [user, isAdmin]);
 
   const fetchRequests = useCallback(async () => {
     if (!user || !isAdmin) return;
@@ -115,6 +171,10 @@ export default function GreenSpotAdminVerificationPage() {
   }, [fetchRequests]);
 
   useEffect(() => {
+    fetchAuditRows();
+  }, [fetchAuditRows]);
+
+  useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 2600);
     return () => clearTimeout(timer);
@@ -124,46 +184,79 @@ export default function GreenSpotAdminVerificationPage() {
     async (request: VerificationRequestRow, decision: VerificationStatus) => {
       if (!user || !isAdmin) return;
       setActionLoading(request.id);
+      const reason = (decisionReasons[request.id] ?? "").trim();
 
-      const { error: requestError } = await greenspotClient
-        .from("verification_requests")
-        .update({ status: decision, reviewed_at: new Date().toISOString() })
-        .eq("id", request.id);
+      const withReason = await greenspotClient.rpc(
+        "admin_review_verification_request_with_reason",
+        {
+          p_request_id: request.id,
+          p_decision: decision,
+          p_reason: reason.length > 0 ? reason : null,
+        }
+      );
 
-      if (requestError) {
-        setToast(requestError.message ?? "Unable to update request.");
+      let decisionError = withReason.error;
+      if (
+        decisionError &&
+        /function .* does not exist|schema cache/i.test(decisionError.message)
+      ) {
+        const fallback = await greenspotClient.rpc(
+          "admin_review_verification_request",
+          {
+            p_request_id: request.id,
+            p_decision: decision,
+          }
+        );
+        decisionError = fallback.error;
+      }
+
+      if (decisionError) {
+        setToast(decisionError.message ?? "Unable to update verification request.");
         setActionLoading(null);
         return;
       }
 
-      const nextTier =
-        decision === "approved"
-          ? request.type === "researcher"
-            ? "impact"
-            : "pro"
-          : undefined;
-
-      const { error: profileError } = await greenspotClient
-        .from("greenspot_profiles")
-        .update({
-          verification_status: decision,
-          verification_type: request.type,
-          ...(nextTier ? { account_tier: nextTier } : {}),
-        })
-        .eq("id", request.user_id);
-
-      if (profileError) {
-        setToast(profileError.message ?? "Unable to update profile.");
-        setActionLoading(null);
-        return;
-      }
-
+      setDecisionReasons((prev) => ({ ...prev, [request.id]: "" }));
       setToast(decision === "approved" ? "Verification approved." : "Verification rejected.");
       setActionLoading(null);
       fetchRequests();
+      fetchAuditRows();
     },
-    [user, isAdmin, fetchRequests]
+    [user, isAdmin, fetchRequests, fetchAuditRows, decisionReasons]
   );
+
+  const openDocument = useCallback(async (documentRef?: string | null) => {
+    if (!documentRef) return;
+
+    const raw = documentRef.trim();
+    if (!raw) return;
+
+    if (
+      isAbsoluteHttpUrl(raw) &&
+      !raw.includes("/storage/v1/object/public/greenspot-verification/") &&
+      !raw.includes("/storage/v1/object/sign/greenspot-verification/")
+    ) {
+      setToast("Unsupported document reference. Re-upload through verification flow.");
+      return;
+    }
+
+    const objectPath = resolveVerificationObjectPath(raw);
+    if (!objectPath) {
+      setToast("Unable to resolve document path.");
+      return;
+    }
+
+    const { data, error } = await greenspotClient.storage
+      .from("greenspot-verification")
+      .createSignedUrl(objectPath, 60 * 5);
+
+    if (error || !data?.signedUrl) {
+      setToast(error?.message ?? "Unable to open document.");
+      return;
+    }
+
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
+  }, []);
 
   if (!user) {
     return (
@@ -277,18 +370,38 @@ export default function GreenSpotAdminVerificationPage() {
                       <span>Submitted {formatDate(request.created_at)}</span>
                       {request.reviewed_at && <span>Reviewed {formatDate(request.reviewed_at)}</span>}
                       {request.document_url && (
-                        <a
-                          href={request.document_url}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => void openDocument(request.document_url)}
                           className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-emerald-200 hover:border-emerald-300/40"
                         >
                           View document
-                        </a>
+                        </button>
                       )}
                     </div>
 
                     <div className="mt-6 flex flex-wrap gap-3">
+                      {request.status === "pending" ? (
+                        <div className="w-full">
+                          <label className="mb-1 block text-[11px] uppercase tracking-[0.15em] text-white/50">
+                            Decision Reason (audit log)
+                          </label>
+                          <textarea
+                            value={decisionReasons[request.id] ?? ""}
+                            onChange={(event) =>
+                              setDecisionReasons((prev) => ({
+                                ...prev,
+                                [request.id]: event.target.value,
+                              }))
+                            }
+                            rows={2}
+                            maxLength={280}
+                            placeholder="Optional reason shown in action history..."
+                            className="w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-xs text-white outline-none focus:border-emerald-300/40"
+                          />
+                        </div>
+                      ) : null}
+
                       <Button
                         className="bg-emerald-500 text-black hover:bg-emerald-400"
                         onClick={() => handleDecision(request, "approved")}
@@ -318,6 +431,57 @@ export default function GreenSpotAdminVerificationPage() {
               })}
             </div>
           )}
+
+          <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.24em] text-emerald-200/60">
+                  Audit
+                </p>
+                <h2 className="mt-2 text-lg font-semibold">Admin Action History</h2>
+                <p className="mt-1 text-xs text-white/60">
+                  Verification actions, reasons, and targets.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void fetchAuditRows()}
+                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-white/80 hover:border-emerald-300/40"
+              >
+                Refresh
+              </button>
+            </div>
+
+            <div className="mt-4 max-h-[340px] space-y-2 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {auditLoading ? (
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-white/60">
+                  Loading audit events...
+                </div>
+              ) : auditRows.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs text-white/60">
+                  No audit events yet.
+                </div>
+              ) : (
+                auditRows.map((row) => (
+                  <div
+                    key={row.id}
+                    className="rounded-2xl border border-white/10 bg-black/20 p-3 text-xs"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-semibold text-emerald-200">{row.action}</span>
+                      <span className="text-white/50">{formatDate(row.created_at)}</span>
+                    </div>
+                    <p className="mt-1 text-white/70">
+                      Target: {row.target_type} ({row.target_id})
+                    </p>
+                    {row.reason ? (
+                      <p className="mt-1 text-white/80">Reason: {row.reason}</p>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
         </div>
       </section>
 
