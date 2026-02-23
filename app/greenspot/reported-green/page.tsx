@@ -2227,9 +2227,11 @@ export default function ReportedGreenPage() {
         </div>
 
         <div
-          className="pointer-events-auto absolute left-1/2 top-[calc(env(safe-area-inset-top)+5.15rem)] z-50 w-[min(94vw,430px)] -translate-x-1/2 md:hidden"
+          className="pointer-events-auto absolute left-1/2 top-[calc(env(safe-area-inset-top)+5.15rem)] z-50 w-[min(96vw,520px)] -translate-x-1/2 md:hidden"
         >
-          <div className={`flex items-center gap-1.5 ${mobileDockShellClass}`}>
+          <div
+            className={`flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${mobileDockShellClass}`}
+          >
             <button
               type="button"
               aria-label="AI Assistant"
@@ -2271,6 +2273,21 @@ export default function ReportedGreenPage() {
                   {Math.min(unreadNotifications, 9)}
                 </span>
               ) : null}
+            </button>
+
+            <button
+              type="button"
+              aria-label={user ? "Logout" : "Login"}
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className={`relative flex h-10 shrink-0 items-center gap-1.5 rounded-[12px] px-2.5 text-[10px] font-semibold transition ${
+                user ? mobileDockActionActiveClass : mobileDockActionClass
+              } ${loggingOut ? "cursor-not-allowed opacity-70" : ""}`}
+            >
+              <LogOut className="h-4 w-4" />
+              <span className="whitespace-nowrap leading-none">
+                {loggingOut ? "..." : user ? "Logout" : "Login"}
+              </span>
             </button>
 
             {sidebarItems
@@ -3103,7 +3120,7 @@ export default function ReportedGreenPage() {
                       ) : (
                         myReports.map((report) => (
                           <div key={report.id} className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}>
-                            <div className="flex min-w-0 items-start justify-between gap-3">
+                            <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
                               <div className="min-w-0">
                                 <p className={`break-words text-sm font-medium ${primaryTextClass}`}>{report.area}</p>
                                 <p className={`text-xs ${secondaryTextClass}`}>
@@ -3117,7 +3134,7 @@ export default function ReportedGreenPage() {
                                 type="button"
                                 onClick={() => removeMyReport(report.id)}
                                 disabled={deletingReportId === report.id}
-                                className={`shrink-0 inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition ${
+                                className={`inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition sm:w-auto ${
                                   isLight
                                     ? "bg-rose-500/12 text-rose-700 hover:bg-rose-500/18"
                                     : "bg-rose-500/15 text-rose-100 hover:bg-rose-500/22"
@@ -3676,10 +3693,27 @@ export default function ReportedGreenPage() {
                         ) : (
                           recentMyReports.map((report) => (
                             <div key={report.id} className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}>
-                              <p className={`text-sm font-medium ${primaryTextClass}`}>{report.area}</p>
-                              <p className={`mt-1 text-xs ${secondaryTextClass}`}>
-                                {report.waste_type} - {report.status}
-                              </p>
+                              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                  <p className={`break-words text-sm font-medium ${primaryTextClass}`}>{report.area}</p>
+                                  <p className={`mt-1 text-xs ${secondaryTextClass}`}>
+                                    {report.waste_type} - {report.status}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeMyReport(report.id)}
+                                  disabled={deletingReportId === report.id}
+                                  className={`inline-flex w-full shrink-0 items-center justify-center gap-1 rounded-lg px-2.5 py-1.5 text-xs transition sm:w-auto ${
+                                    isLight
+                                      ? "bg-rose-500/12 text-rose-700 hover:bg-rose-500/18"
+                                      : "bg-rose-500/15 text-rose-100 hover:bg-rose-500/22"
+                                  }`}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  {deletingReportId === report.id ? "Removing..." : "Remove"}
+                                </button>
+                              </div>
                             </div>
                           ))
                         )}

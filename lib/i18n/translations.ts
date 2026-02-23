@@ -304,9 +304,9 @@ const en: Record<string, string> = {
   "landing.help.badge": "Help us",
   "landing.help.title": "Report a bug and make GreenDuty better",
   "landing.help.subtitle":
-    "Found an issue in any module? Send us details and a screenshot. Your report goes directly to our support inbox.",
+    "Found an issue in any module? Every user can report bugs, no Pro plan required. Send details and a screenshot, and your report goes directly to support.",
   "landing.help.panel.tag": "Bug Desk",
-  "landing.help.panel.title": "Fast diagnostics for all platform modules",
+  "landing.help.panel.title": "Bug reporting is open to every user",
   "landing.help.panel.point1": "Tell us where the bug appears (module/page).",
   "landing.help.panel.point2": "Describe what happened and what you expected.",
   "landing.help.panel.point3": "Attach a screenshot so we can reproduce quickly.",
@@ -673,10 +673,10 @@ const frOverrides: Record<string, string> = {
   "landing.help.badge": "Aidez-nous",
   "landing.help.title": "Signalez un bug et ameliorez GreenDuty",
   "landing.help.subtitle":
-    "Vous avez repere un probleme dans un module? Envoyez les details avec une capture d'ecran. Votre rapport arrive directement dans notre boite support.",
+    "Vous avez repere un probleme dans un module? Tous les utilisateurs peuvent signaler un bug, sans offre Pro. Envoyez les details avec une capture d'ecran et votre rapport arrive directement dans notre boite support.",
   "landing.help.panel.tag": "Bug Desk",
   "landing.help.panel.title":
-    "Diagnostic rapide pour tous les modules de la plateforme",
+    "Le signalement de bugs est ouvert a tous les utilisateurs",
   "landing.help.panel.point1":
     "Indiquez ou le bug apparait (module/page).",
   "landing.help.panel.point2":

@@ -946,111 +946,114 @@ export default function MarketplaceProfilePage() {
       )}
 
       {editOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6">
-          <div className="relative w-full max-w-2xl rounded-[28px] border border-white/10 bg-emerald-950/90 p-6 shadow-[0_30px_90px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-            <button
-              type="button"
-              onClick={() => setEditOpen(false)}
-              className="absolute right-4 top-4 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-emerald-950/80 text-white/80 transition hover:bg-emerald-900"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <div className="text-xs uppercase tracking-[0.3em] text-emerald-200/70">
-              Edit Profile
-            </div>
-            <h2 className="mt-2 text-xl font-semibold">Update your profile</h2>
-
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
-                  Display name
-                </label>
-                <input
-                  value={editName}
-                  onChange={(event) => setEditName(event.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
-                  Location (Wilaya)
-                </label>
-                <input
-                  value={editLocation}
-                  onChange={(event) => setEditLocation(event.target.value)}
-                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
-                Store name (optional)
-              </label>
-              <input
-                value={editStoreName}
-                onChange={(event) => setEditStoreName(event.target.value)}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
-              />
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
-                Bio
-              </label>
-              <textarea
-                value={editBio}
-                onChange={(event) => setEditBio(event.target.value)}
-                rows={4}
-                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
-              />
-            </div>
-
-            <div className="mt-4 space-y-2">
-              <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
-                Avatar
-              </label>
-              <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-4">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (!file) return;
-                    if (avatarPreviewObjectUrlRef.current) {
-                      URL.revokeObjectURL(avatarPreviewObjectUrlRef.current);
-                    }
-                    const nextObjectUrl = URL.createObjectURL(file);
-                    avatarPreviewObjectUrlRef.current = nextObjectUrl;
-                    setAvatarFile(file);
-                    setAvatarPreview(nextObjectUrl);
-                  }}
-                />
-                {avatarPreview && (
-                  <img
-                    src={avatarPreview}
-                    alt="Avatar preview"
-                    className="mt-4 h-28 w-28 rounded-2xl object-cover"
-                  />
-                )}
-              </div>
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center justify-end gap-3">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 px-3 py-3 sm:px-4 sm:py-6">
+          <div className="flex min-h-full items-center justify-center">
+            <div className="relative my-auto w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-[24px] border border-white/10 bg-emerald-950/90 p-4 shadow-[0_30px_90px_rgba(0,0,0,0.55)] backdrop-blur-xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-[28px] sm:p-6">
               <button
                 type="button"
                 onClick={closeEditModal}
-                className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/60 transition hover:text-white"
+                className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/20 bg-emerald-950/80 text-white/80 transition hover:bg-emerald-900 sm:right-4 sm:top-4"
               >
-                Cancel
+                <X className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                onClick={handleSaveProfile}
-                className="rounded-full bg-emerald-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-950 transition hover:brightness-110"
-              >
-                Save changes
-              </button>
+              <div className="text-xs uppercase tracking-[0.3em] text-emerald-200/70">
+                Edit Profile
+              </div>
+              <h2 className="mt-2 text-lg font-semibold sm:text-xl">Update your profile</h2>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
+                    Display name
+                  </label>
+                  <input
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
+                    Location (Wilaya)
+                  </label>
+                  <input
+                    value={editLocation}
+                    onChange={(event) => setEditLocation(event.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
+                  Store name (optional)
+                </label>
+                <input
+                  value={editStoreName}
+                  onChange={(event) => setEditStoreName(event.target.value)}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
+                />
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
+                  Bio
+                </label>
+                <textarea
+                  value={editBio}
+                  onChange={(event) => setEditBio(event.target.value)}
+                  rows={4}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white"
+                />
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <label className="text-[11px] uppercase tracking-[0.2em] text-white/60">
+                  Avatar
+                </label>
+                <div className="rounded-2xl border border-dashed border-white/20 bg-white/5 p-4">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="w-full text-xs text-white/70 sm:text-sm"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      if (avatarPreviewObjectUrlRef.current) {
+                        URL.revokeObjectURL(avatarPreviewObjectUrlRef.current);
+                      }
+                      const nextObjectUrl = URL.createObjectURL(file);
+                      avatarPreviewObjectUrlRef.current = nextObjectUrl;
+                      setAvatarFile(file);
+                      setAvatarPreview(nextObjectUrl);
+                    }}
+                  />
+                  {avatarPreview && (
+                    <img
+                      src={avatarPreview}
+                      alt="Avatar preview"
+                      className="mt-4 h-24 w-24 rounded-2xl object-cover sm:h-28 sm:w-28"
+                    />
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
+                <button
+                  type="button"
+                  onClick={closeEditModal}
+                  className="w-full rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-semibold text-white/60 transition hover:text-white sm:w-auto"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveProfile}
+                  className="w-full rounded-full bg-emerald-400 px-5 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-950 transition hover:brightness-110 sm:w-auto"
+                >
+                  Save changes
+                </button>
+              </div>
             </div>
           </div>
         </div>
