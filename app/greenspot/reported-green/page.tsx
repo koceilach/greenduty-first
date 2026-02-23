@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useMotionValue } from "framer-motion";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
@@ -14,6 +14,8 @@ import {
   Check,
   Clock3,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Crown,
   Droplets,
   Flower2,
@@ -186,6 +188,23 @@ type NotificationApiPayload = {
   error?: string;
 };
 
+type TutorialTargetKey =
+  | "nav"
+  | "overview"
+  | "report"
+  | "assistant"
+  | "notifications"
+  | "reminders"
+  | "profile"
+  | "logout";
+
+type TutorialStep = {
+  id: string;
+  title: string;
+  description: string;
+  target: TutorialTargetKey;
+};
+
 const fileToDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
@@ -242,6 +261,21 @@ export default function ReportedGreenPage() {
   const aiMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const expertMenuRef = useRef<HTMLDivElement | null>(null);
+  const overviewBarRef = useRef<HTMLDivElement | null>(null);
+  const desktopNavRailRef = useRef<HTMLElement | null>(null);
+  const mobileNavRailRef = useRef<HTMLElement | null>(null);
+  const desktopReportButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileReportButtonRef = useRef<HTMLButtonElement | null>(null);
+  const desktopAiButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileAiButtonRef = useRef<HTMLButtonElement | null>(null);
+  const desktopNotificationsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileNotificationsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const desktopRemindersButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileRemindersButtonRef = useRef<HTMLButtonElement | null>(null);
+  const desktopProfileButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileProfileButtonRef = useRef<HTMLButtonElement | null>(null);
+  const desktopLogoutButtonRef = useRef<HTMLButtonElement | null>(null);
+  const mobileLogoutButtonRef = useRef<HTMLButtonElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const blobPreviewUrlRef = useRef<string | null>(null);
   const profileAvatarObjectUrlRef = useRef<string | null>(null);
@@ -310,6 +344,16 @@ export default function ReportedGreenPage() {
   const [reportClientSubmissionId, setReportClientSubmissionId] = useState(() =>
     generateSubmissionId()
   );
+  const [reportWizardIndex, setReportWizardIndex] = useState(0);
+  const [leftNavCollapsed, setLeftNavCollapsed] = useState(false);
+  const [mobileNavCollapsed, setMobileNavCollapsed] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialStepIndex, setTutorialStepIndex] = useState(0);
+  const [tutorialRect, setTutorialRect] = useState<DOMRect | null>(null);
+  const tutorialCardX = useMotionValue(0);
+  const tutorialCardY = useMotionValue(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [notificationsError, setNotificationsError] = useState<string | null>(null);
@@ -344,20 +388,30 @@ export default function ReportedGreenPage() {
       : "border border-white/10 bg-slate-900/52 shadow-[0_16px_34px_rgba(0,0,0,0.36)]";
   const navShellClass = "bg-transparent";
   const leftNavShellClass = isLight
-    ? "border-slate-900/16 bg-white/88 shadow-[0_14px_30px_rgba(15,23,42,0.16)]"
-    : "border-white/18 bg-[#111416]/86 shadow-[0_18px_38px_rgba(0,0,0,0.46)]";
+    ? "border-slate-900/14 bg-white/92 shadow-[0_18px_36px_rgba(15,23,42,0.2)]"
+    : isGreen
+      ? "border-emerald-200/24 bg-emerald-950/86 shadow-[0_20px_42px_rgba(0,0,0,0.58)]"
+      : "border-white/14 bg-[#040507]/86 shadow-[0_20px_42px_rgba(0,0,0,0.58)]";
   const leftNavItemClass = isLight
-    ? "text-slate-700 hover:bg-slate-900/8 hover:text-slate-900"
-    : "text-white hover:bg-white/14 hover:text-white";
+    ? "text-slate-500 hover:bg-slate-900/8 hover:text-slate-900"
+    : isGreen
+      ? "text-emerald-100/72 hover:bg-emerald-300/14 hover:text-emerald-50"
+      : "text-white/70 hover:bg-white/12 hover:text-white";
   const leftNavItemActiveClass = isLight
-    ? "bg-slate-900 text-slate-50 shadow-[0_8px_18px_rgba(15,23,42,0.24)]"
-    : "border border-white/24 bg-white/18 text-white shadow-[0_8px_18px_rgba(0,0,0,0.28)]";
+    ? "bg-slate-900/6 text-slate-900"
+    : isGreen
+      ? "bg-emerald-300/10 text-emerald-50"
+      : "bg-white/8 text-white";
   const leftNavIconClass = isLight
-    ? "bg-slate-900/8 text-slate-700 group-hover:bg-emerald-500/16 group-hover:text-emerald-800"
-    : "bg-black/30 text-white group-hover:bg-white/18 group-hover:text-white";
+    ? "bg-transparent text-current"
+    : isGreen
+      ? "bg-transparent text-current"
+      : "bg-transparent text-current";
   const leftNavIconActiveClass = isLight
-    ? "bg-white/16 text-slate-50"
-    : "bg-white/22 text-white";
+    ? "bg-white text-[#0f172a] ring-1 ring-slate-300 shadow-[0_10px_22px_rgba(15,23,42,0.2)]"
+    : isGreen
+      ? "bg-[#ecfdf5] text-[#065f46] shadow-[0_12px_24px_rgba(16,185,129,0.34)]"
+      : "bg-[#f8fafc] text-[#0f172a] shadow-[0_12px_24px_rgba(255,255,255,0.22)]";
   const iconWrapClass = isLight
     ? "border border-slate-900/10 bg-white/84"
     : "border border-white/12 bg-white/[0.12]";
@@ -370,24 +424,48 @@ export default function ReportedGreenPage() {
   const statusChipClass = isLight
     ? "border border-slate-900/10 bg-white/90 text-slate-700"
     : "border border-white/16 bg-white/10 text-white/85";
-  const mobileDockShellClass = isLight
-    ? "rounded-[24px] border border-slate-900/10 bg-white/72 p-1.5 backdrop-blur-[18px] shadow-[0_18px_36px_rgba(15,23,42,0.18)]"
-    : "rounded-[24px] border border-white/16 bg-black/42 p-1.5 backdrop-blur-[18px] shadow-[0_20px_40px_rgba(0,0,0,0.46)]";
-  const mobileDockItemClass = isLight
-    ? "border border-transparent text-slate-700 hover:bg-slate-900/8 hover:text-slate-900"
-    : "border border-transparent text-white/80 hover:bg-white/12 hover:text-white";
-  const mobileDockItemActiveClass =
-    "border border-white/20 bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-[0_12px_28px_rgba(37,99,235,0.45)]";
-  const mobileDockIconClass = isLight ? "text-slate-700" : "text-white/82";
-  const mobileDockActionClass = isLight
-    ? "border border-slate-900/10 bg-white/82 text-slate-700 hover:bg-white"
-    : "border border-white/16 bg-white/10 text-white/88 hover:bg-white/14";
-  const mobileDockActionActiveClass = isLight
-    ? "border border-emerald-600/20 bg-emerald-500/16 text-emerald-700"
-    : "border border-emerald-200/26 bg-emerald-400/20 text-emerald-100";
+  const mobileSideNavShellClass = isLight
+    ? "border-slate-900/14 bg-white/90 shadow-[0_16px_34px_rgba(15,23,42,0.2)]"
+    : isGreen
+      ? "border-emerald-200/24 bg-emerald-950/86 shadow-[0_20px_42px_rgba(0,0,0,0.58)]"
+      : "border-white/14 bg-[#040507]/86 shadow-[0_20px_42px_rgba(0,0,0,0.58)]";
+  const mobileSideNavButtonClass = isLight
+    ? "text-slate-500 hover:bg-slate-900/8 hover:text-slate-900"
+    : isGreen
+      ? "text-emerald-100/72 hover:bg-emerald-300/14 hover:text-emerald-50"
+      : "text-white/70 hover:bg-white/12 hover:text-white";
+  const mobileSideNavButtonActiveClass = isLight
+    ? "bg-slate-900/6 text-slate-900"
+    : isGreen
+      ? "bg-emerald-300/10 text-emerald-50"
+      : "bg-white/8 text-white";
+  const mobileRightNavToggleOffsetClass = mobileNavCollapsed
+    ? "right-[max(env(safe-area-inset-right),0.45rem)]"
+    : "right-[max(env(safe-area-inset-right),5.25rem)]";
   const profileChipClass = isLight
     ? "border-slate-900/12 bg-white/76 shadow-[0_10px_24px_rgba(15,23,42,0.12)]"
     : "border-white/14 bg-black/30 shadow-[0_12px_28px_rgba(0,0,0,0.34)]";
+  const leftNavToggleClass = isLight
+    ? "border-slate-200/80 bg-white/88 text-slate-700 shadow-[0_14px_34px_rgba(15,23,42,0.16)] ring-1 ring-white/80 hover:border-slate-300/90 hover:bg-white hover:shadow-[0_20px_40px_rgba(15,23,42,0.22)]"
+    : isGreen
+      ? "border-emerald-200/32 bg-emerald-900/84 text-emerald-100 shadow-[0_18px_42px_rgba(0,0,0,0.56)] ring-1 ring-emerald-200/18 hover:border-emerald-100/52 hover:bg-emerald-900/92 hover:shadow-[0_22px_48px_rgba(0,0,0,0.62)]"
+      : "border-white/24 bg-[#0a1411]/82 text-white/90 shadow-[0_18px_42px_rgba(0,0,0,0.56)] ring-1 ring-white/10 hover:border-white/40 hover:bg-[#0f1d18]/88 hover:shadow-[0_22px_48px_rgba(0,0,0,0.62)]";
+  const leftNavToggleSheenClass = isLight
+    ? "from-white/90 via-white/45 to-transparent"
+    : isGreen
+      ? "from-emerald-100/35 via-emerald-50/10 to-transparent"
+      : "from-white/24 via-white/6 to-transparent";
+  const leftNavToggleAuraClass = isLight
+    ? "bg-emerald-500/16"
+    : isGreen
+      ? "bg-emerald-300/22"
+      : "bg-white/14";
+  const desktopTopNavLeftClass = leftNavCollapsed
+    ? "md:left-[max(env(safe-area-inset-left),1rem)]"
+    : "md:left-[max(env(safe-area-inset-left),5.25rem)]";
+  const desktopLeftNavToggleOffsetClass = leftNavCollapsed
+    ? "md:left-[max(env(safe-area-inset-left),0.5rem)]"
+    : "md:left-[max(env(safe-area-inset-left),6.5rem)]";
   const inputClass = isLight
     ? "bg-slate-900/10 text-slate-900 placeholder:text-slate-500"
     : "bg-white/10 text-white placeholder:text-white/40";
@@ -417,6 +495,33 @@ export default function ReportedGreenPage() {
       : "bg-slate-900/60 shadow-[0_26px_56px_rgba(0,0,0,0.5)]";
   const dashboardSubcardClass = isLight ? "bg-slate-900/10" : "bg-white/10";
   const badgeClass = isLight ? "bg-emerald-500/16 text-emerald-800" : "bg-emerald-500/20 text-emerald-100";
+  const remindersOverlayClass = isLight ? "bg-slate-900/24" : "bg-black/52";
+  const remindersShellClass = isLight
+    ? "border border-slate-900/12 bg-white/94 shadow-[0_30px_70px_rgba(15,23,42,0.22)]"
+    : isGreen
+      ? "border border-emerald-200/18 bg-emerald-950/88 shadow-[0_34px_78px_rgba(0,0,0,0.62)]"
+      : "border border-white/14 bg-slate-950/90 shadow-[0_34px_78px_rgba(0,0,0,0.62)]";
+  const remindersPanelClass = isLight
+    ? "border border-slate-900/10 bg-white/80"
+    : "border border-white/10 bg-white/7";
+  const remindersCardClass = isLight
+    ? "border border-slate-900/10 bg-white/92 shadow-[0_8px_20px_rgba(15,23,42,0.1)]"
+    : "border border-white/10 bg-white/8 shadow-[0_10px_22px_rgba(0,0,0,0.26)]";
+  const remindersTabRailClass = isLight
+    ? "border border-slate-900/10 bg-slate-900/6"
+    : "border border-white/10 bg-white/8";
+  const remindersTabActiveClass = isLight
+    ? "bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,0.25)]"
+    : "bg-gradient-to-r from-emerald-400 to-green-500 text-emerald-950 shadow-[0_10px_24px_rgba(16,185,129,0.35)]";
+  const remindersTabIdleClass = isLight
+    ? "text-slate-700 hover:bg-slate-900/10"
+    : "text-white/80 hover:bg-white/12";
+  const remindersNoticeClass = isLight
+    ? "border border-emerald-600/18 bg-emerald-500/12 text-emerald-800"
+    : "border border-emerald-200/24 bg-emerald-500/18 text-emerald-100";
+  const remindersErrorClass = isLight
+    ? "border border-rose-500/18 bg-rose-500/10 text-rose-700"
+    : "border border-rose-300/24 bg-rose-500/14 text-rose-100";
   const currentUser =
     profileData?.name ||
     profile?.full_name ||
@@ -461,6 +566,287 @@ export default function ReportedGreenPage() {
   const aiUserBubbleClass = isLight
     ? "bg-emerald-500/20 text-emerald-900"
     : "bg-emerald-500/22 text-emerald-50";
+  const tutorialDeviceVariant = isMobileViewport ? "mobile" : "desktop";
+  const tutorialStorageKey =
+    user?.id && viewportSize.width > 0
+      ? `greenduty-reported-green-tour-v2:${user.id}:${tutorialDeviceVariant}`
+      : null;
+
+  const tutorialSteps = useMemo<TutorialStep[]>(
+    () =>
+      isMobileViewport
+        ? [
+            {
+              id: "mobile-nav",
+              title: "Navigation Rail",
+              description: "This right rail is your quick control center. Tap any icon to jump instantly.",
+              target: "nav",
+            },
+            {
+              id: "mobile-overview",
+              title: "Live Overview",
+              description: "This bar shows live report totals, your activity, and what is due today.",
+              target: "overview",
+            },
+            {
+              id: "mobile-report",
+              title: "Create Report",
+              description: "Use this button to open the smart report panel and submit new green spot needs.",
+              target: "report",
+            },
+            {
+              id: "mobile-ai",
+              title: "AI Assistant",
+              description: "Ask planting questions or upload a photo to get a garden concept from AI.",
+              target: "assistant",
+            },
+            {
+              id: "mobile-notifications",
+              title: "Notifications",
+              description: "Check updates, confirmations, and reminder events in one place.",
+              target: "notifications",
+            },
+            {
+              id: "mobile-reminders",
+              title: "Reminders",
+              description: "Open your reminder workflow to confirm spots, track tasks, and upload proof.",
+              target: "reminders",
+            },
+            {
+              id: "mobile-profile",
+              title: "Profile",
+              description: "Manage your account details, photo, and identity settings from this button.",
+              target: "profile",
+            },
+            {
+              id: "mobile-logout",
+              title: "Logout",
+              description: "Use this button when you want to securely sign out from GreenDuty.",
+              target: "logout",
+            },
+          ]
+        : [
+            {
+              id: "desktop-nav",
+              title: "Navigation Rail",
+              description: "This left rail gives you fast access to dashboard, reminders, profile, and logout.",
+              target: "nav",
+            },
+            {
+              id: "desktop-overview",
+              title: "Live Overview",
+              description: "Track live reports, your personal count, and due reminders from this top bar.",
+              target: "overview",
+            },
+            {
+              id: "desktop-report",
+              title: "Create Report",
+              description: "Tap to open the smart report panel and submit planting or care needs.",
+              target: "report",
+            },
+            {
+              id: "desktop-ai",
+              title: "AI Assistant",
+              description: "Use AI for botany guidance and concept generation from area photos.",
+              target: "assistant",
+            },
+            {
+              id: "desktop-notifications",
+              title: "Notifications",
+              description: "Review new platform updates and reminder activity from here.",
+              target: "notifications",
+            },
+            {
+              id: "desktop-reminders",
+              title: "Reminders",
+              description: "Open the reminder center to manage active tasks and completed proof.",
+              target: "reminders",
+            },
+            {
+              id: "desktop-profile",
+              title: "Profile",
+              description: "Open your profile to update your account details and personal information.",
+              target: "profile",
+            },
+            {
+              id: "desktop-logout",
+              title: "Logout",
+              description: "Use logout when you need to safely end your session on this device.",
+              target: "logout",
+            },
+          ],
+    [isMobileViewport]
+  );
+  const currentTutorialStep = tutorialSteps[tutorialStepIndex] ?? null;
+  const tutorialStepLabel = `${Math.min(tutorialStepIndex + 1, tutorialSteps.length)}/${tutorialSteps.length}`;
+
+  const getTutorialTargetElement = useCallback(
+    (target: TutorialTargetKey): HTMLElement | null => {
+      switch (target) {
+        case "nav":
+          return isMobileViewport ? mobileNavRailRef.current : desktopNavRailRef.current;
+        case "overview":
+          return overviewBarRef.current;
+        case "report":
+          return isMobileViewport ? mobileReportButtonRef.current : desktopReportButtonRef.current;
+        case "assistant":
+          return isMobileViewport ? mobileAiButtonRef.current : desktopAiButtonRef.current;
+        case "notifications":
+          return isMobileViewport
+            ? mobileNotificationsButtonRef.current
+            : desktopNotificationsButtonRef.current;
+        case "reminders":
+          return isMobileViewport ? mobileRemindersButtonRef.current : desktopRemindersButtonRef.current;
+        case "profile":
+          return isMobileViewport ? mobileProfileButtonRef.current : desktopProfileButtonRef.current;
+        case "logout":
+          return isMobileViewport ? mobileLogoutButtonRef.current : desktopLogoutButtonRef.current;
+        default:
+          return null;
+      }
+    },
+    [isMobileViewport]
+  );
+
+  const tutorialOverlayShade = isLight
+    ? "rgba(15,23,42,0.46)"
+    : isGreen
+      ? "rgba(1,18,12,0.62)"
+      : "rgba(2,6,23,0.64)";
+  const tutorialCardClass = isLight
+    ? "border border-slate-900/12 bg-white/96 text-slate-900 shadow-[0_22px_52px_rgba(15,23,42,0.22)]"
+    : isGreen
+      ? "border border-emerald-200/22 bg-emerald-950/94 text-emerald-50 shadow-[0_24px_56px_rgba(0,0,0,0.62)]"
+      : "border border-white/14 bg-slate-950/94 text-white shadow-[0_24px_56px_rgba(0,0,0,0.62)]";
+  const tutorialSkipButtonClass = isLight
+    ? "border border-slate-900/14 bg-white text-slate-700 hover:bg-slate-50"
+    : "border border-white/16 bg-white/10 text-white/85 hover:bg-white/14";
+  const tutorialNextButtonClass =
+    "bg-gradient-to-r from-emerald-400 to-green-600 text-emerald-950 shadow-[0_10px_24px_rgba(16,185,129,0.35)] hover:brightness-105";
+  const tutorialReplayButtonClass = isLight
+    ? "border-slate-900/14 bg-white/90 text-slate-700 shadow-[0_12px_28px_rgba(15,23,42,0.14)] hover:bg-white"
+    : isGreen
+      ? "border-emerald-200/24 bg-emerald-950/84 text-emerald-100 shadow-[0_14px_30px_rgba(0,0,0,0.45)] hover:bg-emerald-900/90"
+      : "border-white/16 bg-black/40 text-white/90 shadow-[0_14px_30px_rgba(0,0,0,0.46)] hover:bg-black/52";
+
+  const tutorialHighlightStyle = useMemo(() => {
+    if (!tutorialRect) return null;
+    const padding = 8;
+    const top = Math.max(8, tutorialRect.top - padding);
+    const left = Math.max(8, tutorialRect.left - padding);
+    const widthLimit = viewportSize.width > 0 ? viewportSize.width - left - 8 : tutorialRect.width + padding * 2;
+    const width = Math.max(0, Math.min(widthLimit, tutorialRect.width + padding * 2));
+    const height = tutorialRect.height + padding * 2;
+    return {
+      top,
+      left,
+      width,
+      height,
+      boxShadow: `0 0 0 9999px ${tutorialOverlayShade}`,
+    };
+  }, [tutorialRect, tutorialOverlayShade, viewportSize.width]);
+
+  const tutorialCardWidth = useMemo(() => {
+    const preferredWidth = isMobileViewport ? 360 : 332;
+    const horizontalPadding = isMobileViewport ? 20 : 52;
+    const fallbackViewportWidth =
+      typeof window !== "undefined" && window.innerWidth > 0 ? window.innerWidth : 390;
+    const usableWidth = viewportSize.width > 0 ? viewportSize.width : fallbackViewportWidth;
+    return Math.min(preferredWidth, Math.max(220, usableWidth - horizontalPadding));
+  }, [isMobileViewport, viewportSize.width]);
+
+  const tutorialCardMaxHeight = useMemo(() => {
+    const fallbackViewportHeight = typeof window !== "undefined" && window.innerHeight > 0 ? window.innerHeight : 780;
+    const usableHeight = viewportSize.height > 0 ? viewportSize.height : fallbackViewportHeight;
+    const maxLimit = isMobileViewport ? 360 : 400;
+    const reservedSpace = isMobileViewport ? 112 : 168;
+    return Math.min(maxLimit, Math.max(220, usableHeight - reservedSpace));
+  }, [isMobileViewport, viewportSize.height]);
+
+  const tutorialViewport = useMemo(() => {
+    const fallbackViewportWidth =
+      typeof window !== "undefined" && window.innerWidth > 0 ? window.innerWidth : 390;
+    const fallbackViewportHeight =
+      typeof window !== "undefined" && window.innerHeight > 0 ? window.innerHeight : 780;
+    return {
+      width: viewportSize.width > 0 ? viewportSize.width : fallbackViewportWidth,
+      height: viewportSize.height > 0 ? viewportSize.height : fallbackViewportHeight,
+    };
+  }, [viewportSize.height, viewportSize.width]);
+
+  const tutorialCardBasePosition = useMemo(() => {
+    const margin = isMobileViewport ? 8 : 14;
+    const gap = 12;
+    const estimatedHeight = Math.min(tutorialCardMaxHeight, isMobileViewport ? 250 : 236);
+
+    if (!tutorialRect) {
+      return {
+        left: (tutorialViewport.width - tutorialCardWidth) / 2,
+        top: (tutorialViewport.height - estimatedHeight) / 2,
+        estimatedHeight,
+      };
+    }
+
+    let left = tutorialRect.left + tutorialRect.width / 2 - tutorialCardWidth / 2;
+    left = Math.min(
+      Math.max(left, margin),
+      Math.max(margin, tutorialViewport.width - tutorialCardWidth - margin)
+    );
+
+    let top = tutorialRect.bottom + gap;
+    if (top + estimatedHeight > tutorialViewport.height - margin) {
+      top = tutorialRect.top - estimatedHeight - gap;
+    }
+    top = Math.min(
+      Math.max(top, margin),
+      Math.max(margin, tutorialViewport.height - estimatedHeight - margin)
+    );
+
+    return { left, top, estimatedHeight };
+  }, [
+    isMobileViewport,
+    tutorialCardMaxHeight,
+    tutorialCardWidth,
+    tutorialRect,
+    tutorialViewport.height,
+    tutorialViewport.width,
+  ]);
+
+  const tutorialDragConstraints = useMemo(() => {
+    const margin = isMobileViewport ? 8 : 12;
+    const leftLimit = margin;
+    const rightLimit = tutorialViewport.width - tutorialCardWidth - margin;
+    const topLimit = margin;
+    const bottomLimit = tutorialViewport.height - tutorialCardBasePosition.estimatedHeight - margin;
+    let left = leftLimit - tutorialCardBasePosition.left;
+    let right = rightLimit - tutorialCardBasePosition.left;
+    let top = topLimit - tutorialCardBasePosition.top;
+    let bottom = bottomLimit - tutorialCardBasePosition.top;
+
+    if (right < left) {
+      left = 0;
+      right = 0;
+    }
+    if (bottom < top) {
+      top = 0;
+      bottom = 0;
+    }
+
+    return {
+      left,
+      right,
+      top,
+      bottom,
+    };
+  }, [
+    isMobileViewport,
+    tutorialCardBasePosition.estimatedHeight,
+    tutorialCardBasePosition.left,
+    tutorialCardBasePosition.top,
+    tutorialCardWidth,
+    tutorialViewport.height,
+    tutorialViewport.width,
+  ]);
 
   const leaderboard = useMemo(() => {
     const grouped = new Map<
@@ -539,8 +925,58 @@ export default function ReportedGreenPage() {
     ],
     [selectedCategory, reportTitle, reportDescription, photoPreview]
   );
+  const hasBlockingOverlayOpen =
+    panelOpen ||
+    aiChatOpen ||
+    dashboardOpen ||
+    remindersOpen ||
+    profileOpen ||
+    notificationsOpen ||
+    tutorialOpen;
   const completedReportSteps = reportSteps.filter((step) => step.done).length;
   const reportProgress = Math.round((completedReportSteps / reportSteps.length) * 100);
+  const reportWizardSteps = useMemo(
+    () =>
+      [
+        {
+          key: "category",
+          label: "Category",
+          hint: "Pick what this area needs and optionally use a quick action template.",
+        },
+        {
+          key: "title",
+          label: "Title",
+          hint: "Add a short title so teams can triage this report quickly.",
+        },
+        {
+          key: "description",
+          label: "Description",
+          hint: "Describe the condition and what action should happen here.",
+        },
+        {
+          key: "photo",
+          label: "Evidence",
+          hint: "Upload or capture a clear photo of the area.",
+        },
+        {
+          key: "location",
+          label: "Location",
+          hint: "Capture your location to place the report accurately on the map.",
+        },
+        {
+          key: "review",
+          label: "Review",
+          hint: "Assign a care team, verify details, and submit.",
+        },
+      ] as const,
+    []
+  );
+  const currentReportWizardStep =
+    reportWizardSteps[reportWizardIndex] ?? reportWizardSteps[0];
+  const reportWizardProgress = Math.round(
+    ((reportWizardIndex + 1) / reportWizardSteps.length) * 100
+  );
+  const isLastReportWizardStep = reportWizardIndex >= reportWizardSteps.length - 1;
   const canSubmitReport =
     Boolean(user) &&
     Boolean(selectedCategory) &&
@@ -548,6 +984,9 @@ export default function ReportedGreenPage() {
     reportDescription.trim().length > 0 &&
     Boolean(photoPreview) &&
     !reportSubmitting;
+  const selectedCategoryLabel =
+    reportCategories.find((category) => category.key === selectedCategory)?.label ??
+    "Not selected";
   const selectedExpertLabel =
     expertOptions.find((option) => option.value === expert)?.label ?? "Choose Expert";
   const quickReportActions = [
@@ -1813,6 +2252,7 @@ export default function ReportedGreenPage() {
       setReportTitle("");
       setReportDescription("");
       setSelectedCategory(null);
+      setReportWizardIndex(0);
       clearPhoto();
       setCameraError(null);
       setLocationError(null);
@@ -1903,6 +2343,16 @@ export default function ReportedGreenPage() {
   }, [panelOpen]);
 
   useEffect(() => {
+    if (!panelOpen) return;
+    if (currentReportWizardStep.key !== "photo" && cameraOpen) {
+      stopCameraStream();
+    }
+    if (currentReportWizardStep.key !== "review") {
+      setExpertMenuOpen(false);
+    }
+  }, [cameraOpen, currentReportWizardStep.key, panelOpen]);
+
+  useEffect(() => {
     if (!expertMenuOpen) return;
     const handleOutside = (event: MouseEvent) => {
       if (!expertMenuRef.current) return;
@@ -1941,6 +2391,146 @@ export default function ReportedGreenPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncViewport = () => {
+      setIsMobileViewport(window.matchMedia("(max-width: 767px)").matches);
+      setViewportSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    syncViewport();
+    window.addEventListener("resize", syncViewport);
+    return () => {
+      window.removeEventListener("resize", syncViewport);
+    };
+  }, []);
+
+  const markTutorialSeen = useCallback(() => {
+    if (typeof window === "undefined" || !tutorialStorageKey) return;
+    window.localStorage.setItem(tutorialStorageKey, "1");
+  }, [tutorialStorageKey]);
+
+  const closeTutorial = useCallback(
+    (markSeen: boolean) => {
+      if (markSeen) {
+        markTutorialSeen();
+      }
+      setTutorialOpen(false);
+      setTutorialStepIndex(0);
+      setTutorialRect(null);
+      tutorialCardX.set(0);
+      tutorialCardY.set(0);
+    },
+    [markTutorialSeen, tutorialCardX, tutorialCardY]
+  );
+
+  const handleTutorialSkip = useCallback(() => {
+    closeTutorial(true);
+  }, [closeTutorial]);
+
+  const handleTutorialNext = useCallback(() => {
+    if (tutorialStepIndex >= tutorialSteps.length - 1) {
+      closeTutorial(true);
+      return;
+    }
+    setTutorialStepIndex((value) => value + 1);
+  }, [closeTutorial, tutorialStepIndex, tutorialSteps.length]);
+
+  const handleTutorialReplay = useCallback(() => {
+    setTutorialStepIndex(0);
+    setTutorialRect(null);
+    setTutorialOpen(true);
+    setLeftNavCollapsed(false);
+    setMobileNavCollapsed(false);
+    tutorialCardX.set(0);
+    tutorialCardY.set(0);
+  }, [tutorialCardX, tutorialCardY]);
+
+  useEffect(() => {
+    if (!mounted || authLoading || !tutorialStorageKey) return;
+    if (typeof window === "undefined") return;
+    const seen = window.localStorage.getItem(tutorialStorageKey);
+    if (!seen) {
+      setTutorialStepIndex(0);
+      tutorialCardX.set(0);
+      tutorialCardY.set(0);
+      setTutorialOpen(true);
+    }
+  }, [authLoading, mounted, tutorialCardX, tutorialCardY, tutorialStorageKey]);
+
+  useEffect(() => {
+    if (!tutorialOpen) return;
+    setLeftNavCollapsed(false);
+    setMobileNavCollapsed(false);
+  }, [tutorialOpen, tutorialStepIndex]);
+
+  useEffect(() => {
+    if (!tutorialOpen) return;
+    tutorialCardX.set(0);
+    tutorialCardY.set(0);
+  }, [tutorialCardX, tutorialCardY, tutorialOpen, tutorialStepIndex]);
+
+  useEffect(() => {
+    if (!tutorialOpen) {
+      tutorialCardX.set(0);
+      tutorialCardY.set(0);
+      return;
+    }
+    const clampedX = Math.min(
+      tutorialDragConstraints.right,
+      Math.max(tutorialDragConstraints.left, tutorialCardX.get())
+    );
+    const clampedY = Math.min(
+      tutorialDragConstraints.bottom,
+      Math.max(tutorialDragConstraints.top, tutorialCardY.get())
+    );
+    tutorialCardX.set(clampedX);
+    tutorialCardY.set(clampedY);
+  }, [
+    tutorialCardX,
+    tutorialCardY,
+    tutorialDragConstraints.bottom,
+    tutorialDragConstraints.left,
+    tutorialDragConstraints.right,
+    tutorialDragConstraints.top,
+    tutorialOpen,
+  ]);
+
+  const refreshTutorialTargetRect = useCallback(() => {
+    if (!tutorialOpen || !currentTutorialStep) {
+      setTutorialRect(null);
+      return;
+    }
+    const element = getTutorialTargetElement(currentTutorialStep.target);
+    if (!element) {
+      setTutorialRect(null);
+      return;
+    }
+    setTutorialRect(element.getBoundingClientRect());
+  }, [currentTutorialStep, getTutorialTargetElement, tutorialOpen]);
+
+  useEffect(() => {
+    if (!tutorialOpen) return;
+    if (typeof window === "undefined") return;
+
+    const update = () => {
+      refreshTutorialTargetRect();
+    };
+
+    update();
+    const frame = window.requestAnimationFrame(update);
+    const timer = window.setTimeout(update, 180);
+
+    window.addEventListener("resize", update);
+    window.addEventListener("scroll", update, true);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      window.removeEventListener("resize", update);
+      window.removeEventListener("scroll", update, true);
+    };
+  }, [refreshTutorialTargetRect, tutorialOpen]);
+
   const toggleAiChat = useCallback(() => {
     setAiChatOpen((value) => !value);
   }, []);
@@ -1951,6 +2541,7 @@ export default function ReportedGreenPage() {
       return;
     }
     if (!panelOpen) {
+      setReportWizardIndex(0);
       setReportSuccess(null);
       setReportFormError(null);
       if (!userLocation) {
@@ -1959,6 +2550,62 @@ export default function ReportedGreenPage() {
     }
     setPanelOpen((value) => !value);
   }, [openAuth, panelOpen, requestCurrentLocation, user, userLocation]);
+
+  const handleReportWizardBack = useCallback(() => {
+    setReportFormError(null);
+    setReportWizardIndex((value) => Math.max(value - 1, 0));
+  }, []);
+
+  const handleReportWizardPrimaryAction = useCallback(() => {
+    setReportFormError(null);
+    if (reportSuccess) {
+      setReportSuccess(null);
+    }
+
+    if (isLastReportWizardStep) {
+      void submitReportWithLocation();
+      return;
+    }
+
+    if (currentReportWizardStep.key === "category" && !selectedCategory) {
+      setReportFormError("Choose a category before moving to the next step.");
+      return;
+    }
+    if (currentReportWizardStep.key === "title" && reportTitle.trim().length === 0) {
+      setReportFormError("Add a title before moving to the next step.");
+      return;
+    }
+    if (
+      currentReportWizardStep.key === "description" &&
+      reportDescription.trim().length === 0
+    ) {
+      setReportFormError("Add a description before moving to the next step.");
+      return;
+    }
+    if (currentReportWizardStep.key === "photo" && !photoPreview) {
+      setReportFormError("Add an evidence photo before moving to the next step.");
+      return;
+    }
+    if (currentReportWizardStep.key === "location" && !userLocation) {
+      requestCurrentLocation();
+      setReportFormError("Enable your location before moving to review.");
+      return;
+    }
+
+    setReportWizardIndex((value) => Math.min(value + 1, reportWizardSteps.length - 1));
+  }, [
+    currentReportWizardStep.key,
+    isLastReportWizardStep,
+    photoPreview,
+    reportDescription,
+    reportSuccess,
+    reportTitle,
+    reportWizardSteps.length,
+    requestCurrentLocation,
+    selectedCategory,
+    submitReportWithLocation,
+    userLocation,
+  ]);
 
   return (
     <main
@@ -2064,23 +2711,37 @@ export default function ReportedGreenPage() {
         ) : null}
 
         <aside
-          className={`pointer-events-auto absolute left-4 top-1/2 z-30 hidden w-[92px] -translate-y-1/2 rounded-[24px] border px-2 py-3 backdrop-blur-2xl md:flex md:flex-col ${leftNavShellClass}`}
+          ref={desktopNavRailRef}
+          className={`absolute left-[max(env(safe-area-inset-left),1rem)] top-1/2 z-30 hidden w-[68px] -translate-y-1/2 rounded-[34px] border px-1.5 py-2.5 backdrop-blur-2xl transition-all duration-300 ease-out md:flex md:flex-col ${leftNavShellClass} ${
+            leftNavCollapsed
+              ? "-translate-x-[120%] opacity-0 pointer-events-none"
+              : "translate-x-0 opacity-100 pointer-events-auto"
+          }`}
         >
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col items-center gap-1.5">
             {sidebarItems.map((item, index) => (
               <motion.button
                 key={item.key}
                 initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: index * 0.05 }}
-                className={`group flex w-full flex-col items-center gap-1.5 rounded-2xl px-1.5 py-3 transition duration-200 ${leftNavItemClass} ${
+                className={`group relative flex h-11 w-full items-center justify-center rounded-2xl transition duration-200 ${leftNavItemClass} ${
                   activeSidebarKey === item.key ? leftNavItemActiveClass : ""
                 }`}
                 type="button"
                 onClick={() => handleSidebarSelect(item.key)}
+                ref={
+                  item.key === "reminders"
+                    ? desktopRemindersButtonRef
+                    : item.key === "profile"
+                      ? desktopProfileButtonRef
+                      : undefined
+                }
+                aria-label={item.label}
+                title={item.label}
               >
                 <span
-                  className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
+                  className={`relative flex h-9 w-9 items-center justify-center rounded-full transition ${
                     activeSidebarKey === item.key
                       ? leftNavIconActiveClass
                       : leftNavIconClass
@@ -2089,7 +2750,7 @@ export default function ReportedGreenPage() {
                   <item.icon className="h-4 w-4 transition-opacity duration-150" />
                   {item.key === "reminders" && dueReminderCount > 0 ? (
                     <span
-                      className={`absolute -right-1.5 -top-1.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold ${
+                      className={`absolute -right-1 -top-1 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold ${
                         isLight ? "bg-emerald-600 text-white" : "bg-emerald-400 text-emerald-950"
                       }`}
                     >
@@ -2097,18 +2758,11 @@ export default function ReportedGreenPage() {
                     </span>
                   ) : null}
                 </span>
-                <span
-                  className={`text-center font-medium leading-tight ${
-                    item.key === "dashboard" ? "text-[8.5px]" : "text-[10px]"
-                  }`}
-                >
-                  {item.label}
-                </span>
               </motion.button>
             ))}
 
             <div
-              className={`mx-1 mt-0.5 h-px rounded-full ${
+              className={`my-0.5 h-px w-8 rounded-full ${
                 isLight ? "bg-slate-900/12" : "bg-white/14"
               }`}
             />
@@ -2117,27 +2771,58 @@ export default function ReportedGreenPage() {
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.3, delay: sidebarItems.length * 0.05 }}
-              className={`group flex w-full flex-col items-center gap-1.5 rounded-2xl px-1.5 py-3 transition duration-200 ${leftNavItemClass}`}
+              className={`group relative flex h-11 w-full items-center justify-center rounded-2xl transition duration-200 ${leftNavItemClass}`}
               type="button"
               onClick={handleLogout}
+              ref={desktopLogoutButtonRef}
               disabled={loggingOut}
+              aria-label={loggingOut ? "Signing out" : user ? "Logout" : "Login"}
+              title={loggingOut ? "Signing out" : user ? "Logout" : "Login"}
             >
               <span
-                className={`flex h-8 w-8 items-center justify-center rounded-full transition ${leftNavIconClass}`}
+                className={`flex h-9 w-9 items-center justify-center rounded-full transition ${
+                  loggingOut ? leftNavIconActiveClass : leftNavIconClass
+                }`}
               >
                 <LogOut className="h-4 w-4 transition-opacity duration-150" />
-              </span>
-              <span className="text-center text-[10px] font-medium leading-tight">
-                {loggingOut ? "Signing out..." : user ? "Logout" : "Login"}
               </span>
             </motion.button>
           </div>
         </aside>
 
+        <motion.button
+          type="button"
+          aria-label={leftNavCollapsed ? "Show sidebar navigation" : "Hide sidebar navigation"}
+          onClick={() => setLeftNavCollapsed((value) => !value)}
+          whileHover={{ scale: 1.06, y: -1 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 320, damping: 20 }}
+          className={`group pointer-events-auto absolute top-1/2 z-40 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-2xl border backdrop-blur-xl transition-all duration-300 md:flex ${desktopLeftNavToggleOffsetClass} ${leftNavToggleClass} ${
+            hasBlockingOverlayOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute inset-[1px] rounded-[15px] bg-gradient-to-b ${leftNavToggleSheenClass}`}
+          />
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute -inset-2 rounded-[22px] opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-100 ${leftNavToggleAuraClass}`}
+          />
+          <motion.span
+            className="relative z-10 flex h-full w-full items-center justify-center"
+            animate={{ x: leftNavCollapsed ? 0.5 : -0.5 }}
+            transition={{ type: "spring", stiffness: 360, damping: 24 }}
+          >
+            {leftNavCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </motion.span>
+        </motion.button>
+
         <div
-          className={`pointer-events-auto absolute left-4 right-4 top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex items-center justify-between gap-3 sm:top-4 md:left-[106px] ${navShellClass}`}
+          className={`pointer-events-auto absolute left-[max(env(safe-area-inset-left),0.75rem)] right-[max(env(safe-area-inset-right),0.75rem)] top-[calc(env(safe-area-inset-top)+0.75rem)] z-30 flex items-center justify-between gap-3 sm:left-[max(env(safe-area-inset-left),1rem)] sm:right-[max(env(safe-area-inset-right),1rem)] sm:top-4 ${desktopTopNavLeftClass} ${navShellClass}`}
         >
           <div
+            ref={overviewBarRef}
             className={`flex w-full max-w-2xl items-center gap-2 rounded-2xl px-2.5 py-2.5 transition ${statusShellClass}`}
           >
             <span
@@ -2181,6 +2866,7 @@ export default function ReportedGreenPage() {
             <button
               type="button"
               onClick={openNotifications}
+              ref={desktopNotificationsButtonRef}
               className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
                 isLight
                   ? "bg-slate-900/8 text-slate-700 hover:bg-slate-900/14"
@@ -2226,113 +2912,210 @@ export default function ReportedGreenPage() {
           </div>
         </div>
 
-        <div
-          className="pointer-events-auto absolute left-1/2 top-[calc(env(safe-area-inset-top)+5.15rem)] z-50 w-[min(96vw,520px)] -translate-x-1/2 md:hidden"
+        <aside
+          ref={mobileNavRailRef}
+          className={`absolute right-[max(env(safe-area-inset-right),0.75rem)] top-1/2 z-50 w-[62px] -translate-y-1/2 rounded-[30px] border px-1.5 py-2 backdrop-blur-2xl transition-all duration-300 ease-out md:hidden ${mobileSideNavShellClass} ${
+            mobileNavCollapsed
+              ? "translate-x-[120%] opacity-0 pointer-events-none"
+              : "translate-x-0 opacity-100 pointer-events-auto"
+          }`}
         >
-          <div
-            className={`flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${mobileDockShellClass}`}
-          >
+          <div className="flex flex-col items-center gap-1.5">
             <button
               type="button"
               aria-label="AI Assistant"
+              title="AI Assistant"
               onClick={toggleAiChat}
-              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] transition ${
-                aiChatOpen ? mobileDockActionActiveClass : mobileDockActionClass
+              ref={mobileAiButtonRef}
+              className={`group relative flex h-10 w-full items-center justify-center rounded-2xl transition ${
+                aiChatOpen ? mobileSideNavButtonActiveClass : mobileSideNavButtonClass
               }`}
             >
-              <Brain className="h-4 w-4" />
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
+                aiChatOpen ? leftNavIconActiveClass : leftNavIconClass
+              }`}>
+                <Brain className="h-4 w-4" />
+              </span>
             </button>
 
             <button
               type="button"
               aria-label={panelOpen ? "Close report panel" : "Open report panel"}
+              title={panelOpen ? "Close report panel" : "Open report panel"}
               onClick={handleReportPanelToggle}
+              ref={mobileReportButtonRef}
               disabled={aiChatOpen}
-              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] transition ${
-                panelOpen ? mobileDockActionActiveClass : mobileDockActionClass
+              className={`group relative flex h-10 w-full items-center justify-center rounded-2xl transition ${
+                panelOpen ? mobileSideNavButtonActiveClass : mobileSideNavButtonClass
               } ${aiChatOpen ? "cursor-not-allowed opacity-50" : ""}`}
             >
-              {panelOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
+                panelOpen ? leftNavIconActiveClass : leftNavIconClass
+              }`}>
+                {panelOpen ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+              </span>
             </button>
 
             <button
               type="button"
               aria-label="Open notifications"
+              title="Notifications"
               onClick={openNotifications}
-              className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] transition ${
-                notificationsOpen ? mobileDockActionActiveClass : mobileDockActionClass
+              ref={mobileNotificationsButtonRef}
+              className={`group relative flex h-10 w-full items-center justify-center rounded-2xl transition ${
+                notificationsOpen ? mobileSideNavButtonActiveClass : mobileSideNavButtonClass
               }`}
             >
-              <Bell className="h-4 w-4" />
-              {unreadNotifications > 0 ? (
-                <span
-                  className={`absolute -right-1.5 -top-1.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold ${
-                    isLight ? "bg-emerald-600 text-white" : "bg-emerald-400 text-emerald-950"
-                  }`}
-                >
-                  {Math.min(unreadNotifications, 9)}
-                </span>
-              ) : null}
+              <span className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
+                notificationsOpen ? leftNavIconActiveClass : leftNavIconClass
+              }`}>
+                <Bell className="h-4 w-4" />
+                {unreadNotifications > 0 ? (
+                  <span
+                    className={`absolute -right-1 -top-1 inline-flex min-h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[8px] font-semibold ${
+                      isLight ? "bg-emerald-600 text-white" : "bg-emerald-400 text-emerald-950"
+                    }`}
+                  >
+                    {Math.min(unreadNotifications, 9)}
+                  </span>
+                ) : null}
+              </span>
             </button>
 
             <button
               type="button"
-              aria-label={user ? "Logout" : "Login"}
-              onClick={handleLogout}
-              disabled={loggingOut}
-              className={`relative flex h-10 shrink-0 items-center gap-1.5 rounded-[12px] px-2.5 text-[10px] font-semibold transition ${
-                user ? mobileDockActionActiveClass : mobileDockActionClass
-              } ${loggingOut ? "cursor-not-allowed opacity-70" : ""}`}
+              aria-label="Dashboard"
+              title="Dashboard"
+              onClick={() => handleSidebarSelect("dashboard")}
+              className={`group relative flex h-10 w-full items-center justify-center rounded-2xl transition ${
+                activeSidebarKey === "dashboard" || activeSidebarKey === "home"
+                  ? mobileSideNavButtonActiveClass
+                  : mobileSideNavButtonClass
+              }`}
             >
-              <LogOut className="h-4 w-4" />
-              <span className="whitespace-nowrap leading-none">
-                {loggingOut ? "..." : user ? "Logout" : "Login"}
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
+                activeSidebarKey === "dashboard" || activeSidebarKey === "home"
+                  ? leftNavIconActiveClass
+                  : leftNavIconClass
+              }`}>
+                <BarChart3 className="h-4 w-4" />
               </span>
             </button>
 
-            {sidebarItems
-              .filter((item) => item.key !== "home")
-              .map((item) => {
-                const isActive =
-                  activeSidebarKey === item.key ||
-                  (activeSidebarKey === "home" && item.key === "dashboard");
-                return (
-                  <button
-                    key={`mobile-${item.key}`}
-                    type="button"
-                    onClick={() => handleSidebarSelect(item.key)}
-                    className={`relative flex h-10 shrink-0 items-center rounded-[12px] transition-all duration-200 ${
-                      isActive
-                        ? `min-w-[86px] flex-1 justify-center gap-1.5 px-2 ${mobileDockItemActiveClass}`
-                        : `w-10 justify-center ${mobileDockItemClass}`
+            <button
+              type="button"
+              aria-label="Reminders"
+              title="Reminders"
+              onClick={() => handleSidebarSelect("reminders")}
+              ref={mobileRemindersButtonRef}
+              className={`group relative flex h-10 w-full items-center justify-center rounded-2xl transition ${
+                activeSidebarKey === "reminders" ? mobileSideNavButtonActiveClass : mobileSideNavButtonClass
+              }`}
+            >
+              <span className={`relative flex h-8 w-8 items-center justify-center rounded-full transition ${
+                activeSidebarKey === "reminders" ? leftNavIconActiveClass : leftNavIconClass
+              }`}>
+                <Clock3 className="h-4 w-4" />
+                {dueReminderCount > 0 ? (
+                  <span
+                    className={`absolute -right-1 -top-1 inline-flex min-h-3.5 min-w-3.5 items-center justify-center rounded-full px-1 text-[8px] font-semibold ${
+                      isLight ? "bg-emerald-600 text-white" : "bg-emerald-400 text-emerald-950"
                     }`}
                   >
-                    <item.icon className={`h-4 w-4 ${isActive ? "text-white" : mobileDockIconClass}`} />
-                    {item.key === "reminders" && dueReminderCount > 0 ? (
-                      <span
-                        className={`absolute -right-1.5 -top-1.5 inline-flex min-h-4 min-w-4 items-center justify-center rounded-full px-1 text-[9px] font-semibold ${
-                          isLight ? "bg-emerald-600 text-white" : "bg-emerald-400 text-emerald-950"
-                        }`}
-                      >
-                        {Math.min(dueReminderCount, 9)}
-                      </span>
-                    ) : null}
-                    {isActive ? (
-                      <span className="whitespace-nowrap text-[10px] font-semibold leading-none">
-                        {item.key === "dashboard" ? "Intelligent" : item.label}
-                      </span>
-                    ) : null}
-                  </button>
-                );
-              })}
+                    {Math.min(dueReminderCount, 9)}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              aria-label="Profile"
+              title="Profile"
+              onClick={() => handleSidebarSelect("profile")}
+              ref={mobileProfileButtonRef}
+              className={`group relative flex h-10 w-full items-center justify-center rounded-2xl transition ${
+                activeSidebarKey === "profile" ? mobileSideNavButtonActiveClass : mobileSideNavButtonClass
+              }`}
+            >
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
+                activeSidebarKey === "profile" ? leftNavIconActiveClass : leftNavIconClass
+              }`}>
+                <UserRound className="h-4 w-4" />
+              </span>
+            </button>
+
+            <div className={`my-0.5 h-px w-7 rounded-full ${isLight ? "bg-slate-900/12" : "bg-white/14"}`} />
+
+            <button
+              type="button"
+              aria-label={loggingOut ? "Signing out" : user ? "Logout" : "Login"}
+              title={loggingOut ? "Signing out" : user ? "Logout" : "Login"}
+              onClick={handleLogout}
+              ref={mobileLogoutButtonRef}
+              disabled={loggingOut}
+              className={`group relative flex h-10 w-full items-center justify-center rounded-2xl transition ${
+                user ? mobileSideNavButtonActiveClass : mobileSideNavButtonClass
+              } ${loggingOut ? "cursor-not-allowed opacity-70" : ""}`}
+            >
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full transition ${
+                user ? leftNavIconActiveClass : leftNavIconClass
+              }`}>
+                <LogOut className="h-4 w-4" />
+              </span>
+            </button>
           </div>
-        </div>
+        </aside>
+
+        <motion.button
+          type="button"
+          aria-label={mobileNavCollapsed ? "Show mobile navigation" : "Hide mobile navigation"}
+          onClick={() => setMobileNavCollapsed((value) => !value)}
+          whileHover={{ scale: 1.05, y: -1 }}
+          whileTap={{ scale: 0.96 }}
+          transition={{ type: "spring", stiffness: 320, damping: 20 }}
+          className={`group pointer-events-auto absolute top-1/2 z-[55] flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-2xl border backdrop-blur-xl transition-all duration-300 md:hidden ${mobileRightNavToggleOffsetClass} ${leftNavToggleClass} ${
+            hasBlockingOverlayOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+          }`}
+        >
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute inset-[1px] rounded-[14px] bg-gradient-to-b ${leftNavToggleSheenClass}`}
+          />
+          <span
+            aria-hidden
+            className={`pointer-events-none absolute -inset-2 rounded-[20px] opacity-0 blur-xl transition-opacity duration-300 group-hover:opacity-100 ${leftNavToggleAuraClass}`}
+          />
+          <motion.span
+            className="relative z-10 flex h-full w-full items-center justify-center"
+            animate={{ x: mobileNavCollapsed ? -0.5 : 0.5 }}
+            transition={{ type: "spring", stiffness: 360, damping: 24 }}
+          >
+            {mobileNavCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </motion.span>
+        </motion.button>
+
+        <motion.button
+          type="button"
+          aria-label="Replay tutorial"
+          title="Replay tutorial"
+          onClick={handleTutorialReplay}
+          whileHover={{ y: -1, scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          className={`pointer-events-auto absolute bottom-[max(env(safe-area-inset-bottom),0.65rem)] left-[max(env(safe-area-inset-left),0.65rem)] z-[56] inline-flex h-9 items-center justify-center gap-1.5 rounded-full border px-2.5 text-[11px] font-semibold backdrop-blur-xl transition md:bottom-4 md:left-[max(env(safe-area-inset-left),1rem)] md:h-9 md:px-3 ${
+            hasBlockingOverlayOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+          } ${tutorialReplayButtonClass}`}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>Tour</span>
+        </motion.button>
 
         <motion.button
           type="button"
           aria-label="AI Assistant"
           onClick={toggleAiChat}
-          className={`pointer-events-auto absolute bottom-8 right-6 z-50 hidden h-12 w-12 items-center justify-center rounded-full border backdrop-blur-2xl sm:flex ${
+          ref={desktopAiButtonRef}
+          className={`pointer-events-auto absolute bottom-8 right-6 z-50 hidden h-12 w-12 items-center justify-center rounded-full border backdrop-blur-2xl md:flex ${
             isLight
               ? "border-slate-900/12 bg-white/82 text-slate-900 shadow-[0_12px_26px_rgba(15,23,42,0.18)]"
               : "border-white/12 bg-black/36 text-white shadow-[0_12px_26px_rgba(0,0,0,0.36)]"
@@ -2398,9 +3181,26 @@ export default function ReportedGreenPage() {
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3 sm:px-6 sm:pb-5 sm:pt-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                <div className="sm:grid sm:grid-cols-[1.08fr_0.92fr] sm:gap-3">
+                <div className={`mb-3 rounded-xl px-3 py-2 ${isLight ? "bg-slate-900/8" : "bg-white/8"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className={`text-[10px] uppercase tracking-[0.18em] ${tertiaryTextClass}`}>
+                      Step {Math.min(reportWizardIndex + 1, reportWizardSteps.length)} / {reportWizardSteps.length}
+                    </p>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        isLight ? "bg-emerald-500/18 text-emerald-800" : "bg-emerald-500/20 text-emerald-100"
+                      }`}
+                    >
+                      {currentReportWizardStep.label}
+                    </span>
+                  </div>
+                  <p className={`mt-1 text-[11px] ${secondaryTextClass}`}>{currentReportWizardStep.hint}</p>
+                </div>
+
+                <div className="space-y-3">
                   <div className="space-y-3">
-                    <div className={`rounded-2xl p-3 ${reportPanelSectionClass}`}>
+                    {currentReportWizardStep.key === "category" ? (
+                      <div className={`rounded-2xl p-3 ${reportPanelSectionClass}`}>
                   <p className={`text-xs font-medium ${secondaryTextClass}`}>Category</p>
                   <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {reportCategories.map((category) => (
@@ -2484,42 +3284,51 @@ export default function ReportedGreenPage() {
                       </button>
                     </div>
                   </div>
-                    </div>
+                      </div>
+                    ) : null}
 
-                    <div className={`rounded-2xl p-3 ${reportPanelSectionClass}`}>
-                  <div>
-                    <label className={`mb-1 block text-sm ${secondaryTextClass}`}>Title</label>
-                    <input
-                      type="text"
-                      placeholder="Example: Dry sidewalk beds need watering"
-                      value={reportTitle}
-                      onChange={(event) => {
-                        setReportTitle(event.target.value);
-                        if (reportFormError) setReportFormError(null);
-                        if (reportSuccess) setReportSuccess(null);
-                      }}
-                      className={`h-10 w-full rounded-xl px-3 text-sm outline-none backdrop-blur-xl ${inputClass}`}
-                    />
-                  </div>
-                  <div className="mt-3">
-                    <label className={`mb-1 block text-sm ${secondaryTextClass}`}>Description</label>
-                    <textarea
-                      rows={3}
-                      placeholder="Describe what should be planted or watered and the current condition of the area."
-                      value={reportDescription}
-                      onChange={(event) => {
-                        setReportDescription(event.target.value);
-                        if (reportFormError) setReportFormError(null);
-                        if (reportSuccess) setReportSuccess(null);
-                      }}
-                      className={`w-full rounded-xl px-3 py-2 text-sm outline-none backdrop-blur-xl ${inputClass}`}
-                    />
-                  </div>
-                    </div>
+                    {(currentReportWizardStep.key === "title" ||
+                      currentReportWizardStep.key === "description") ? (
+                      <div className={`rounded-2xl p-3 ${reportPanelSectionClass}`}>
+                        {currentReportWizardStep.key === "title" ? (
+                          <div>
+                            <label className={`mb-1 block text-sm ${secondaryTextClass}`}>Title</label>
+                            <input
+                              type="text"
+                              placeholder="Example: Dry sidewalk beds need watering"
+                              value={reportTitle}
+                              onChange={(event) => {
+                                setReportTitle(event.target.value);
+                                if (reportFormError) setReportFormError(null);
+                                if (reportSuccess) setReportSuccess(null);
+                              }}
+                              className={`h-11 w-full rounded-xl px-3 text-sm outline-none backdrop-blur-xl ${inputClass}`}
+                            />
+                          </div>
+                        ) : null}
+                        {currentReportWizardStep.key === "description" ? (
+                          <div>
+                            <label className={`mb-1 block text-sm ${secondaryTextClass}`}>Description</label>
+                            <textarea
+                              rows={6}
+                              placeholder="Describe what should be planted or watered and the current condition of the area."
+                              value={reportDescription}
+                              onChange={(event) => {
+                                setReportDescription(event.target.value);
+                                if (reportFormError) setReportFormError(null);
+                                if (reportSuccess) setReportSuccess(null);
+                              }}
+                              className={`w-full rounded-xl px-3 py-2 text-sm outline-none backdrop-blur-xl ${inputClass}`}
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="mt-3 space-y-3 sm:mt-0">
-                    <div className={`rounded-2xl p-3 ${reportPanelSectionClass}`}>
+                    {currentReportWizardStep.key === "photo" ? (
+                      <div className={`rounded-2xl p-3 ${reportPanelSectionClass}`}>
                   <div className="mb-1 flex items-center justify-between">
                     <label className={`block text-sm ${secondaryTextClass}`}>Evidence Photo</label>
                     {photoName ? (
@@ -2616,9 +3425,11 @@ export default function ReportedGreenPage() {
                       </div>
                     </div>
                   ) : null}
-                    </div>
+                      </div>
+                    ) : null}
 
-                    <div className={`rounded-2xl p-3 ${reportPanelSectionClass}`}>
+                    {currentReportWizardStep.key === "location" ? (
+                      <div className={`rounded-2xl p-3 ${reportPanelSectionClass}`}>
                   <div className="mb-1 flex items-center justify-between">
                     <label className={`block text-sm ${secondaryTextClass}`}>Reporter Location</label>
                     <button
@@ -2656,7 +3467,8 @@ export default function ReportedGreenPage() {
                       {reportSuccess}
                     </p>
                   ) : null}
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2664,23 +3476,78 @@ export default function ReportedGreenPage() {
               <div className="border-t border-white/10 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-5">
                 <div>
                   <div className={`mb-1.5 flex items-center justify-between text-xs ${isLight ? "text-emerald-700" : "text-emerald-100"}`}>
-                    <span>Report Progress</span>
-                    <span>{reportProgress}%</span>
+                    <span>
+                      Step {Math.min(reportWizardIndex + 1, reportWizardSteps.length)}/{reportWizardSteps.length}
+                    </span>
+                    <span>{reportWizardProgress}%</span>
                   </div>
                   <p className={`mb-1.5 text-[11px] ${tertiaryTextClass}`}>
-                    {completedReportSteps}/{reportSteps.length} steps completed
+                    Core fields ready: {completedReportSteps}/{reportSteps.length}
                   </p>
                   <div className={`h-2 rounded-full ${isLight ? "bg-slate-900/10" : "bg-white/10"}`}>
                     <motion.div
                       initial={{ width: 0 }}
-                      animate={{ width: `${reportProgress}%` }}
-                      transition={{ duration: 0.45, ease: "easeOut" }}
+                      animate={{ width: `${reportWizardProgress}%` }}
+                      transition={{ duration: 0.3, ease: "easeOut" }}
                       className="h-2 rounded-full bg-gradient-to-r from-emerald-300 via-emerald-400 to-green-500 shadow-[0_0_16px_rgba(52,211,153,0.8)]"
                     />
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_300px] sm:items-end">
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleReportWizardBack}
+                    disabled={reportWizardIndex === 0 || reportSubmitting}
+                    className={`inline-flex h-9 items-center justify-center rounded-xl text-xs font-semibold transition ${
+                      reportWizardIndex === 0 || reportSubmitting
+                        ? isLight
+                          ? "cursor-not-allowed bg-slate-900/8 text-slate-400"
+                          : "cursor-not-allowed bg-white/10 text-white/40"
+                        : isLight
+                          ? "bg-slate-900/10 text-slate-700 hover:bg-slate-900/14"
+                          : "bg-white/10 text-white/85 hover:bg-white/15"
+                    }`}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReportWizardPrimaryAction}
+                    disabled={
+                      isLastReportWizardStep
+                        ? locationLoading || reportSubmitting || !canSubmitReport
+                        : false
+                    }
+                    className={`inline-flex h-9 items-center justify-center gap-2 rounded-xl px-3 text-xs font-semibold transition ${
+                      isLastReportWizardStep
+                        ? locationLoading || reportSubmitting || !canSubmitReport
+                          ? isLight
+                            ? "cursor-not-allowed bg-slate-900/10 text-slate-400"
+                            : "cursor-not-allowed bg-white/10 text-white/40"
+                          : "bg-gradient-to-r from-emerald-400 to-green-600 text-emerald-950 shadow-[0_10px_22px_rgba(16,185,129,0.33)]"
+                        : "bg-gradient-to-r from-emerald-400 to-green-600 text-emerald-950 shadow-[0_8px_20px_rgba(16,185,129,0.28)] hover:brightness-105"
+                    }`}
+                  >
+                    {isLastReportWizardStep ? <MapPin className="h-3.5 w-3.5" /> : null}
+                    {isLastReportWizardStep
+                      ? reportSubmitting
+                        ? "Submitting..."
+                        : "Submit Report"
+                      : reportWizardIndex === reportWizardSteps.length - 2
+                        ? "Review"
+                        : "Next"}
+                  </button>
+                </div>
+
+                {reportFormError ? (
+                  <p className={`mt-1 text-[11px] ${isLight ? "text-rose-700" : "text-rose-200"}`}>
+                    {reportFormError}
+                  </p>
+                ) : null}
+
+                {currentReportWizardStep.key === "review" ? (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_300px] sm:items-end">
                   <div>
                     <div className={`rounded-2xl p-2.5 ${expertFieldCardClass}`}>
                       <label className={`mb-1 block text-sm ${secondaryTextClass}`}>Assign Care Team</label>
@@ -2740,64 +3607,46 @@ export default function ReportedGreenPage() {
                         </AnimatePresence>
                       </div>
                     </div>
-                    {reportFormError ? (
-                      <p className={`mt-1 text-[11px] ${isLight ? "text-rose-700" : "text-rose-200"}`}>
-                        {reportFormError}
-                      </p>
-                    ) : null}
                   </div>
 
-                  <div className="grid gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
-                      onClick={submitReportWithLocation}
-                      disabled={locationLoading || reportSubmitting || !canSubmitReport}
-                      className={`inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-semibold transition sm:min-w-[300px] ${
-                        locationLoading || reportSubmitting || !canSubmitReport
-                          ? isLight
-                            ? "cursor-not-allowed bg-slate-900/10 text-slate-400"
-                            : "cursor-not-allowed bg-white/10 text-white/40"
-                          : "bg-gradient-to-r from-emerald-400 to-green-600 text-emerald-950 shadow-[0_12px_28px_rgba(16,185,129,0.35)]"
+                      onClick={() => saveReportDraft(buildCurrentDraft())}
+                      className={`inline-flex h-9 items-center justify-center rounded-xl text-xs font-semibold transition ${
+                        isLight
+                          ? "bg-slate-900/10 text-slate-700 hover:bg-slate-900/14"
+                          : "bg-white/10 text-white/85 hover:bg-white/15"
                       }`}
                     >
-                      <MapPin className="h-4 w-4" />
-                      {reportSubmitting ? "Submitting..." : "Submit and Mark Planting Spot"}
+                      Save Draft
                     </button>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => saveReportDraft(buildCurrentDraft())}
-                        className={`inline-flex h-9 items-center justify-center rounded-xl text-xs font-semibold transition ${
-                          isLight
-                            ? "bg-slate-900/10 text-slate-700 hover:bg-slate-900/14"
-                            : "bg-white/10 text-white/85 hover:bg-white/15"
-                        }`}
-                      >
-                        Save Draft
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          clearReportDraft();
-                          setReportClientSubmissionId(generateSubmissionId());
-                          setReportTitle("");
-                          setReportDescription("");
-                          setSelectedCategory(null);
-                          setUserLocation(null);
-                          clearPhoto();
-                        }}
-                        className={`inline-flex h-9 items-center justify-center rounded-xl text-xs font-semibold transition ${
-                          isLight
-                            ? "bg-rose-500/12 text-rose-700 hover:bg-rose-500/16"
-                            : "bg-rose-500/14 text-rose-100 hover:bg-rose-500/20"
-                        }`}
-                      >
-                        Clear Draft
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        clearReportDraft();
+                        setReportClientSubmissionId(generateSubmissionId());
+                        setReportTitle("");
+                        setReportDescription("");
+                        setSelectedCategory(null);
+                        setUserLocation(null);
+                        setReportWizardIndex(0);
+                        setReportFormError(null);
+                        setReportSuccess(null);
+                        setLocationError(null);
+                        clearPhoto();
+                      }}
+                      className={`inline-flex h-9 items-center justify-center rounded-xl text-xs font-semibold transition ${
+                        isLight
+                          ? "bg-rose-500/12 text-rose-700 hover:bg-rose-500/16"
+                          : "bg-rose-500/14 text-rose-100 hover:bg-rose-500/20"
+                      }`}
+                    >
+                      Clear Draft
+                    </button>
                   </div>
-                </div>
+                  </div>
+                ) : null}
 
                 <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                   <p className={`text-[11px] ${tertiaryTextClass}`}>
@@ -3163,7 +4012,7 @@ export default function ReportedGreenPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className={`pointer-events-auto absolute inset-0 z-[71] flex items-start justify-center overflow-hidden p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-[calc(env(safe-area-inset-top)+0.5rem)] sm:items-center sm:p-4 ${
-                isLight ? "bg-slate-900/20" : "bg-black/45"
+                remindersOverlayClass
               }`}
             >
               <motion.section
@@ -3171,54 +4020,66 @@ export default function ReportedGreenPage() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 18, scale: 0.98 }}
                 transition={{ duration: 0.32, ease: "easeOut" }}
-                className={`relative my-1 flex w-full max-w-5xl flex-col overflow-hidden rounded-[24px] p-4 backdrop-blur-2xl sm:rounded-[28px] sm:p-6 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] ${dashboardCardClass}`}
+                className={`relative my-1 flex w-full max-w-5xl flex-col overflow-hidden rounded-[24px] p-4 backdrop-blur-2xl sm:rounded-[28px] sm:p-6 max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)] ${remindersShellClass}`}
               >
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-emerald-300/18 via-emerald-300/6 to-transparent blur-xl" />
                 <button
                   type="button"
                   onClick={() => setRemindersOpen(false)}
-                  className={`absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full transition ${dashboardSubcardClass}`}
+                  className={`absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full transition ${
+                    isLight
+                      ? "border border-slate-900/12 bg-white/84 text-slate-700 hover:bg-white"
+                      : "border border-white/12 bg-white/10 text-white/85 hover:bg-white/16"
+                  }`}
                 >
                   <X className={`h-4 w-4 ${primaryTextClass}`} />
                 </button>
 
-                <div className="mb-4">
-                  <p className={`text-xs uppercase tracking-[0.22em] ${tertiaryTextClass}`}>
-                    Reminders Window
+                <div className={`mb-4 border-b pb-4 ${isLight ? "border-slate-900/10" : "border-white/10"}`}>
+                  <p className={`text-[11px] uppercase tracking-[0.24em] ${tertiaryTextClass}`}>
+                    Care Planner
                   </p>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <h2 className={`text-2xl font-semibold ${primaryTextClass}`}>
-                      Watering & Planting Reminders
-                    </h2>
-                    <span className={`rounded-full px-2.5 py-1 text-[11px] ${badgeClass}`}>
-                      {dueReminderCount} due today
-                    </span>
+                  <div className="mt-1 flex flex-wrap items-end justify-between gap-3 pr-10">
+                    <div>
+                      <h2 className={`text-[1.65rem] font-semibold leading-tight ${primaryTextClass}`}>
+                        Watering and Planting Reminders
+                      </h2>
+                      <p className={`mt-1 text-sm ${secondaryTextClass}`}>
+                        Confirm spots, auto-generate care tasks, and close the loop with proof.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${badgeClass}`}>
+                        {dueReminderCount} due today
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 text-[11px] font-medium ${
+                          isLight ? "bg-slate-900/8 text-slate-700" : "bg-white/10 text-white/80"
+                        }`}
+                      >
+                        {opportunities.length} open spots
+                      </span>
+                    </div>
                   </div>
-                  <p className={`mt-1 text-sm ${secondaryTextClass}`}>
-                    Confirm open map reports, schedule care automatically, and complete each reminder with proof.
-                  </p>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                   {remindersNotice ? (
                     <div
-                      className={`mb-3 rounded-xl px-3 py-2 text-xs ${
-                        isLight ? "bg-emerald-500/14 text-emerald-800" : "bg-emerald-500/20 text-emerald-100"
-                      }`}
+                      className={`mb-3 rounded-xl px-3 py-2 text-xs ${remindersNoticeClass}`}
                     >
                       {remindersNotice}
                     </div>
                   ) : null}
                   {remindersError ? (
                     <div
-                      className={`mb-3 rounded-xl px-3 py-2 text-xs ${
-                        isLight ? "bg-rose-500/12 text-rose-700" : "bg-rose-500/14 text-rose-100"
-                      }`}
+                      className={`mb-3 rounded-xl px-3 py-2 text-xs ${remindersErrorClass}`}
                     >
                       {remindersError}
                     </div>
                   ) : null}
 
-                  <div className="mb-4 flex flex-wrap gap-2">
+                  <div className={`mb-4 inline-flex flex-wrap gap-1 rounded-2xl p-1 ${remindersTabRailClass}`}>
                     {[
                       { key: "opportunities", label: "Open Spots", count: opportunities.length },
                       { key: "active", label: "Active Reminders", count: activeReminderTasks.length },
@@ -3230,24 +4091,22 @@ export default function ReportedGreenPage() {
                         onClick={() =>
                           setReminderTab(tab.key as "opportunities" | "active" | "completed")
                         }
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-medium transition ${
+                        className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition ${
                           reminderTab === tab.key
-                            ? isLight
-                              ? "bg-slate-900 text-white"
-                              : "bg-white/18 text-white"
-                            : isLight
-                              ? "bg-slate-900/8 text-slate-700 hover:bg-slate-900/12"
-                              : "bg-white/10 text-white/75 hover:bg-white/15"
+                            ? remindersTabActiveClass
+                            : remindersTabIdleClass
                         }`}
                       >
                         <span>{tab.label}</span>
                         <span
-                          className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] transition ${
                             reminderTab === tab.key
-                              ? "bg-white/20 text-white"
+                              ? isLight
+                                ? "bg-white/24 text-white"
+                                : "bg-black/20 text-emerald-950"
                               : isLight
                                 ? "bg-white/80 text-slate-700"
-                                : "bg-white/14 text-white/80"
+                                : "bg-white/14 text-white/85"
                           }`}
                         >
                           {tab.count}
@@ -3256,8 +4115,8 @@ export default function ReportedGreenPage() {
                     ))}
                   </div>
 
-                  <div className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr]">
-                  <div className={`rounded-2xl p-4 ${dashboardSubcardClass}`}>
+                  <div className="grid gap-4 lg:grid-cols-[1.12fr_0.88fr]">
+                  <div className={`rounded-2xl p-4 ${remindersPanelClass}`}>
                     {remindersLoading ? (
                       <p className={`text-sm ${secondaryTextClass}`}>Syncing reminder system...</p>
                     ) : null}
@@ -3272,7 +4131,7 @@ export default function ReportedGreenPage() {
                           opportunities.slice(0, 10).map((report) => (
                             <div
                               key={report.id}
-                              className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}
+                              className={`rounded-xl p-3 transition ${remindersCardClass}`}
                             >
                               <div className="flex min-w-0 items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -3315,7 +4174,7 @@ export default function ReportedGreenPage() {
                           activeReminderTasks.map((task) => (
                             <div
                               key={task.id}
-                              className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}
+                              className={`rounded-xl p-3 transition ${remindersCardClass}`}
                             >
                               <div className="flex min-w-0 items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -3374,7 +4233,7 @@ export default function ReportedGreenPage() {
                           completedReminderTasks.map((task) => (
                             <div
                               key={task.id}
-                              className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}
+                              className={`rounded-xl p-3 transition ${remindersCardClass}`}
                             >
                               <div className="flex min-w-0 items-start justify-between gap-3">
                                 <div className="min-w-0">
@@ -3408,25 +4267,25 @@ export default function ReportedGreenPage() {
                   </div>
 
                     <div className="space-y-3">
-                    <div className={`rounded-2xl p-4 ${dashboardSubcardClass}`}>
+                    <div className={`rounded-2xl p-4 ${remindersPanelClass}`}>
                       <p className={`text-xs uppercase tracking-[0.16em] ${tertiaryTextClass}`}>
                         Reminder Pulse
                       </p>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                        <div className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}>
+                        <div className={`rounded-xl p-3 ${remindersCardClass}`}>
                           <p className={`text-[11px] ${tertiaryTextClass}`}>Open Opportunities</p>
                           <p className={`mt-1 text-2xl font-semibold ${primaryTextClass}`}>
                             {opportunities.length}
                           </p>
                         </div>
-                        <div className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}>
+                        <div className={`rounded-xl p-3 ${remindersCardClass}`}>
                           <p className={`text-[11px] ${tertiaryTextClass}`}>Due Today</p>
                           <div className="mt-1 flex items-center gap-2">
                             <Clock3 className="h-4 w-4 text-amber-400" />
                             <p className={`text-2xl font-semibold ${primaryTextClass}`}>{dueReminderCount}</p>
                           </div>
                         </div>
-                        <div className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}>
+                        <div className={`rounded-xl p-3 ${remindersCardClass}`}>
                           <p className={`text-[11px] ${tertiaryTextClass}`}>Active Tasks</p>
                           <div className="mt-1 flex items-center gap-2">
                             <Droplets className="h-4 w-4 text-emerald-300" />
@@ -3435,7 +4294,7 @@ export default function ReportedGreenPage() {
                             </p>
                           </div>
                         </div>
-                        <div className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}>
+                        <div className={`rounded-xl p-3 ${remindersCardClass}`}>
                           <p className={`text-[11px] ${tertiaryTextClass}`}>Completed</p>
                           <p className={`mt-1 text-2xl font-semibold ${primaryTextClass}`}>
                             {completedReminderTasks.length}
@@ -3444,7 +4303,7 @@ export default function ReportedGreenPage() {
                       </div>
                     </div>
 
-                    <div className={`rounded-2xl p-4 ${dashboardSubcardClass}`}>
+                    <div className={`rounded-2xl p-4 ${remindersPanelClass}`}>
                       <p className={`text-sm font-semibold ${primaryTextClass}`}>My Accepted Spots</p>
                       <div className="mt-2 space-y-2.5">
                         {myAcceptedReports.length === 0 ? (
@@ -3455,7 +4314,7 @@ export default function ReportedGreenPage() {
                           myAcceptedReports.slice(0, 5).map((report) => (
                             <div
                               key={report.id}
-                              className={`rounded-xl p-3 ${isLight ? "bg-white/72" : "bg-white/7"}`}
+                              className={`rounded-xl p-3 ${remindersCardClass}`}
                             >
                               <p className={`text-sm font-medium ${primaryTextClass}`}>{report.area}</p>
                               <p className={`mt-1 text-xs ${secondaryTextClass}`}>{report.status}</p>
@@ -3899,10 +4758,107 @@ export default function ReportedGreenPage() {
           )}
         </AnimatePresence>
 
+        <AnimatePresence>
+          {tutorialOpen && currentTutorialStep ? (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+              className="pointer-events-none absolute inset-0 z-[92]"
+            >
+              {tutorialHighlightStyle ? (
+                <motion.div
+                  key={currentTutorialStep.id}
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className={`absolute rounded-[22px] border ${
+                    isLight ? "border-emerald-500/55" : "border-emerald-300/55"
+                  }`}
+                  style={tutorialHighlightStyle}
+                />
+              ) : (
+                <div className="absolute inset-0" style={{ backgroundColor: tutorialOverlayShade }} />
+              )}
+
+              <div className="pointer-events-none absolute inset-0">
+                <motion.section
+                  key={`tutorial-card-${currentTutorialStep.id}`}
+                  initial={{ opacity: 0, scale: 0.97 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.97 }}
+                  transition={{ duration: 0.22, ease: "easeOut" }}
+                  drag
+                  dragMomentum={false}
+                  dragElastic={0.08}
+                  dragConstraints={tutorialDragConstraints}
+                  className={`pointer-events-auto absolute w-full cursor-grab overflow-y-auto rounded-[22px] p-3.5 active:cursor-grabbing backdrop-blur-2xl sm:p-4 ${tutorialCardClass}`}
+                  style={{
+                    width: tutorialCardWidth,
+                    maxHeight: tutorialCardMaxHeight,
+                    left: tutorialCardBasePosition.left,
+                    top: tutorialCardBasePosition.top,
+                    x: tutorialCardX,
+                    y: tutorialCardY,
+                  }}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={`Tutorial step ${tutorialStepLabel}`}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span
+                      className={`inline-flex h-7 items-center justify-center rounded-full px-2.5 ${
+                        isLight ? "bg-slate-900/8" : "bg-white/10"
+                      }`}
+                      aria-hidden
+                    >
+                      <span
+                        className={`h-1.5 w-9 rounded-full ${
+                          isLight ? "bg-slate-500/45" : "bg-white/45"
+                        }`}
+                      />
+                    </span>
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.16em] ${tertiaryTextClass}`}>
+                      Walkthrough {tutorialStepLabel}
+                    </p>
+                  </div>
+
+                  <h3 className={`text-[15px] font-semibold sm:text-base ${primaryTextClass}`}>
+                    {currentTutorialStep.title}
+                  </h3>
+                  <p className={`mt-1.5 text-xs leading-relaxed sm:text-sm ${secondaryTextClass}`}>
+                    {currentTutorialStep.description}
+                  </p>
+
+                  <div className="mt-3.5 flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTutorialSkip}
+                      className={`inline-flex h-9 min-w-[84px] items-center justify-center rounded-full px-4 text-xs font-semibold transition sm:text-sm ${tutorialSkipButtonClass}`}
+                    >
+                      Skip
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleTutorialNext}
+                      className={`inline-flex h-9 min-w-[92px] items-center justify-center rounded-full px-4 text-xs font-semibold transition sm:text-sm ${tutorialNextButtonClass}`}
+                    >
+                      {tutorialStepIndex >= tutorialSteps.length - 1 ? "Finish" : "Next"}
+                    </button>
+                  </div>
+                </motion.section>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
         <motion.button
           type="button"
           aria-label={panelOpen ? "Close report panel" : "Open report panel"}
           onClick={handleReportPanelToggle}
+          ref={desktopReportButtonRef}
           initial={{ opacity: 0, y: 18, scale: 0.92 }}
           animate={
             panelOpen || aiChatOpen
@@ -3933,7 +4889,7 @@ export default function ReportedGreenPage() {
                   scale: { type: "spring", stiffness: 260, damping: 18 },
                 }
           }
-          className={`pointer-events-auto absolute bottom-5 left-1/2 z-50 hidden h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-300 sm:inline-flex ${
+          className={`pointer-events-auto absolute bottom-5 left-1/2 z-50 hidden h-16 w-16 -translate-x-1/2 items-center justify-center rounded-full border backdrop-blur-xl transition-all duration-300 md:inline-flex ${
             isLight
               ? "border-slate-900/12 bg-white/88 text-slate-900"
               : "border-white/14 bg-black/42 text-white"
