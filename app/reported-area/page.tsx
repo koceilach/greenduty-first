@@ -888,6 +888,38 @@ function GD_System_ReportModal({
   const GD_System_videoRef = useRef<HTMLVideoElement | null>(null);
   const GD_System_canvasRef = useRef<HTMLCanvasElement | null>(null);
   const GD_System_streamRef = useRef<MediaStream | null>(null);
+  const GD_System_reportSteps = useMemo(
+    () =>
+      [
+        {
+          id: "capture",
+          title: "Capture Evidence",
+          hint: "Use live camera or upload from your gallery.",
+        },
+        {
+          id: "waste",
+          title: "Classify Waste",
+          hint: "Choose the category that best matches the scene.",
+        },
+        {
+          id: "location",
+          title: "Confirm Location",
+          hint: "Pinpoint the exact coordinates for cleanup routing.",
+        },
+        {
+          id: "notes",
+          title: "Add Notes",
+          hint: "Share context to help field teams respond quickly.",
+        },
+        {
+          id: "review",
+          title: "Review & Deploy",
+          hint: "Verify details and deploy the report.",
+        },
+      ] as const,
+    []
+  );
+  const [GD_System_stepIndex, setGD_System_stepIndex] = useState(0);
 
   useEffect(() => {
     if (!open || cameraMode !== "live") {
@@ -917,6 +949,12 @@ function GD_System_ReportModal({
     };
   }, [open, cameraMode, setCameraMode]);
 
+  useEffect(() => {
+    if (open) {
+      setGD_System_stepIndex(0);
+    }
+  }, [open]);
+
   const GD_System_captureFrame = () => {
     const video = GD_System_videoRef.current;
     const canvas = GD_System_canvasRef.current;
@@ -943,6 +981,51 @@ function GD_System_ReportModal({
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const GD_System_currentStep = GD_System_reportSteps[GD_System_stepIndex];
+  const GD_System_isLastStep =
+    GD_System_stepIndex === GD_System_reportSteps.length - 1;
+  const GD_System_progressPercent =
+    ((GD_System_stepIndex + 1) / GD_System_reportSteps.length) * 100;
+  const GD_System_locationLabel = reportLocation
+    ? `${reportLocation.lat.toFixed(5)}, ${reportLocation.lng.toFixed(5)}`
+    : "Location not set";
+  const GD_System_requiresWaste =
+    GD_System_currentStep.id === "waste" && !wasteType;
+  const GD_System_requiresLocation =
+    GD_System_currentStep.id === "location" && !reportLocation;
+  const GD_System_submitDisabled = !reportLocation || !wasteType || isSubmitting;
+  const GD_System_primaryDisabled = GD_System_isLastStep
+    ? GD_System_submitDisabled
+    : GD_System_requiresWaste || GD_System_requiresLocation || isSubmitting;
+
+  const GD_System_blockedMessage = GD_System_isLastStep
+    ? !reportLocation
+      ? "Location is required before deploying."
+      : !wasteType
+      ? "Waste type is required before deploying."
+      : null
+    : GD_System_requiresWaste
+    ? "Choose a waste type to continue."
+    : GD_System_requiresLocation
+    ? "Detect or pick a location to continue."
+    : null;
+
+  const GD_System_handleBack = () => {
+    if (isSubmitting) return;
+    setGD_System_stepIndex((prev) => Math.max(prev - 1, 0));
+  };
+
+  const GD_System_handlePrimary = () => {
+    if (GD_System_primaryDisabled) return;
+    if (GD_System_isLastStep) {
+      onSubmit();
+      return;
+    }
+    setGD_System_stepIndex((prev) =>
+      Math.min(prev + 1, GD_System_reportSteps.length - 1)
+    );
   };
 
   return (
@@ -984,160 +1067,195 @@ function GD_System_ReportModal({
                 </button>
               </div>
 
-              <div className="mt-5 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="space-y-4">
-                  <div className="gd-3d-layer-sm flex gap-3">
-                    <button
-                      onClick={() => setCameraMode("live")}
-                      className={clsx(
-                        "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all",
-                        cameraMode === "live"
-                          ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/15 text-[var(--gd-ink)] shadow-sm"
-                          : "border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[var(--gd-muted)]"
-                      )}
-                    >
-                      <Camera className="h-4 w-4" />
-                      Live Capture
-                    </button>
-                    <button
-                      onClick={() => setCameraMode("upload")}
-                      className={clsx(
-                        "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all",
-                        cameraMode === "upload"
-                          ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/15 text-[var(--gd-ink)] shadow-sm"
-                          : "border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[var(--gd-muted)]"
-                      )}
-                    >
-                      <Upload className="h-4 w-4" />
-                      Upload from Gallery
-                    </button>
-                  </div>
-
-                  <div className="gd-3d-layer relative overflow-hidden rounded-[22px] border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] shadow-lg">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-[var(--gd-accent)]/10" />
-                    <div className="relative flex min-h-[260px] sm:min-h-[320px] items-center justify-center">
-                      {!capturedImage && cameraMode === "live" && (
-                        <video
-                          ref={GD_System_videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          className="h-full w-full object-cover"
-                        />
-                      )}
-                      {capturedImage && (
-                        <img
-                          src={capturedImage}
-                          alt="Captured preview"
-                          className="h-full w-full object-cover"
-                        />
-                      )}
-                      {capturedImage && (
-                        <button
-                          onClick={() => setCapturedImage(null)}
-                          className="absolute right-3 top-3 rounded-full border border-[var(--gd-float-border)] bg-[var(--gd-float-surface)] p-2 text-[var(--gd-float-ink)] backdrop-blur-md transition hover:bg-[var(--gd-float-surface-hover)]"
-                          aria-label="Remove image"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                      {!capturedImage && cameraMode === "upload" && (
-                        <div className="flex flex-col items-center gap-3 p-8 text-center">
-                          <Upload className="h-8 w-8 text-[var(--gd-muted)]" />
-                          <div className="text-sm text-[var(--gd-muted)]">
-                            Drag an image or upload from your device.
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="absolute bottom-4 right-4 flex items-center gap-2">
-                      {cameraMode === "live" && (
-                        <button
-                          onClick={GD_System_captureFrame}
-                          className="rounded-full border border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/15 px-4 py-2 text-sm text-[var(--gd-ink)]"
-                        >
-                          Capture
-                        </button>
-                      )}
-                      {cameraMode === "upload" && (
-                        <label className="cursor-pointer rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-2 text-sm text-[var(--gd-ink)]">
-                          Choose File
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={GD_System_handleFileChange}
-                          />
-                        </label>
-                      )}
-                      {capturedImage && (
-                        <button
-                          onClick={() => setCapturedImage(null)}
-                          className="rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] px-4 py-2 text-sm text-[var(--gd-ink)]"
-                        >
-                          Reset
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <canvas ref={GD_System_canvasRef} className="hidden" />
+              <div className="mt-4 rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5">
+                <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                  Step {GD_System_stepIndex + 1} / {GD_System_reportSteps.length}
                 </div>
+                <div className="mt-1 text-base font-semibold text-[var(--gd-ink)]">
+                  {GD_System_currentStep.title}
+                </div>
+                <div className="mt-1 text-sm text-[var(--gd-muted)]">
+                  {GD_System_currentStep.hint}
+                </div>
+                <div className="mt-3.5 grid grid-cols-5 gap-1.5">
+                  {GD_System_reportSteps.map((step, index) => (
+                    <div
+                      key={step.id}
+                      className={clsx(
+                        "h-1.5 rounded-full transition-all",
+                        index <= GD_System_stepIndex
+                          ? "bg-[var(--gd-accent)]"
+                          : "bg-[var(--gd-border-soft)]"
+                      )}
+                    />
+                  ))}
+                </div>
+              </div>
 
-                <div className="space-y-4">
-                  <div className="gd-3d-layer-sm">
-                    <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
-                      Waste Type
-                    </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-2">
-                      {GD_System_WASTE_TYPES.map((type) => {
-                        const Icon = type.icon;
-                        const active = wasteType === type.label;
-                        return (
-                          <button
-                            key={type.id}
-                            onClick={() => setWasteType(type.label)}
-                            className={clsx(
-                              "flex items-center gap-2.5 rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.97]",
-                              active
-                                ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/12 shadow-sm"
-                                : "border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] hover:border-[var(--gd-border)]"
-                            )}
-                          >
-                            <div className={clsx(
-                              "rounded-xl border p-2 transition-colors",
-                              active
-                                ? "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/10"
-                                : "border-[var(--gd-border-soft)] bg-[var(--gd-surface)]"
-                            )}>
-                              <Icon className={clsx(
-                                "h-4 w-4",
-                                active ? "text-[var(--gd-accent)]" : "text-[var(--gd-ink)]"
-                              )} />
-                            </div>
-                            <div className="text-[13px] font-medium text-[var(--gd-ink)]">
-                              {type.label}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={GD_System_currentStep.id}
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -14 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="mt-5"
+                >
+                  {GD_System_currentStep.id === "capture" && (
+                    <div className="space-y-4">
+                      <div className="gd-3d-layer-sm flex flex-wrap gap-3">
+                        <button
+                          onClick={() => setCameraMode("live")}
+                          className={clsx(
+                            "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all",
+                            cameraMode === "live"
+                              ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/15 text-[var(--gd-ink)] shadow-sm"
+                              : "border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[var(--gd-muted)]"
+                          )}
+                        >
+                          <Camera className="h-4 w-4" />
+                          Live Capture
+                        </button>
+                        <button
+                          onClick={() => setCameraMode("upload")}
+                          className={clsx(
+                            "flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all",
+                            cameraMode === "upload"
+                              ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/15 text-[var(--gd-ink)] shadow-sm"
+                              : "border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[var(--gd-muted)]"
+                          )}
+                        >
+                          <Upload className="h-4 w-4" />
+                          Upload from Gallery
+                        </button>
+                      </div>
 
-                  <div className="gd-3d-layer-sm">
-                    <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
-                      Location
+                      <div className="gd-3d-layer relative overflow-hidden rounded-[22px] border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] shadow-lg">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-[var(--gd-accent)]/10" />
+                        <div className="relative flex min-h-[260px] sm:min-h-[320px] items-center justify-center">
+                          {!capturedImage && cameraMode === "live" && (
+                            <video
+                              ref={GD_System_videoRef}
+                              autoPlay
+                              playsInline
+                              muted
+                              className="h-full w-full object-cover"
+                            />
+                          )}
+                          {capturedImage && (
+                            <img
+                              src={capturedImage}
+                              alt="Captured preview"
+                              className="h-full w-full object-cover"
+                            />
+                          )}
+                          {capturedImage && (
+                            <button
+                              onClick={() => setCapturedImage(null)}
+                              className="absolute right-3 top-3 rounded-full border border-[var(--gd-float-border)] bg-[var(--gd-float-surface)] p-2 text-[var(--gd-float-ink)] backdrop-blur-md transition hover:bg-[var(--gd-float-surface-hover)]"
+                              aria-label="Remove image"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                          {!capturedImage && cameraMode === "upload" && (
+                            <div className="flex flex-col items-center gap-3 p-8 text-center">
+                              <Upload className="h-8 w-8 text-[var(--gd-muted)]" />
+                              <div className="text-sm text-[var(--gd-muted)]">
+                                Drag an image or upload from your device.
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="absolute bottom-4 right-4 flex items-center gap-2">
+                          {cameraMode === "live" && (
+                            <button
+                              onClick={GD_System_captureFrame}
+                              className="rounded-full border border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/15 px-4 py-2 text-sm text-[var(--gd-ink)]"
+                            >
+                              Capture
+                            </button>
+                          )}
+                          {cameraMode === "upload" && (
+                            <label className="cursor-pointer rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface)] px-4 py-2 text-sm text-[var(--gd-ink)]">
+                              Choose File
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={GD_System_handleFileChange}
+                              />
+                            </label>
+                          )}
+                          {capturedImage && (
+                            <button
+                              onClick={() => setCapturedImage(null)}
+                              className="rounded-full border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] px-4 py-2 text-sm text-[var(--gd-ink)]"
+                            >
+                              Reset
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="mt-2 rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5 text-sm text-[var(--gd-ink)]">
+                  )}
+
+                  {GD_System_currentStep.id === "waste" && (
+                    <div className="gd-3d-layer-sm">
+                      <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                        Waste Type
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+                        {GD_System_WASTE_TYPES.map((type) => {
+                          const Icon = type.icon;
+                          const active = wasteType === type.label;
+                          return (
+                            <button
+                              key={type.id}
+                              onClick={() => setWasteType(type.label)}
+                              className={clsx(
+                                "flex items-center gap-2.5 rounded-2xl border px-3 py-3 text-left transition-all active:scale-[0.97]",
+                                active
+                                  ? "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/12 shadow-sm"
+                                  : "border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] hover:border-[var(--gd-border)]"
+                              )}
+                            >
+                              <div
+                                className={clsx(
+                                  "rounded-xl border p-2 transition-colors",
+                                  active
+                                    ? "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/10"
+                                    : "border-[var(--gd-border-soft)] bg-[var(--gd-surface)]"
+                                )}
+                              >
+                                <Icon
+                                  className={clsx(
+                                    "h-4 w-4",
+                                    active
+                                      ? "text-[var(--gd-accent)]"
+                                      : "text-[var(--gd-ink)]"
+                                  )}
+                                />
+                              </div>
+                              <div className="text-[13px] font-medium text-[var(--gd-ink)]">
+                                {type.label}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {GD_System_currentStep.id === "location" && (
+                    <div className="gd-3d-layer-sm rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5 text-sm text-[var(--gd-ink)]">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-[11px] text-[var(--gd-muted-2)]">
                             {reportLocation ? "Coordinates" : "Location"}
                           </div>
                           <div className="mt-1 text-sm font-medium truncate">
-                            {reportLocation
-                              ? `${reportLocation.lat.toFixed(5)}, ${reportLocation.lng.toFixed(5)}`
-                              : "Tap the map or detect location."}
+                            {GD_System_locationLabel}
                           </div>
                         </div>
                         <button
@@ -1152,38 +1270,125 @@ function GD_System_ReportModal({
                         </button>
                       </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="gd-3d-layer-sm">
-                    <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
-                      Ranger Notes
+                  {GD_System_currentStep.id === "notes" && (
+                    <div className="gd-3d-layer-sm">
+                      <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                        Ranger Notes
+                      </div>
+                      <textarea
+                        value={notes}
+                        onChange={(event) => setNotes(event.target.value)}
+                        rows={6}
+                        className="mt-2 w-full rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5 text-sm text-[var(--gd-ink)] placeholder:text-[var(--gd-muted-2)] focus:outline-none focus:ring-2 focus:ring-[var(--gd-accent)]/30 focus:border-[var(--gd-accent)]/30 transition-all"
+                        placeholder="Add a brief note (optional)"
+                      />
                     </div>
-                    <textarea
-                      value={notes}
-                      onChange={(event) => setNotes(event.target.value)}
-                      rows={3}
-                      className="mt-2 w-full rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5 text-sm text-[var(--gd-ink)] placeholder:text-[var(--gd-muted-2)] focus:outline-none focus:ring-2 focus:ring-[var(--gd-accent)]/30 focus:border-[var(--gd-accent)]/30 transition-all"
-                      placeholder="Add a brief note (optional)"
-                    />
-                  </div>
+                  )}
 
+                  {GD_System_currentStep.id === "review" && (
+                    <div className="space-y-3.5">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5">
+                          <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                            Waste Type
+                          </div>
+                          <div className="mt-1.5 text-sm font-semibold text-[var(--gd-ink)]">
+                            {wasteType || "Not selected"}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5">
+                          <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                            Coordinates
+                          </div>
+                          <div className="mt-1.5 text-sm font-semibold text-[var(--gd-ink)]">
+                            {GD_System_locationLabel}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5">
+                        <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                          Notes
+                        </div>
+                        <p className="mt-1.5 text-sm text-[var(--gd-ink)]">
+                          {notes.trim() ? notes : "No notes were added."}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-[var(--gd-border)] bg-[var(--gd-surface-strong)] p-3.5">
+                        <div className="text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                          Evidence
+                        </div>
+                        {capturedImage ? (
+                          <img
+                            src={capturedImage}
+                            alt="Report evidence preview"
+                            className="mt-2 h-40 w-full rounded-xl object-cover"
+                          />
+                        ) : (
+                          <div className="mt-2 rounded-xl border border-dashed border-[var(--gd-border-soft)] px-3 py-6 text-center text-sm text-[var(--gd-muted)]">
+                            No photo attached.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+
+              <canvas ref={GD_System_canvasRef} className="hidden" />
+
+              <div className="sticky bottom-0 mt-5 border-t border-[var(--gd-border)] bg-[var(--gd-surface)]/95 pt-3.5 backdrop-blur-md">
+                <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-widest text-[var(--gd-muted-2)]">
+                  <span>Progress</span>
+                  <span>
+                    {GD_System_stepIndex + 1}/{GD_System_reportSteps.length}
+                  </span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--gd-border-soft)]">
+                  <motion.div
+                    className="h-full rounded-full bg-[var(--gd-accent)]"
+                    animate={{ width: `${GD_System_progressPercent}%` }}
+                    transition={{ duration: 0.22, ease: "easeOut" }}
+                  />
+                </div>
+                {GD_System_blockedMessage && (
+                  <div className="mt-2.5 text-xs text-[var(--gd-muted)]">
+                    {GD_System_blockedMessage}
+                  </div>
+                )}
+                <div className="mt-3 flex items-center justify-between gap-2.5">
                   <button
-                    onClick={onSubmit}
-                    disabled={!reportLocation || isSubmitting}
+                    onClick={GD_System_handleBack}
+                    disabled={GD_System_stepIndex === 0 || isSubmitting}
                     className={clsx(
-                      "gd-3d-layer w-full rounded-2xl border px-4 py-3.5 text-sm font-semibold shadow-md transition-all",
-                      !reportLocation || isSubmitting
-                        ? "cursor-not-allowed border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-muted)] opacity-50"
-                        : "border-[var(--gd-accent)]/30 bg-[var(--gd-accent)]/15 text-[var(--gd-ink)] hover:bg-[var(--gd-accent)]/25 hover:shadow-lg active:scale-[0.98]"
+                      "rounded-xl border px-4 py-2.5 text-sm font-medium transition-all",
+                      GD_System_stepIndex === 0 || isSubmitting
+                        ? "cursor-not-allowed border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-muted)] opacity-55"
+                        : "border-[var(--gd-border)] bg-[var(--gd-surface-strong)] text-[var(--gd-ink)] hover:bg-[var(--gd-surface)] active:scale-95"
+                    )}
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={GD_System_handlePrimary}
+                    disabled={GD_System_primaryDisabled}
+                    className={clsx(
+                      "gd-3d-layer inline-flex min-w-[124px] items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-semibold transition-all",
+                      GD_System_primaryDisabled
+                        ? "cursor-not-allowed border-[var(--gd-border)] bg-[var(--gd-surface)] text-[var(--gd-muted)] opacity-55"
+                        : "border-[var(--gd-accent)]/40 bg-[var(--gd-accent)]/18 text-[var(--gd-ink)] hover:bg-[var(--gd-accent)]/26 active:scale-[0.98]"
                     )}
                   >
                     {isSubmitting ? (
-                      <span className="inline-flex items-center justify-center gap-2">
+                      <span className="inline-flex items-center gap-2">
                         <span className="h-4 w-4 animate-spin rounded-full border border-[var(--gd-border)] border-t-[var(--gd-ink)]" />
                         Processing...
                       </span>
-                    ) : (
+                    ) : GD_System_isLastStep ? (
                       "Deploy Report"
+                    ) : (
+                      "Next"
                     )}
                   </button>
                 </div>
