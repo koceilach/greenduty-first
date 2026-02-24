@@ -23,6 +23,7 @@ type Category = { id: string; name: string };
 type CreateMode = "post" | "reel" | "event";
 
 const touch = "active:scale-[0.97] transition-all duration-200";
+const MAX_REEL_BYTES = 50 * 1024 * 1024;
 
 const toLocalInputValue = (date: Date) => {
   const pad = (value: number) => String(value).padStart(2, "0");
@@ -60,6 +61,7 @@ export default function CreatePostPage() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [publishing, setPublishing] = useState(false);
+  const [publishStage, setPublishStage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -116,6 +118,10 @@ export default function CreatePostPage() {
     const nextFile = files[0];
     if (!nextFile.type.startsWith("video/")) {
       setError("Please upload a valid video file for reels.");
+      return;
+    }
+    if (nextFile.size > MAX_REEL_BYTES) {
+      setError("Reel video must be 50 MB or less.");
       return;
     }
 
@@ -176,7 +182,9 @@ export default function CreatePostPage() {
     }
 
     const mediaUrls: string[] = [];
-    for (const file of mediaType === "resource" ? [] : mediaFiles) {
+    const uploadFiles = mediaType === "resource" ? [] : mediaFiles;
+    for (const [index, file] of uploadFiles.entries()) {
+      setPublishStage(`Uploading media ${index + 1}/${uploadFiles.length}...`);
       const ext = file.name.split(".").pop();
       const path = `edu-posts/${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: uploadError } = await supabase.storage
@@ -227,6 +235,7 @@ export default function CreatePostPage() {
 
     const ext = reelFile.name.split(".").pop();
     const path = `reels/${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    setPublishStage("Uploading reel video...");
 
     const { error: uploadError } = await supabase.storage
       .from("edu-reels")
@@ -237,6 +246,7 @@ export default function CreatePostPage() {
     }
 
     const { data: reelUrl } = supabase.storage.from("edu-reels").getPublicUrl(path);
+    setPublishStage("Publishing reel...");
     const { error: insertError } = await supabase.from("edu_reels").insert({
       author_id: userId,
       video_url: reelUrl.publicUrl,
@@ -290,6 +300,7 @@ export default function CreatePostPage() {
 
   const handlePublish = async () => {
     setPublishing(true);
+    setPublishStage("Preparing...");
     resetFeedback();
 
     try {
@@ -300,17 +311,23 @@ export default function CreatePostPage() {
       }
 
       if (createMode === "post") {
+        setPublishStage("Publishing post...");
         await publishPost(user.id, user.email ?? null);
-        setSuccess("Post published. Redirecting...");
-        setTimeout(() => router.push("/education"), 1400);
+        setSuccess("Post published.");
+        router.refresh();
+        router.push("/education");
       } else if (createMode === "reel") {
+        setPublishStage("Preparing reel...");
         await publishReel(user.id);
-        setSuccess("Reel published. Redirecting...");
-        setTimeout(() => router.push("/education/reels"), 1400);
+        setSuccess("Reel published.");
+        router.refresh();
+        router.push(`/education/reels?fresh=${Date.now()}`);
       } else {
+        setPublishStage("Creating event...");
         await publishEvent(user.id);
-        setSuccess("Event created. Redirecting...");
-        setTimeout(() => router.push("/education"), 1400);
+        setSuccess("Event created.");
+        router.refresh();
+        router.push("/education");
       }
     } catch (publishError: any) {
       setError(
@@ -319,6 +336,7 @@ export default function CreatePostPage() {
       );
     } finally {
       setPublishing(false);
+      setPublishStage(null);
     }
   };
 
@@ -348,7 +366,8 @@ export default function CreatePostPage() {
               <button
                 type="button"
                 onClick={() => switchMode("post")}
-                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-[0.12em] ${touch} ${
+                disabled={publishing}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-60 ${touch} ${
                   createMode === "post"
                     ? "bg-emerald-500 text-white"
                     : "text-slate-600"
@@ -360,7 +379,8 @@ export default function CreatePostPage() {
               <button
                 type="button"
                 onClick={() => switchMode("reel")}
-                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-[0.12em] ${touch} ${
+                disabled={publishing}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-60 ${touch} ${
                   createMode === "reel"
                     ? "bg-emerald-500 text-white"
                     : "text-slate-600"
@@ -372,7 +392,8 @@ export default function CreatePostPage() {
               <button
                 type="button"
                 onClick={() => switchMode("event")}
-                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-[0.12em] ${touch} ${
+                disabled={publishing}
+                className={`inline-flex h-11 items-center justify-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-[0.12em] disabled:cursor-not-allowed disabled:opacity-60 ${touch} ${
                   createMode === "event"
                     ? "bg-emerald-500 text-white"
                     : "text-slate-600"
@@ -409,6 +430,12 @@ export default function CreatePostPage() {
               <div className="flex items-center gap-2 rounded-3xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-600">
                 <Check className="h-4 w-4" />
                 {success}
+              </div>
+            )}
+            {publishing && publishStage && (
+              <div className="flex items-center gap-2 rounded-3xl bg-slate-100 px-4 py-3 text-sm font-medium text-slate-600">
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
+                {publishStage}
               </div>
             )}
 
@@ -619,6 +646,14 @@ export default function CreatePostPage() {
                     className="hidden"
                     onChange={(event) => handleReelFile(event.target.files)}
                   />
+                  {reelFile && (
+                    <div className="mt-2 rounded-2xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
+                      <p className="truncate font-medium text-slate-700">{reelFile.name}</p>
+                      <p className="mt-0.5">
+                        {(reelFile.size / (1024 * 1024)).toFixed(1)} MB
+                      </p>
+                    </div>
+                  )}
                   <p className="mt-2 text-xs text-slate-500">
                     Recommended: vertical format (9:16), up to 50 MB.
                   </p>

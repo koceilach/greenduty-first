@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
-import { Play, Volume2, VolumeX } from "lucide-react";
+import { Play } from "lucide-react";
 import type { ReactNode } from "react";
 
 type ReelPlayerProps = {
@@ -9,6 +9,7 @@ type ReelPlayerProps = {
   poster?: string | null;
   className?: string;
   children?: ReactNode;
+  muted?: boolean;
   onDoubleTap?: () => void;
   onVisibilityChange?: (visible: boolean) => void;
 };
@@ -18,13 +19,13 @@ export function ReelPlayer({
   poster,
   className,
   children,
+  muted = true,
   onDoubleTap,
   onVisibilityChange,
 }: ReelPlayerProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const clickTimeoutRef = useRef<number | null>(null);
-  const [isMuted, setIsMuted] = useState(true);
   const [isPaused, setIsPaused] = useState(true);
   const [isFullyVisible, setIsFullyVisible] = useState(false);
   const [manualPause, setManualPause] = useState(false);
@@ -75,8 +76,8 @@ export function ReelPlayer({
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
-    video.muted = isMuted;
-  }, [isMuted]);
+    video.muted = muted;
+  }, [muted]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -156,21 +157,8 @@ export function ReelPlayer({
         playsInline
         preload="metadata"
         loop
-        muted={isMuted}
+        muted={muted}
       />
-
-      <button
-        type="button"
-        data-reel-control="true"
-        onClick={(event) => {
-          event.stopPropagation();
-          setIsMuted((prev) => !prev);
-        }}
-        className="absolute right-4 top-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur active:scale-[0.90] transition-transform duration-200"
-        aria-label={isMuted ? "Unmute reel" : "Mute reel"}
-      >
-        {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-      </button>
 
       {isPaused && (
         <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center">

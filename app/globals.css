@@ -29,6 +29,34 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+/* Native-app foundation */
+@layer base {
+  html,
+  body {
+    min-height: 100dvh;
+    min-height: 100svh;
+  }
+
+  body {
+    background-color: #f8fafc;
+    overscroll-behavior-y: none;
+  }
+
+  :where(
+      a,
+      button,
+      [role="button"],
+      [data-native-tap],
+      input[type="button"],
+      input[type="submit"],
+      input[type="reset"],
+      summary
+    ) {
+    @apply select-none touch-manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
 /* Locale typography normalization */
 html[lang="ar"] body {
   font-family: var(--font-cairo), "Segoe UI", Tahoma, Arial, sans-serif !important;
@@ -81,6 +109,20 @@ input[type="reset"] {
 }
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* Alias utility for components that expect this class name */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.app-shell {
+  min-height: 100dvh;
+  min-height: 100svh;
 }
 
 /* Safe-area padding for bottom nav on notched phones */

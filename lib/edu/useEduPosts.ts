@@ -23,6 +23,7 @@ export function useEduPosts() {
   const [feedSeed, setFeedSeed] = useState<string | undefined>(undefined);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const [refreshing, setRefreshing] = useState(false);
 
   const syncUserFlags = useCallback(async (postIds: string[]) => {
     if (!postIds.length) return;
@@ -84,37 +85,91 @@ export function useEduPosts() {
     []
   );
 
-  useEffect(() => {
-    let mounted = true;
-
-    const loadInitial = async () => {
-      setLoading(true);
+  const refreshPosts = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = Boolean(options?.silent);
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       try {
         const page = await fetchRankedPostsPage(0, undefined);
-        if (!mounted) return;
-
         setPosts(page.posts);
         setFeedSeed(page.seed);
         setNextOffset(page.nextOffset);
         setHasMore(page.hasMore);
         await syncUserFlags(page.posts.map((post) => post.id));
       } catch {
-        if (!mounted) return;
-        setPosts([]);
-        setFeedSeed(undefined);
-        setNextOffset(null);
-        setHasMore(false);
+        if (!silent) {
+          setPosts([]);
+          setFeedSeed(undefined);
+          setNextOffset(null);
+          setHasMore(false);
+        }
       } finally {
-        if (mounted) setLoading(false);
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [fetchRankedPostsPage, syncUserFlags]
+  );
+
+  useEffect(() => {
+    void refreshPosts();
+  }, [refreshPosts]);
+
+  useEffect(() => {
+    let refreshTimeout: number | null = null;
+    const scheduleRefresh = () => {
+      if (refreshTimeout) {
+        window.clearTimeout(refreshTimeout);
+      }
+      refreshTimeout = window.setTimeout(() => {
+        void refreshPosts({ silent: true });
+      }, 420);
+    };
+
+    const postsChannel = supabase
+      .channel("edu-posts-feed-live")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "edu_posts",
+        },
+        () => {
+          scheduleRefresh();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (refreshTimeout) {
+        window.clearTimeout(refreshTimeout);
+      }
+      supabase.removeChannel(postsChannel);
+    };
+  }, [refreshPosts]);
+
+  useEffect(() => {
+    const refreshOnFocus = () => {
+      void refreshPosts({ silent: true });
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        refreshOnFocus();
       }
     };
 
-    void loadInitial();
-
+    window.addEventListener("focus", refreshOnFocus);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
-      mounted = false;
+      window.removeEventListener("focus", refreshOnFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [fetchRankedPostsPage, syncUserFlags]);
+  }, [refreshPosts]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !hasMore || nextOffset === null) return;
@@ -229,6 +284,8 @@ export function useEduPosts() {
   return {
     posts,
     loading,
+    refreshing,
+    refreshPosts,
     loadMore,
     hasMore,
     loadingMore,
