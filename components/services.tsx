@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ComponentType } from "react";
+import { useMemo, type ComponentType } from "react";
 import { MapPin, Sprout, Truck, ArrowRight, Clock, GraduationCap, TreePine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FadeSlide, StaggerContainer, StaggerItem } from "@/lib/ux/motion";
 import { useI18n } from "@/lib/i18n/context";
 
-const EDU_LOCK_DURATION_MS = 96 * 60 * 60 * 1000;
-const EDU_UNLOCK_AT_STORAGE_KEY = "greenduty.services.edu.unlockAt";
 const EDU_TARGET_HREF = "/education";
 
 type ServiceConfig = {
@@ -73,88 +71,29 @@ const serviceConfigs: ServiceConfig[] = [
     subtitleKey: "landing.services.edu.subtitle",
     descriptionKey: "landing.services.edu.description",
     icon: GraduationCap,
-    active: false,
+    active: true,
     buttonTextKey: "landing.services.edu.button",
-    href: "#",
+    href: EDU_TARGET_HREF,
     categoryKey: "landing.services.edu.category",
   },
 ];
 
-function formatCountdown(timeLeftMs: number) {
-  const totalSeconds = Math.max(0, Math.floor(timeLeftMs / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-}
-
 export function Services() {
   const { t, locale } = useI18n();
   const isArabic = locale === "ar";
-  const [isEduLocked, setIsEduLocked] = useState(true);
-  const [eduTimeLeftMs, setEduTimeLeftMs] = useState(EDU_LOCK_DURATION_MS);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const savedUnlockAt = Number(window.localStorage.getItem(EDU_UNLOCK_AT_STORAGE_KEY));
-    const unlockAt =
-      Number.isFinite(savedUnlockAt) && savedUnlockAt > 0
-        ? savedUnlockAt
-        : Date.now() + EDU_LOCK_DURATION_MS;
-
-    if (!Number.isFinite(savedUnlockAt) || savedUnlockAt <= 0) {
-      window.localStorage.setItem(EDU_UNLOCK_AT_STORAGE_KEY, String(unlockAt));
-    }
-
-    const updateCountdown = () => {
-      const remaining = unlockAt - Date.now();
-
-      if (remaining <= 0) {
-        setIsEduLocked(false);
-        setEduTimeLeftMs(0);
-        return true;
-      }
-
-      setIsEduLocked(true);
-      setEduTimeLeftMs(remaining);
-      return false;
-    };
-
-    if (updateCountdown()) return;
-
-    const intervalId = window.setInterval(() => {
-      if (updateCountdown()) {
-        window.clearInterval(intervalId);
-      }
-    }, 1000);
-
-    return () => window.clearInterval(intervalId);
-  }, []);
-
-  const eduCountdownLabel = useMemo(() => formatCountdown(eduTimeLeftMs), [eduTimeLeftMs]);
 
   const services = useMemo(
     () =>
       serviceConfigs.map((service) => ({
         ...service,
-        active: service.id === 5 ? !isEduLocked : service.active,
-        href: service.id === 5 ? (isEduLocked ? "#" : EDU_TARGET_HREF) : service.href,
         title: t(service.titleKey),
         subtitle: t(service.subtitleKey),
         description: t(service.descriptionKey),
-        buttonText:
-          service.id === 5 && isEduLocked
-            ? `${t("landing.services.status.soon")} (${eduCountdownLabel})`
-            : t(service.buttonTextKey),
-        soonText:
-          service.id === 5 && isEduLocked
-            ? `${t("landing.services.status.soon")} (${eduCountdownLabel})`
-            : t("landing.services.status.soon"),
+        buttonText: t(service.buttonTextKey),
+        soonText: t("landing.services.status.soon"),
         category: t(service.categoryKey),
       })),
-    [eduCountdownLabel, isEduLocked, t]
+    [t]
   );
 
   const featuredService = services.find((service) => service.active) ?? services[0];
