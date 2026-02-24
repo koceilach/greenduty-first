@@ -7,8 +7,18 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
 
-const first = <T,>(v: T | T[] | null | undefined): T | null =>
-  Array.isArray(v) ? v[0] ?? null : v ?? null;
+const shortAgo = (iso: string | null) => {
+  if (!iso) return null;
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+  const sec = Math.floor(diff / 1000);
+  if (sec < 10) return "just now";
+  if (sec < 60) return `${sec}s`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  return `${Math.floor(hr / 24)}d`;
+};
 
 export default function ChatPage() {
   const params = useParams();
@@ -22,53 +32,58 @@ export default function ChatPage() {
     username: string | null;
     avatarUrl: string | null;
     online: boolean;
+    status: "online" | "offline" | "away";
+    lastSeenAt: string | null;
   } | undefined>();
+  const otherUserDisplayName =
+    otherUser?.fullName?.trim() || otherUser?.username?.trim() || "User";
 
   useEffect(() => {
     if (!chatId) return;
+    let cancelled = false;
 
     const loadOtherUser = async () => {
       const { data: userData } = await supabase.auth.getUser();
       const user = userData.user;
       if (!user) return;
-      setCurrentUserId(user.id);
+      if (!cancelled) setCurrentUserId(user.id);
 
-      // Get the other participant
-      const { data: participants } = await supabase
+      // Get one participant that is not the logged-in user.
+      const { data: participantRow, error: participantError } = await supabase
         .from("conversation_participants")
-        .select(
-          `
-          user_id,
-          profiles:user_id (
-            id,
-            full_name,
-            username,
-            avatar_url
-          )
-        `
-        )
+        .select("user_id")
         .eq("conversation_id", chatId)
-        .neq("user_id", user.id);
+        .neq("user_id", user.id)
+        .limit(1)
+        .maybeSingle();
 
-      const otherParticipant = participants?.[0];
-      if (!otherParticipant) return;
+      if (participantError || !participantRow?.user_id) return;
+      const otherUserId = participantRow.user_id as string;
 
-      const prof = first(otherParticipant.profiles as any);
-      if (!prof) return;
+      // Load profile separately to avoid fragile nested relation behavior.
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("id, full_name, username, avatar_url")
+        .eq("id", otherUserId)
+        .maybeSingle();
 
       // Check presence
       const { data: presence } = await supabase
         .from("user_presence")
-        .select("status")
-        .eq("user_id", prof.id)
-        .single();
+        .select("status, last_seen_at")
+        .eq("user_id", otherUserId)
+        .maybeSingle();
+
+      if (cancelled) return;
 
       setOtherUser({
-        id: prof.id,
-        fullName: prof.full_name,
-        username: prof.username,
-        avatarUrl: prof.avatar_url,
+        id: profile?.id ?? otherUserId,
+        fullName: profile?.full_name ?? null,
+        username: profile?.username ?? null,
+        avatarUrl: profile?.avatar_url ?? null,
         online: presence?.status === "online",
+        status: (presence?.status as "online" | "offline" | "away") ?? "offline",
+        lastSeenAt: presence?.last_seen_at ?? null,
       });
     };
 
@@ -82,16 +97,23 @@ export default function ChatPage() {
         { event: "*", schema: "public", table: "user_presence" },
         (payload) => {
           const row = payload.new as any;
-          if (row?.user_id && otherUser && row.user_id === otherUser.id) {
-            setOtherUser((prev) =>
-              prev ? { ...prev, online: row.status === "online" } : prev
-            );
-          }
+          if (!row?.user_id) return;
+          setOtherUser((prev) =>
+            !prev || row.user_id !== prev.id
+              ? prev
+              : {
+                  ...prev,
+                  online: row.status === "online",
+                  status: (row.status as "online" | "offline" | "away") ?? "offline",
+                  lastSeenAt: row.last_seen_at ?? prev.lastSeenAt,
+                }
+          );
         }
       )
       .subscribe();
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -115,11 +137,11 @@ export default function ChatPage() {
                   {otherUser.avatarUrl ? (
                     <img
                       src={otherUser.avatarUrl}
-                      alt={otherUser.fullName ?? ""}
+                      alt={otherUserDisplayName}
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span>{otherUser.fullName?.slice(0, 2).toUpperCase() ?? "?"}</span>
+                    <span>{otherUserDisplayName.slice(0, 2).toUpperCase()}</span>
                   )}
                 </div>
                 {otherUser.online && (
@@ -127,13 +149,17 @@ export default function ChatPage() {
                 )}
               </div>
               <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                {otherUser.fullName}
+                {otherUserDisplayName}
               </p>
               {otherUser.username && (
                 <p className="text-xs text-slate-400">@{otherUser.username}</p>
               )}
-              <p className="mt-1 text-xs text-emerald-500">
-                {otherUser.online ? "Active now" : "Offline"}
+              <p className={`mt-1 text-xs ${otherUser.status === "online" ? "text-emerald-500" : "text-slate-400"}`}>
+                {otherUser.status === "online"
+                  ? `Online${shortAgo(otherUser.lastSeenAt) ? ` - active ${shortAgo(otherUser.lastSeenAt)} ago` : ""}`
+                  : otherUser.status === "away"
+                  ? `Away${shortAgo(otherUser.lastSeenAt) ? ` - seen ${shortAgo(otherUser.lastSeenAt)} ago` : ""}`
+                  : `Offline${shortAgo(otherUser.lastSeenAt) ? ` - last seen ${shortAgo(otherUser.lastSeenAt)} ago` : ""}`}
               </p>
             </div>
           )}
@@ -144,3 +170,4 @@ export default function ChatPage() {
     </div>
   );
 }
+

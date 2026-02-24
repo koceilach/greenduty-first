@@ -4,6 +4,12 @@
 
 export type MessageType = "text" | "voice" | "image" | "system";
 
+export type MessageEdit = {
+  previousContent: string | null;
+  newContent: string | null;
+  editedAt: string;
+};
+
 export type Message = {
   id: string;
   conversationId: string;
@@ -16,6 +22,8 @@ export type Message = {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  editedAt?: string | null;
+  editHistory?: MessageEdit[];
   /* joined */
   sender?: {
     id: string;
@@ -33,6 +41,8 @@ export type Conversation = {
   avatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
+  isPinned?: boolean;
+  isMuted?: boolean;
   /* computed client-side */
   lastMessage?: Message | null;
   unreadCount: number;
@@ -54,6 +64,9 @@ export type ConversationParticipant = {
   role: "member" | "admin";
   joinedAt: string;
   lastReadAt: string | null;
+  isPinned?: boolean;
+  isMuted?: boolean;
+  pinnedMessageId?: string | null;
   profile?: {
     id: string;
     fullName: string | null;
@@ -71,14 +84,23 @@ export type UserPresence = {
 export type Notification = {
   id: string;
   userId: string;
-  type: "like" | "comment" | "follow" | "message" | "mention" | "system";
+  type:
+    | "like"
+    | "comment"
+    | "comment_reply"
+    | "follow"
+    | "message"
+    | "mention"
+    | "repost_story"
+    | "system";
   title: string;
   body: string;
   actorId: string | null;
-  resourceType: "post" | "comment" | "conversation" | "profile" | null;
+  resourceType: "post" | "comment" | "conversation" | "profile" | "story" | null;
   resourceId: string | null;
   read: boolean;
   createdAt: string;
+  groupCount?: number;
   actor?: {
     fullName: string | null;
     username: string | null;

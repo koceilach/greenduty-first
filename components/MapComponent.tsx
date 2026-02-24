@@ -95,6 +95,7 @@ export default function MapComponent({
   mapId: mapIdProp,
   tileMode = 'standard',
   showControls = true,
+  showThemeToggle = true,
   viewportMode = 'regional',
   lowPowerMode = false,
   minZoomOverride,
@@ -112,6 +113,7 @@ export default function MapComponent({
   mapId?: string;
   tileMode?: 'standard' | 'satellite' | 'leaf';
   showControls?: boolean;
+  showThemeToggle?: boolean;
   viewportMode?: 'regional' | 'global';
   lowPowerMode?: boolean;
   minZoomOverride?: number;
@@ -611,7 +613,7 @@ export default function MapComponent({
         popupRootsRef.current.push(root);
         const popupIsDark = mapTheme === 'dark';
         const popupContainerClassName = [
-          'w-[min(80vw,19rem)] overflow-hidden rounded-[22px] border',
+          'w-[clamp(14.5rem,64vw,18rem)] max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-[22px] border',
           popupIsDark
             ? 'border-white/14 bg-[linear-gradient(158deg,rgba(9,14,27,0.96),rgba(25,38,56,0.92))] text-white shadow-[0_24px_55px_rgba(3,10,24,0.55)]'
             : 'border-slate-300/75 bg-[linear-gradient(158deg,rgba(255,255,255,0.96),rgba(239,246,242,0.94))] text-slate-900 shadow-[0_20px_44px_rgba(15,23,42,0.2)]',
@@ -630,7 +632,7 @@ export default function MapComponent({
                 )}, ${toRgba(statusColor, 0.9)})`,
               }}
             />
-            <div className="space-y-3.5 p-3.5">
+            <div className="space-y-3 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
@@ -661,7 +663,7 @@ export default function MapComponent({
               {report.image_url ? (
                 <div
                   className={[
-                    'group relative h-32 w-full overflow-hidden rounded-2xl border',
+                    'group relative h-28 w-full overflow-hidden rounded-2xl border sm:h-32',
                     popupIsDark ? 'border-white/12' : 'border-slate-200/80',
                   ].join(' ')}
                 >
@@ -760,7 +762,7 @@ export default function MapComponent({
               {report.notes ? (
                 <div
                   className={[
-                    'rounded-xl border px-2.5 py-2 text-xs leading-relaxed',
+                    'rounded-xl border px-2.5 py-2 text-xs leading-relaxed line-clamp-4',
                     popupIsDark
                       ? 'border-white/12 bg-black/20 text-white/80'
                       : 'border-slate-200/80 bg-slate-100/80 text-slate-700',
@@ -769,14 +771,14 @@ export default function MapComponent({
                   {report.notes}
                 </div>
               ) : null}
-              <div className={`grid gap-2 ${canConfirm ? 'grid-cols-2' : 'grid-cols-1'}`}>
+              <div className="grid grid-cols-1 gap-2">
                 {canConfirm ? (
                   <button
                     type="button"
                     onClick={() => onConfirmReport?.(reportId)}
                     disabled={isConfirming}
                     className={[
-                      'inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition',
+                      'inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-full px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] transition sm:text-[11px]',
                       isConfirming
                         ? popupIsDark
                           ? 'cursor-not-allowed border border-emerald-300/25 bg-emerald-500/18 text-emerald-100/85'
@@ -795,7 +797,7 @@ export default function MapComponent({
                   target="_blank"
                   rel="noreferrer"
                   className={[
-                    'inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] transition',
+                    'inline-flex min-h-[42px] items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] transition sm:text-[11px]',
                     popupIsDark
                       ? 'border-white/18 bg-white/[0.06] text-white hover:border-white/35 hover:bg-white/[0.12]'
                       : 'border-slate-300/80 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50',
@@ -826,28 +828,10 @@ export default function MapComponent({
           className: `gd-system-popup ${popupIsDark ? 'gd-system-popup-dark' : 'gd-system-popup-light'}`,
           closeButton: false,
           autoPan: true,
+          autoPanPadding: L.point(16, 120),
           maxWidth: 340,
+          minWidth: 220,
         }).setContent(wrapper);
-        popup.on('remove', () => {
-          if (typeof window !== 'undefined') {
-            window.setTimeout(() => {
-              try {
-                root.unmount();
-              } catch (error) {
-                console.warn('Popup root unmount failed:', error);
-              }
-            }, 0);
-          } else {
-            try {
-              root.unmount();
-            } catch (error) {
-              console.warn('Popup root unmount failed:', error);
-            }
-          }
-          popupRootsRef.current = popupRootsRef.current.filter(
-            (item) => item !== root
-          );
-        });
         marker.bindPopup(popup);
       }
       marker.addTo(layerGroup);
@@ -984,23 +968,25 @@ export default function MapComponent({
           >
             <Flame className="h-4 w-4" />
           </button>
-          <button
-            onClick={onToggleTheme}
-            className={[
-              'flex h-11 w-11 items-center justify-center rounded-full border',
-              'shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md transition',
-              mapTheme === 'dark'
-                ? 'border-white/10 bg-white/10 text-white hover:bg-white/20'
-                : 'border-black/10 bg-slate-200/50 text-slate-900 hover:bg-slate-300/80',
-            ].join(' ')}
-            aria-label="Toggle map theme"
-          >
-            {mapTheme === 'dark' ? (
-              <Moon className="h-4 w-4" />
-            ) : (
-              <Sun className="h-4 w-4" />
-            )}
-          </button>
+          {showThemeToggle ? (
+            <button
+              onClick={onToggleTheme}
+              className={[
+                'flex h-11 w-11 items-center justify-center rounded-full border',
+                'shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md transition',
+                mapTheme === 'dark'
+                  ? 'border-white/10 bg-white/10 text-white hover:bg-white/20'
+                  : 'border-black/10 bg-slate-200/50 text-slate-900 hover:bg-slate-300/80',
+              ].join(' ')}
+              aria-label="Toggle map theme"
+            >
+              {mapTheme === 'dark' ? (
+                <Moon className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -1027,11 +1013,13 @@ export default function MapComponent({
             drop-shadow(0 18px 28px rgba(0, 0, 0, 0.16));
         }
         .gd-map-tilt .gd-leaflet-map .leaflet-marker-pane,
-        .gd-map-tilt .gd-leaflet-map .leaflet-popup-pane,
         .gd-map-tilt .gd-leaflet-map .leaflet-shadow-pane,
         .gd-map-tilt .gd-leaflet-map .leaflet-tooltip-pane {
           transform: rotateX(-10deg);
           transform-origin: center center;
+        }
+        .gd-map-tilt .gd-leaflet-map .leaflet-popup-pane {
+          transform: none !important;
         }
         .gd-map-low-power .gd-leaflet-map.leaflet-container {
           transform: none !important;
@@ -1045,27 +1033,36 @@ export default function MapComponent({
         .gd-map-low-power .gd-leaflet-map .leaflet-tile-pane {
           filter: none !important;
         }
+        .gd-system-popup .leaflet-popup-content {
+          margin: 0 !important;
+          min-width: 0 !important;
+          width: auto !important;
+        }
+        .gd-system-popup .leaflet-popup-content-wrapper {
+          border-radius: 22px !important;
+        }
         @media (max-width: 768px) {
           .gd-map-tilt .gd-leaflet-map.leaflet-container {
             transform: perspective(1000px) rotateX(8deg);
           }
           .gd-map-tilt .gd-leaflet-map .leaflet-marker-pane,
-          .gd-map-tilt .gd-leaflet-map .leaflet-popup-pane,
           .gd-map-tilt .gd-leaflet-map .leaflet-shadow-pane,
           .gd-map-tilt .gd-leaflet-map .leaflet-tooltip-pane {
             transform: rotateX(-8deg);
+          }
+          .gd-map-tilt .gd-leaflet-map .leaflet-popup-pane {
+            transform: none !important;
           }
           .leaflet-marker-icon,
           .leaflet-marker-shadow {
             transform: scale(0.85);
             transform-origin: center center;
           }
-          .leaflet-popup-content {
-            max-width: 290px;
+          .gd-system-popup .leaflet-popup-content {
+            max-width: min(78vw, 300px) !important;
             font-size: 12px;
-            margin: 6px 8px;
           }
-          .leaflet-popup-content-wrapper {
+          .gd-system-popup .leaflet-popup-content-wrapper {
             border-radius: 12px;
           }
           .leaflet-tooltip {

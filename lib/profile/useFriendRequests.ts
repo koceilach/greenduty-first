@@ -32,6 +32,8 @@ export type FriendRow = {
 
 export type FriendRequestStatus = "none" | "sent" | "received" | "friends";
 
+const educationRoleLabel = "User";
+
 /* ── hook ──────────────────────────────────────────────────── */
 
 export function useFriendRequests() {
@@ -94,12 +96,15 @@ export function useFriendRequests() {
 
       // Fetch all needed profiles in one go
       const allIds = [...new Set([...inSenderIds, ...outReceiverIds, ...friendUserIds])];
-      let profileMap: Record<string, { id: string; full_name: string; username: string; avatar_url: string | null; role: string }> = {};
+      let profileMap: Record<
+        string,
+        { id: string; full_name: string; username: string; avatar_url: string | null }
+      > = {};
 
       if (allIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("id, full_name, username, avatar_url, role")
+          .select("id, full_name, username, avatar_url")
           .in("id", allIds);
 
         for (const p of profiles ?? []) {
@@ -121,7 +126,7 @@ export function useFriendRequests() {
             fullName: p?.full_name ?? "User",
             username: p?.username ?? "",
             avatarUrl: p?.avatar_url ?? null,
-            role: p?.role ?? "User",
+            role: educationRoleLabel,
           },
         };
       });
@@ -140,7 +145,7 @@ export function useFriendRequests() {
             fullName: p?.full_name ?? "User",
             username: p?.username ?? "",
             avatarUrl: p?.avatar_url ?? null,
-            role: p?.role ?? "User",
+            role: educationRoleLabel,
           },
         };
       });
@@ -155,7 +160,7 @@ export function useFriendRequests() {
           fullName: p?.full_name ?? "User",
           username: p?.username ?? "",
           avatarUrl: p?.avatar_url ?? null,
-          role: p?.role ?? "User",
+          role: educationRoleLabel,
           since: r.created_at,
         };
       });

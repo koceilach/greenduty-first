@@ -4,6 +4,11 @@ import { EduNavbar } from "@/components/edu/Navbar";
 import { EduSidebar } from "@/components/edu/Sidebar";
 import { MobileBottomNav } from "@/components/edu/MobileBottomNav";
 import { PostCard } from "@/components/edu/PostCard";
+import {
+  getHomeFeed,
+  type HomeFeedPostItem,
+} from "@/app/education/actions/get-home-feed";
+import { mapHomeFeedPostToEduFeedPost } from "@/lib/edu/home-feed-mapper";
 import { supabase } from "@/lib/supabase/client";
 import type { EduFeedPost } from "@/lib/edu/feed";
 import {
@@ -24,6 +29,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const first = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? v[0] ?? null : v ?? null;
+
+const escapeIlike = (value: string) =>
+  value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
 
 const CATEGORIES = ["All", "Agronomy", "Climate", "Soil", "Water"] as const;
 
@@ -61,7 +69,7 @@ type AiJoin = {
 };
 type SearchRow = {
   id: string; user_id: string; title: string; body: string | null;
-  media_type: string; media_urls: string[] | null; hashtags: string[] | null;
+  media_type: string; media_urls: string[] | null; resource_url: string | null; hashtags: string[] | null;
   sources: string[] | null; status: string; created_at: string;
   edu_creators: CreatorJoin | CreatorJoin[] | null;
   edu_categories: CategoryJoin | CategoryJoin[] | null;
@@ -105,6 +113,7 @@ const buildPost = (row: SearchRow): EduFeedPost => {
       assetUrl: isCarousel ? undefined : urls[0],
       assetUrls: isCarousel ? urls : undefined,
       posterUrl: isVideo ? urls[1] ?? "/student2.jpg" : undefined,
+      resourceUrl: row.resource_url,
     },
     caption: row.body ?? row.title,
     explanation: row.body ?? row.title,
@@ -140,7 +149,7 @@ export default function EducationSearchPage() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const SELECT = `
-    id, user_id, title, body, media_type, media_urls, hashtags, sources, status, created_at,
+    id, user_id, title, body, media_type, media_urls, resource_url, hashtags, sources, status, created_at,
     edu_creators:creator_id ( display_name, verified, avatar_url ),
     edu_categories:category_id ( name ),
     edu_post_stats:edu_post_stats ( likes, saves, comments ),
@@ -150,13 +159,12 @@ export default function EducationSearchPage() {
   /* Load recent / trending posts on mount */
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("edu_posts")
-        .select(SELECT)
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-        .limit(6);
-      setRecentPosts((data ?? []).map((r) => buildPost(r as SearchRow)));
+      const feedResult = await getHomeFeed({ limit: 12, offset: 0 });
+      const feedPosts = feedResult.items
+        .filter((item): item is HomeFeedPostItem => item.kind === "post")
+        .map(mapHomeFeedPostToEduFeedPost)
+        .slice(0, 6);
+      setRecentPosts(feedPosts);
       setRecentLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,39 +178,62 @@ export default function EducationSearchPage() {
 
       const trimmed = searchQuery.trim();
 
-      /* Posts query */
-      let q = supabase
-        .from("edu_posts")
-        .select(SELECT)
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-        .limit(30);
+      try {
+        const feedPromise = getHomeFeed({
+          limit: 60,
+          search: trimmed || undefined,
+        });
 
-      if (trimmed) {
-        q = q.or(`title.ilike.%${trimmed}%,body.ilike.%${trimmed}%`);
+        const usersPromise = trimmed
+          ? (async () => {
+              const pattern = `%${escapeIlike(trimmed)}%`;
+              const [fullNameResult, usernameResult] = await Promise.all([
+                supabase
+                  .from("profiles")
+                  .select("id, full_name, username, avatar_url")
+                  .ilike("full_name", pattern)
+                  .limit(5),
+                supabase
+                  .from("profiles")
+                  .select("id, full_name, username, avatar_url")
+                  .ilike("username", pattern)
+                  .limit(5),
+              ]);
+
+              const merged = [
+                ...(fullNameResult.data ?? []),
+                ...(usernameResult.data ?? []),
+              ] as UserRow[];
+              const deduped = Array.from(
+                new Map(merged.map((row) => [row.id, row])).values()
+              ).slice(0, 5);
+
+              return deduped;
+            })()
+          : Promise.resolve([] as UserRow[]);
+
+        const [feedResult, users] = await Promise.all([feedPromise, usersPromise]);
+
+        const rankedPosts = feedResult.items
+          .filter((item): item is HomeFeedPostItem => item.kind === "post")
+          .map(mapHomeFeedPostToEduFeedPost);
+
+        const filtered = rankedPosts.filter(
+          (post) =>
+            searchCategory === "All" ||
+            post.category.label.toLowerCase() === searchCategory.toLowerCase()
+        );
+
+        setResults(filtered);
+        setUserResults(users);
+      } catch {
+        setResults([]);
+        setUserResults([]);
+      } finally {
+        setLoading(false);
       }
-
-      /* Users query (only when there's text) */
-      const usersPromise = trimmed
-        ? supabase
-            .from("profiles")
-            .select("id, full_name, username, avatar_url")
-            .or(`full_name.ilike.%${trimmed}%,username.ilike.%${trimmed}%`)
-            .limit(5)
-        : Promise.resolve({ data: [] as UserRow[] });
-
-      const [{ data: postRows }, { data: users }] = await Promise.all([q, usersPromise]);
-
-      /* Client-side category filter (PostgREST can't filter on joined column names easily) */
-      const filtered = (postRows ?? [])
-        .map((r) => buildPost(r as SearchRow))
-        .filter((p) => searchCategory === "All" || p.category.label.toLowerCase() === searchCategory.toLowerCase());
-
-      setResults(filtered);
-      setUserResults((users as UserRow[] | null) ?? []);
-      setLoading(false);
     },
-    [SELECT]
+    []
   );
 
   /* Debounced live search as user types */
@@ -253,20 +284,20 @@ export default function EducationSearchPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F6F8F7] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div className="gd-edu min-h-screen bg-slate-50 text-slate-900">
       <EduNavbar />
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-3 pb-24 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:px-8">
+      <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 px-3 pb-[calc(6.8rem+env(safe-area-inset-bottom,0px))] pt-4 sm:gap-5 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)_320px] lg:gap-6 lg:px-6 lg:pb-8 lg:pt-6">
         {/* Left sidebar */}
         <aside className="hidden lg:block">
           <EduSidebar side="left" />
         </aside>
 
         {/* Main content */}
-        <main>
+        <main className="min-w-0">
           {/* Search bar */}
           <form onSubmit={handleSubmit} className="mb-4 sm:mb-6">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-[#1E7F43]/30 dark:border-slate-800 dark:bg-slate-900 sm:rounded-2xl sm:px-4 sm:py-3">
+            <div className="flex items-center gap-2 rounded-[2rem] bg-white px-3 py-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-shadow focus-within:ring-2 focus-within:ring-emerald-500/25 sm:px-4 sm:py-3">
               <Search className="h-5 w-5 shrink-0 text-slate-400" />
               <input
                 type="text"
@@ -283,7 +314,7 @@ export default function EducationSearchPage() {
               )}
               <button
                 type="submit"
-                className="rounded-full bg-[#1E7F43] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#166536]"
+                className="inline-flex h-10 items-center rounded-full bg-emerald-500 px-4 text-xs font-semibold text-white transition hover:bg-emerald-600"
               >
                 Search
               </button>
@@ -296,10 +327,10 @@ export default function EducationSearchPage() {
               <button
                 key={cat}
                 onClick={() => setCategory(cat)}
-                className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                className={`h-10 shrink-0 rounded-full px-4 text-xs font-semibold transition ${
                   category === cat
-                    ? "bg-[#1E7F43] text-white shadow-sm"
-                    : "border border-slate-200 bg-white text-slate-500 hover:border-[#1E7F43] hover:text-[#1E7F43] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                    ? "bg-emerald-500 text-white shadow-sm"
+                    : "bg-white text-slate-500 shadow-[0_8px_24px_rgb(0,0,0,0.04)] hover:text-emerald-600"
                 }`}
               >
                 {cat}
@@ -316,17 +347,17 @@ export default function EducationSearchPage() {
             <>
               {/* User results */}
               {userResults.length > 0 && (
-                <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="mb-6 rounded-[2rem] bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:p-5">
                   <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-slate-400">
                     <Users className="h-3.5 w-3.5" />
                     People
                   </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-3">
                     {userResults.map((user) => (
                       <Link
                         key={user.id}
                         href={`/profile/${user.id}`}
-                        className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-2.5 transition hover:border-[#1E7F43]/30 hover:bg-emerald-50/50 dark:border-slate-800 dark:bg-slate-800/50 dark:hover:bg-emerald-900/10"
+                        className="flex items-center gap-3 rounded-2xl bg-slate-100 px-4 py-2.5 transition hover:bg-emerald-50/70"
                       >
                         <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-[#1E7F43]/10 text-xs font-semibold text-[#1E7F43]">
                           {user.avatar_url ? (
@@ -336,7 +367,7 @@ export default function EducationSearchPage() {
                           )}
                         </div>
                         <div>
-                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          <p className="text-sm font-semibold text-slate-800">
                             {user.full_name ?? "User"}
                           </p>
                           {user.username && (
@@ -371,7 +402,7 @@ export default function EducationSearchPage() {
             /* Landing state — trending topics + recent posts */
             <div className="space-y-6">
               {/* Trending topics */}
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-3xl sm:p-6">
+              <div className="rounded-[2rem] bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:p-6">
                 <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
                   <TrendingUp className="h-4 w-4 text-[#1E7F43]" />
                   Trending Topics
@@ -381,7 +412,7 @@ export default function EducationSearchPage() {
                     <button
                       key={topic}
                       onClick={() => handleTopicClick(topic)}
-                      className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-600 transition hover:border-[#1E7F43] hover:bg-emerald-50 hover:text-[#1E7F43] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:border-emerald-700 dark:hover:bg-emerald-900/20"
+                      className="rounded-full bg-slate-100 px-4 py-2 text-xs font-medium text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700"
                     >
                       {topic}
                     </button>

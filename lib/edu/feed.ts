@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   Bell,
+  Clapperboard,
   Droplet,
   Globe,
   Home,
@@ -40,7 +41,7 @@ export type EduFeedPost = {
     badgeClass: string;
   };
   media: {
-    type: "image" | "video" | "carousel" | "infographic";
+    type: "image" | "video" | "carousel" | "infographic" | "resource";
     label: string;
     description: string;
     icon?: LucideIcon;
@@ -48,6 +49,7 @@ export type EduFeedPost = {
     assetUrl?: string;
     assetUrls?: string[];
     posterUrl?: string;
+    resourceUrl?: string | null;
   };
   caption: string;
   explanation: string;
@@ -73,6 +75,7 @@ export type EduFeedPost = {
 
 export const eduNavItems: Array<{ label: string; href: string; icon: LucideIcon }> = [
   { label: "Home", href: "/education", icon: Home },
+  { label: "Reels", href: "/education/reels", icon: Clapperboard },
   { label: "Search", href: "/education/search", icon: Search },
   { label: "Create", href: "/education/create", icon: PlusSquare },
   { label: "People", href: "/education/people", icon: Users },

@@ -128,4 +128,19 @@ create trigger trg_friend_request_accepted
 -- ============================================================
 -- Realtime
 -- ============================================================
-alter publication supabase_realtime add table public.friend_requests;
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1
+       from pg_publication_tables
+       where pubname = 'supabase_realtime'
+         and schemaname = 'public'
+         and tablename = 'friend_requests'
+     ) then
+    alter publication supabase_realtime add table public.friend_requests;
+  end if;
+exception
+  when duplicate_object then
+    null;
+end $$;

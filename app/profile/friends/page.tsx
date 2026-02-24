@@ -138,8 +138,7 @@ export default function ProfileFriendsPage() {
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/60 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:border-slate-800 dark:bg-slate-900/60">
                     <th className="px-4 py-3">Friend</th>
-                    <th className="hidden px-4 py-3 sm:table-cell">Role</th>
-                    <th className="hidden px-4 py-3 md:table-cell">Since</th>
+                    <th className="hidden px-4 py-3 sm:table-cell">Since</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -175,12 +174,7 @@ export default function ProfileFriendsPage() {
                           </div>
                         </Link>
                       </td>
-                      <td className="hidden px-4 py-3 sm:table-cell">
-                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-400">
-                          {friend.role}
-                        </span>
-                      </td>
-                      <td className="hidden px-4 py-3 text-xs text-slate-400 md:table-cell">
+                      <td className="hidden px-4 py-3 text-xs text-slate-400 sm:table-cell">
                         {new Date(friend.since).toLocaleDateString(undefined, {
                           month: "short",
                           day: "numeric",

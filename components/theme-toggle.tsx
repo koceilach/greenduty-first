@@ -28,9 +28,12 @@ export function ThemeToggle() {
   const inactiveButtonClass = isLight
     ? "text-slate-500 hover:bg-slate-900/8 hover:text-emerald-700"
     : "text-white/70 hover:bg-white/10 hover:text-emerald-200";
-  const isReportedAreaPage = pathname?.startsWith("/reported-area");
+  const shouldHideOnRoute =
+    pathname?.startsWith("/reported-area") ||
+    pathname?.startsWith("/education") ||
+    pathname?.startsWith("/messages");
 
-  if (isReportedAreaPage) {
+  if (shouldHideOnRoute) {
     return null;
   }
 

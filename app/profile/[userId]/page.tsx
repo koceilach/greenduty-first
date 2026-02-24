@@ -1,9 +1,12 @@
 "use client";
 
 import { EduNavbar } from "@/components/edu/Navbar";
+import { EduSidebar } from "@/components/edu/Sidebar";
+import { MobileBottomNav } from "@/components/edu/MobileBottomNav";
 import { PostCard } from "@/components/edu/PostCard";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase/client";
+import { GD_findOrCreateDirectConversation } from "@/lib/messages/direct-conversation";
 import { CheckCircle2, Clock, Loader2, MapPin, MessageCircle, UserCheck, UserMinus, UserPlus, X } from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -37,6 +40,7 @@ export default function PublicProfilePage() {
   const [posts, setPosts] = useState<EduFeedPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [openingChat, setOpeningChat] = useState(false);
 
   const {
     sendRequest,
@@ -165,13 +169,38 @@ export default function PublicProfilePage() {
     setProfile((p) => p ? { ...p, isFollowing: false, followerCount: Math.max(0, p.followerCount - 1) } : p);
   };
 
+  const handleOpenChat = async () => {
+    if (!currentUserId || openingChat) return;
+    setOpeningChat(true);
+
+    const result = await GD_findOrCreateDirectConversation(
+      supabase,
+      currentUserId,
+      userId
+    );
+
+    setOpeningChat(false);
+    if (!result.conversationId) {
+      router.push("/messages");
+      return;
+    }
+
+    router.push(`/messages/${result.conversationId}`);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#F6F8F7] dark:bg-slate-950">
         <EduNavbar />
-        <div className="flex items-center justify-center py-32">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+        <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 px-3 pb-[calc(6.8rem+env(safe-area-inset-bottom,0px))] pt-4 sm:gap-5 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:pb-10 lg:pt-6">
+          <EduSidebar side="left" />
+          <main className="min-w-0">
+            <div className="flex items-center justify-center py-32">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+            </div>
+          </main>
         </div>
+        <MobileBottomNav />
       </div>
     );
   }
@@ -180,9 +209,15 @@ export default function PublicProfilePage() {
     return (
       <div className="min-h-screen bg-[#F6F8F7] dark:bg-slate-950">
         <EduNavbar />
-        <div className="flex flex-col items-center justify-center py-32 text-slate-400">
-          <p className="text-lg font-medium">User not found</p>
+        <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 px-3 pb-[calc(6.8rem+env(safe-area-inset-bottom,0px))] pt-4 sm:gap-5 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:pb-10 lg:pt-6">
+          <EduSidebar side="left" />
+          <main className="min-w-0">
+            <div className="flex flex-col items-center justify-center py-32 text-slate-400">
+              <p className="text-lg font-medium">User not found</p>
+            </div>
+          </main>
         </div>
+        <MobileBottomNav />
       </div>
     );
   }
@@ -193,172 +228,187 @@ export default function PublicProfilePage() {
     <div className="min-h-screen bg-[#F6F8F7] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <EduNavbar />
 
-      <div className="mx-auto max-w-4xl px-4 pb-24 pt-6 sm:px-6 lg:px-8">
-        {/* Profile header */}
-        <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="relative">
-            <div className="h-48 bg-gradient-to-br from-emerald-200 via-emerald-50 to-white dark:from-emerald-900/30 dark:via-slate-900 dark:to-slate-950">
-              {profile.coverUrl && <img src={profile.coverUrl} alt="Cover" className="h-full w-full object-cover" />}
-            </div>
-            <div className="absolute -bottom-12 left-8">
-              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-emerald-100 text-xl font-semibold text-emerald-700 shadow-lg dark:border-slate-900 dark:bg-emerald-900/40 dark:text-emerald-300">
-                {profile.avatarUrl ? (
-                  <img src={profile.avatarUrl} alt={profile.fullName} className="h-full w-full object-cover" />
-                ) : (
-                  <span>{avatarFallback}</span>
-                )}
-              </div>
-            </div>
-          </div>
+      <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 px-3 pb-[calc(6.8rem+env(safe-area-inset-bottom,0px))] pt-4 sm:gap-5 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:pb-10 lg:pt-6">
+        <EduSidebar side="left" />
 
-          <div className="px-6 pb-6 pt-16">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="flex items-center gap-2 text-lg font-semibold">
-                  {profile.fullName}
-                  {profile.role.toLowerCase().includes("expert") && (
-                    <CheckCircle2 className="h-4 w-4 text-[#1E7F43]" />
-                  )}
+        <main className="min-w-0">
+          <div className="mx-auto max-w-4xl px-0 pb-0 pt-2 sm:px-2 lg:px-4">
+            {/* Profile header */}
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="relative">
+                <div className="h-48 bg-gradient-to-br from-emerald-200 via-emerald-50 to-white dark:from-emerald-900/30 dark:via-slate-900 dark:to-slate-950">
+                  {profile.coverUrl && <img src={profile.coverUrl} alt="Cover" className="h-full w-full object-cover" />}
                 </div>
-                <p className="text-sm text-slate-400">@{profile.username}</p>
-                {profile.location && (
-                  <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
-                    <MapPin className="h-3 w-3" />
-                    <span>{profile.location}</span>
-                  </div>
-                )}
-                {profile.bio && (
-                  <p className="mt-3 max-w-lg text-sm text-slate-600 dark:text-slate-300">{profile.bio}</p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <div className="flex gap-4 text-center text-sm">
-                  <div>
-                    <div className="font-bold">{profile.postCount}</div>
-                    <div className="text-xs text-slate-400">Posts</div>
-                  </div>
-                  <div>
-                    <div className="font-bold">{profile.followerCount}</div>
-                    <div className="text-xs text-slate-400">Followers</div>
-                  </div>
-                  <div>
-                    <div className="font-bold">{profile.followingCount}</div>
-                    <div className="text-xs text-slate-400">Following</div>
-                  </div>
-                </div>
-
-                {currentUserId && (
-                  <div className="flex flex-wrap gap-2">
-                    {/* Follow / Unfollow */}
-                    {profile.isFollowing ? (
-                      <Button onClick={handleUnfollow} variant="outline" size="sm" className="rounded-full text-xs">
-                        <UserMinus className="mr-1 h-3.5 w-3.5" />
-                        Unfollow
-                      </Button>
+                <div className="absolute -bottom-12 left-8">
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-emerald-100 text-xl font-semibold text-emerald-700 shadow-lg dark:border-slate-900 dark:bg-emerald-900/40 dark:text-emerald-300">
+                    {profile.avatarUrl ? (
+                      <img src={profile.avatarUrl} alt={profile.fullName} className="h-full w-full object-cover" />
                     ) : (
-                      <Button onClick={handleFollow} size="sm" className="rounded-full bg-[#1E7F43] text-xs text-white hover:bg-[#166536]">
-                        <UserPlus className="mr-1 h-3.5 w-3.5" />
-                        Follow
-                      </Button>
+                      <span>{avatarFallback}</span>
                     )}
+                  </div>
+                </div>
+              </div>
 
-                    {/* Friend request actions */}
-                    {(() => {
-                      const rel = getRelationship(userId);
-                      const reqId = getRequestId(userId);
-                      const fId = getFriendshipId(userId);
+              <div className="px-6 pb-6 pt-16">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 text-lg font-semibold">
+                      {profile.fullName}
+                      {profile.role.toLowerCase().includes("expert") && (
+                        <CheckCircle2 className="h-4 w-4 text-[#1E7F43]" />
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-400">@{profile.username}</p>
+                    {profile.location && (
+                      <div className="mt-1 flex items-center gap-1 text-xs text-slate-400">
+                        <MapPin className="h-3 w-3" />
+                        <span>{profile.location}</span>
+                      </div>
+                    )}
+                    {profile.bio && (
+                      <p className="mt-3 max-w-lg text-sm text-slate-600 dark:text-slate-300">{profile.bio}</p>
+                    )}
+                  </div>
 
-                      if (rel === "friends" && fId) {
-                        return (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => unfriend(fId)}
-                            className="rounded-full text-xs text-emerald-600"
-                          >
-                            <UserCheck className="mr-1 h-3.5 w-3.5" />
-                            Friends
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-4 text-center text-sm">
+                      <div>
+                        <div className="font-bold">{profile.postCount}</div>
+                        <div className="text-xs text-slate-400">Posts</div>
+                      </div>
+                      <div>
+                        <div className="font-bold">{profile.followerCount}</div>
+                        <div className="text-xs text-slate-400">Followers</div>
+                      </div>
+                      <div>
+                        <div className="font-bold">{profile.followingCount}</div>
+                        <div className="text-xs text-slate-400">Following</div>
+                      </div>
+                    </div>
+
+                    {currentUserId && (
+                      <div className="flex flex-wrap gap-2">
+                        {/* Follow / Unfollow */}
+                        {profile.isFollowing ? (
+                          <Button onClick={handleUnfollow} variant="outline" size="sm" className="rounded-full text-xs">
+                            <UserMinus className="mr-1 h-3.5 w-3.5" />
+                            Unfollow
                           </Button>
-                        );
-                      }
-                      if (rel === "sent" && reqId) {
-                        return (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => cancelRequest(reqId)}
-                            className="rounded-full text-xs"
-                          >
-                            <Clock className="mr-1 h-3.5 w-3.5" />
-                            Request Sent
+                        ) : (
+                          <Button onClick={handleFollow} size="sm" className="rounded-full bg-[#1E7F43] text-xs text-white hover:bg-[#166536]">
+                            <UserPlus className="mr-1 h-3.5 w-3.5" />
+                            Follow
                           </Button>
-                        );
-                      }
-                      if (rel === "received" && reqId) {
-                        return (
-                          <>
+                        )}
+
+                        {/* Friend request actions */}
+                        {(() => {
+                          const rel = getRelationship(userId);
+                          const reqId = getRequestId(userId);
+                          const fId = getFriendshipId(userId);
+
+                          if (rel === "friends" && fId) {
+                            return (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => unfriend(fId)}
+                                className="rounded-full text-xs text-emerald-600"
+                              >
+                                <UserCheck className="mr-1 h-3.5 w-3.5" />
+                                Friends
+                              </Button>
+                            );
+                          }
+                          if (rel === "sent" && reqId) {
+                            return (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => cancelRequest(reqId)}
+                                className="rounded-full text-xs"
+                              >
+                                <Clock className="mr-1 h-3.5 w-3.5" />
+                                Request Sent
+                              </Button>
+                            );
+                          }
+                          if (rel === "received" && reqId) {
+                            return (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => acceptRequest(reqId)}
+                                  className="rounded-full bg-emerald-600 text-xs text-white hover:bg-emerald-700"
+                                >
+                                  <UserCheck className="mr-1 h-3.5 w-3.5" />
+                                  Accept
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => declineRequest(reqId)}
+                                  className="rounded-full text-xs"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            );
+                          }
+                          return (
                             <Button
                               size="sm"
-                              onClick={() => acceptRequest(reqId)}
-                              className="rounded-full bg-emerald-600 text-xs text-white hover:bg-emerald-700"
-                            >
-                              <UserCheck className="mr-1 h-3.5 w-3.5" />
-                              Accept
-                            </Button>
-                            <Button
                               variant="outline"
-                              size="sm"
-                              onClick={() => declineRequest(reqId)}
+                              onClick={() => sendRequest(userId)}
                               className="rounded-full text-xs"
                             >
-                              <X className="h-3.5 w-3.5" />
+                              <UserPlus className="mr-1 h-3.5 w-3.5" />
+                              Add Friend
                             </Button>
-                          </>
-                        );
-                      }
-                      return (
+                          );
+                        })()}
+
                         <Button
-                          size="sm"
                           variant="outline"
-                          onClick={() => sendRequest(userId)}
+                          size="sm"
                           className="rounded-full text-xs"
+                          onClick={handleOpenChat}
+                          disabled={openingChat}
                         >
-                          <UserPlus className="mr-1 h-3.5 w-3.5" />
-                          Add Friend
+                          {openingChat ? (
+                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <MessageCircle className="mr-1 h-3.5 w-3.5" />
+                          )}
+                          Message
                         </Button>
-                      );
-                    })()}
-
-                    <Button asChild variant="outline" size="sm" className="rounded-full text-xs">
-                      <a href="/messages">
-                        <MessageCircle className="mr-1 h-3.5 w-3.5" />
-                        Message
-                      </a>
-                    </Button>
+                      </div>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
-        </section>
+            </section>
 
-        {/* Posts */}
-        <section className="mt-6">
-          <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.15em] text-slate-400">Posts</h3>
-          {posts.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center text-slate-400 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-sm">No posts yet</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </div>
-          )}
-        </section>
+            {/* Posts */}
+            <section className="mt-6">
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.15em] text-slate-400">Posts</h3>
+              {posts.length === 0 ? (
+                <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center text-slate-400 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                  <p className="text-sm">No posts yet</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {posts.map((post) => (
+                    <PostCard key={post.id} post={post} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </main>
       </div>
+      <MobileBottomNav />
     </div>
   );
 }

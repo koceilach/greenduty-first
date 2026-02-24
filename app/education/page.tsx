@@ -11,15 +11,13 @@ export const metadata = {
 
 export default function EducationPage() {
   return (
-    <div className="min-h-screen bg-[#F6F8F7] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div className="gd-edu min-h-screen bg-slate-50 text-gray-900">
       <EduNavbar />
-      <div className="mx-auto grid max-w-7xl gap-4 px-3 py-4 sm:gap-6 sm:px-6 sm:py-8 lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:px-8">
+      <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 px-3 pb-[calc(6.8rem+env(safe-area-inset-bottom,0px))] pt-4 sm:gap-5 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)] lg:gap-6 lg:px-6 lg:pb-8 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_320px]">
         <EduSidebar side="left" />
         <EduFeedClient />
         <EduSidebar side="right" />
       </div>
-      {/* Extra bottom space for mobile nav */}
-      <div className="h-20 lg:hidden" />
       <MobileBottomNav />
     </div>
   );

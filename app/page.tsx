@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
@@ -12,6 +12,7 @@ import { DiscordCommunity } from "@/components/discord-community";
 import { HelpUs } from "@/components/help-us";
 import { Contact } from "@/components/contact";
 import { Footer } from "@/components/footer";
+import { WelcomeEntrance } from "@/components/welcome-entrance";
 import { useI18n } from "@/lib/i18n/context";
 
 function SectionReveal({ children }: { children: ReactNode }) {
@@ -89,39 +90,55 @@ function HeroEarthScrollCue() {
 }
 
 export default function Home() {
-  return (
-    <main className="relative min-h-screen snap-y snap-proximity overflow-x-clip bg-[var(--gd-home-bg-gradient)] text-[var(--gd-text-100)]">
-      <ScrollProgressRail />
+  const [showEntrance, setShowEntrance] = useState(true);
 
-      <Navbar />
-      <SectionReveal>
-        <Hero />
-      </SectionReveal>
-      <HeroEarthScrollCue />
-      <SectionReveal>
-        <Interactive3DSection />
-      </SectionReveal>
-      <SectionReveal>
-        <Services />
-      </SectionReveal>
-      <SectionReveal>
-        <WorkWithUs />
-      </SectionReveal>
-      <SectionReveal>
-        <ImpactStats />
-      </SectionReveal>
-      <SectionReveal>
-        <DiscordCommunity />
-      </SectionReveal>
-      <SectionReveal>
-        <HelpUs />
-      </SectionReveal>
-      <SectionReveal>
-        <Contact />
-      </SectionReveal>
-      <SectionReveal>
-        <Footer />
-      </SectionReveal>
-    </main>
+  return (
+    <>
+      {showEntrance && <WelcomeEntrance onDone={() => setShowEntrance(false)} />}
+
+      <main
+        className={`relative min-h-screen snap-y snap-proximity overflow-x-clip bg-[var(--gd-home-bg-gradient)] text-[var(--gd-text-100)] transition-[filter,transform,opacity] duration-700 ${
+          showEntrance ? "pointer-events-none select-none" : ""
+        }`}
+        style={{
+          opacity: showEntrance ? 0.88 : 1,
+          transform: showEntrance ? "scale(1.01)" : "scale(1)",
+          filter: showEntrance ? "blur(5px)" : "blur(0px)",
+          willChange: "transform, filter, opacity",
+        }}
+      >
+        <ScrollProgressRail />
+
+        <Navbar />
+        <SectionReveal>
+          <Hero />
+        </SectionReveal>
+        <HeroEarthScrollCue />
+        <SectionReveal>
+          <Interactive3DSection />
+        </SectionReveal>
+        <SectionReveal>
+          <Services />
+        </SectionReveal>
+        <SectionReveal>
+          <WorkWithUs />
+        </SectionReveal>
+        <SectionReveal>
+          <ImpactStats />
+        </SectionReveal>
+        <SectionReveal>
+          <DiscordCommunity />
+        </SectionReveal>
+        <SectionReveal>
+          <HelpUs />
+        </SectionReveal>
+        <SectionReveal>
+          <Contact />
+        </SectionReveal>
+        <SectionReveal>
+          <Footer />
+        </SectionReveal>
+      </main>
+    </>
   );
 }

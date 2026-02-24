@@ -2,11 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase/client";
-import type { Message, MessageType } from "./types";
-
-/* ─── helpers ───────────────────────────────────────────── */
-const first = <T,>(v: T | T[] | null | undefined): T | null =>
-  Array.isArray(v) ? v[0] ?? null : v ?? null;
+import type { Message, MessageEdit, MessageType } from "./types";
 
 const PAGE_SIZE = 40;
 
@@ -22,23 +18,83 @@ type RawMsg = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
-  profiles?: any;
 };
 
-function mapRow(row: RawMsg): Message {
-  const prof = first(row.profiles);
+type RawProfile = {
+  id: string;
+  full_name: string | null;
+  username: string | null;
+  avatar_url: string | null;
+};
+
+type RawEdit = {
+  message_id: string;
+  previous_content: string | null;
+  new_content: string | null;
+  edited_at: string;
+};
+
+const normalizeType = (value: string | null | undefined): MessageType => {
+  if (value === "voice" || value === "image" || value === "system") return value;
+  return "text";
+};
+
+const loadEditHistory = async (messageIds: string[]) => {
+  const map = new Map<string, MessageEdit[]>();
+  if (!messageIds.length) return map;
+
+  const { data, error } = await supabase
+    .from("message_edit_history")
+    .select("message_id, previous_content, new_content, edited_at")
+    .in("message_id", messageIds)
+    .order("edited_at", { ascending: false });
+
+  if (error) {
+    // Table may not be migrated yet; fail soft for chat rendering.
+    if (!error.message?.toLowerCase().includes("message_edit_history")) {
+      console.error("Fetch message edit history error:", error);
+    }
+    return map;
+  }
+
+  for (const row of (data ?? []) as RawEdit[]) {
+    const history = map.get(row.message_id) ?? [];
+    history.push({
+      previousContent: row.previous_content,
+      newContent: row.new_content,
+      editedAt: row.edited_at,
+    });
+    map.set(row.message_id, history);
+  }
+
+  return map;
+};
+
+function mapRow(
+  row: RawMsg,
+  profileMap: Map<string, RawProfile>,
+  editHistoryMap: Map<string, MessageEdit[]>
+): Message {
+  const prof = profileMap.get(row.sender_id);
+  const edits = editHistoryMap.get(row.id) ?? [];
+  const editedAt =
+    edits[0]?.editedAt ??
+    (row.updated_at !== row.created_at ? row.updated_at : null);
+
   return {
     id: row.id,
     conversationId: row.conversation_id,
     senderId: row.sender_id,
     content: row.content,
-    messageType: row.message_type as MessageType,
+    messageType: normalizeType(row.message_type),
     mediaUrl: row.media_url,
     mediaDuration: row.media_duration,
     replyToId: row.reply_to_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    editedAt,
+    editHistory: edits,
     sender: prof
       ? {
           id: prof.id,
@@ -50,23 +106,36 @@ function mapRow(row: RawMsg): Message {
   };
 }
 
-/* ─── hook ──────────────────────────────────────────────── */
 export function useChat(conversationId: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [otherParticipantLastReadAt, setOtherParticipantLastReadAt] = useState<string | null>(null);
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  /* ── fetch messages ──────────────────────────────────── */
   const fetchMessages = useCallback(
     async (before?: string) => {
       if (!conversationId) return;
       setLoading(true);
 
       const { data: userData } = await supabase.auth.getUser();
-      if (userData.user) setCurrentUserId(userData.user.id);
+      const viewerId = userData.user?.id ?? null;
+      if (viewerId) {
+        setCurrentUserId(viewerId);
+        const { data: otherParticipant } = await supabase
+          .from("conversation_participants")
+          .select("user_id, last_read_at, joined_at")
+          .eq("conversation_id", conversationId)
+          .neq("user_id", viewerId)
+          .order("joined_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        setOtherParticipantLastReadAt(otherParticipant?.last_read_at ?? null);
+      } else {
+        setOtherParticipantLastReadAt(null);
+      }
 
       let query = supabase
         .from("messages")
@@ -82,13 +151,7 @@ export function useChat(conversationId: string | null) {
           reply_to_id,
           created_at,
           updated_at,
-          deleted_at,
-          profiles:sender_id (
-            id,
-            full_name,
-            username,
-            avatar_url
-          )
+          deleted_at
         `
         )
         .eq("conversation_id", conversationId)
@@ -100,8 +163,39 @@ export function useChat(conversationId: string | null) {
         query = query.lt("created_at", before);
       }
 
-      const { data } = await query;
-      const mapped = (data ?? []).map((row) => mapRow(row as unknown as RawMsg)).reverse();
+      const { data, error } = await query;
+      if (error) {
+        console.error("Fetch messages error:", error);
+        if (!before) setMessages([]);
+        setHasMore(false);
+        setLoading(false);
+        return;
+      }
+
+      const rows = (data ?? []) as unknown as RawMsg[];
+      const senderIds = Array.from(new Set(rows.map((row) => row.sender_id))).filter(Boolean);
+      const messageIds = rows.map((row) => row.id);
+
+      let profileMap = new Map<string, RawProfile>();
+      if (senderIds.length) {
+        const { data: profileRows, error: profileError } = await supabase
+          .from("profiles")
+          .select("id, full_name, username, avatar_url")
+          .in("id", senderIds);
+
+        if (profileError) {
+          console.error("Fetch sender profiles error:", profileError);
+        } else {
+          profileMap = new Map(
+            ((profileRows ?? []) as RawProfile[]).map((profile) => [profile.id, profile])
+          );
+        }
+      }
+
+      const editHistoryMap = await loadEditHistory(messageIds);
+      const mapped = rows
+        .map((row) => mapRow(row, profileMap, editHistoryMap))
+        .reverse();
 
       if (before) {
         setMessages((prev) => [...mapped, ...prev]);
@@ -109,20 +203,18 @@ export function useChat(conversationId: string | null) {
         setMessages(mapped);
       }
 
-      setHasMore((data ?? []).length === PAGE_SIZE);
+      setHasMore(rows.length === PAGE_SIZE);
       setLoading(false);
     },
     [conversationId]
   );
 
-  /* ── load more (scroll up pagination) ────────────────── */
   const loadMore = useCallback(() => {
     if (messages.length > 0) {
       fetchMessages(messages[0].createdAt);
     }
   }, [messages, fetchMessages]);
 
-  /* ── send message ────────────────────────────────────── */
   const sendMessage = useCallback(
     async (opts: {
       content?: string;
@@ -131,12 +223,21 @@ export function useChat(conversationId: string | null) {
       mediaDuration?: number;
       replyToId?: string;
     }) => {
-      if (!conversationId || !currentUserId) return;
+      if (!conversationId) return;
+
+      let senderId = currentUserId;
+      if (!senderId) {
+        const { data: userData } = await supabase.auth.getUser();
+        senderId = userData.user?.id ?? null;
+        if (!senderId) return;
+        setCurrentUserId(senderId);
+      }
+
       setSending(true);
 
       const { error } = await supabase.from("messages").insert({
         conversation_id: conversationId,
-        sender_id: currentUserId,
+        sender_id: senderId,
         content: opts.content ?? null,
         message_type: opts.messageType ?? "text",
         media_url: opts.mediaUrl ?? null,
@@ -150,7 +251,61 @@ export function useChat(conversationId: string | null) {
     [conversationId, currentUserId]
   );
 
-  /* ── mark as read ────────────────────────────────────── */
+  const editMessage = useCallback(
+    async (messageId: string, nextContent: string): Promise<boolean> => {
+      if (!conversationId) return false;
+
+      const trimmed = nextContent.trim();
+      if (!trimmed) return false;
+
+      let editorId = currentUserId;
+      if (!editorId) {
+        const { data: userData } = await supabase.auth.getUser();
+        editorId = userData.user?.id ?? null;
+        if (!editorId) return false;
+        setCurrentUserId(editorId);
+      }
+
+      const nowIso = new Date().toISOString();
+      const { error } = await supabase
+        .from("messages")
+        .update({ content: trimmed, updated_at: nowIso })
+        .eq("id", messageId)
+        .eq("conversation_id", conversationId)
+        .eq("sender_id", editorId);
+
+      if (error) {
+        console.error("Edit message error:", error);
+        return false;
+      }
+
+      const editHistoryMap = await loadEditHistory([messageId]);
+      const persistedEdits = editHistoryMap.get(messageId) ?? [];
+
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== messageId) return msg;
+          const fallbackEdit: MessageEdit = {
+            previousContent: msg.content,
+            newContent: trimmed,
+            editedAt: nowIso,
+          };
+          const edits = persistedEdits.length ? persistedEdits : [fallbackEdit, ...(msg.editHistory ?? [])];
+          return {
+            ...msg,
+            content: trimmed,
+            updatedAt: nowIso,
+            editedAt: edits[0]?.editedAt ?? nowIso,
+            editHistory: edits,
+          };
+        })
+      );
+
+      return true;
+    },
+    [conversationId, currentUserId]
+  );
+
   const markAsRead = useCallback(async () => {
     if (!conversationId || !currentUserId) return;
     await supabase
@@ -160,26 +315,10 @@ export function useChat(conversationId: string | null) {
       .eq("user_id", currentUserId);
   }, [conversationId, currentUserId]);
 
-  /* ── delete message (soft) ───────────────────────────── */
-  const deleteMessage = useCallback(
-    async (messageId: string) => {
-      if (!currentUserId) return;
-      await supabase
-        .from("messages")
-        .update({ deleted_at: new Date().toISOString() })
-        .eq("id", messageId)
-        .eq("sender_id", currentUserId);
-
-      setMessages((prev) => prev.filter((m) => m.id !== messageId));
-    },
-    [currentUserId]
-  );
-
-  /* ── realtime subscription ───────────────────────────── */
   useEffect(() => {
     if (!conversationId) return;
 
-    fetchMessages();
+    void fetchMessages();
 
     const channel = supabase
       .channel(`chat-${conversationId}`)
@@ -192,26 +331,27 @@ export function useChat(conversationId: string | null) {
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          const row = payload.new as any;
-          // Fetch sender profile for the new message
+          const row = payload.new as RawMsg;
           const { data: profile } = await supabase
             .from("profiles")
             .select("id, full_name, username, avatar_url")
             .eq("id", row.sender_id)
-            .single();
+            .maybeSingle();
 
-          const newMsg: Message = {
+          const mapped: Message = {
             id: row.id,
             conversationId: row.conversation_id,
             senderId: row.sender_id,
             content: row.content,
-            messageType: row.message_type,
+            messageType: normalizeType(row.message_type),
             mediaUrl: row.media_url,
             mediaDuration: row.media_duration,
             replyToId: row.reply_to_id,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             deletedAt: row.deleted_at,
+            editedAt: row.updated_at !== row.created_at ? row.updated_at : null,
+            editHistory: [],
             sender: profile
               ? {
                   id: profile.id,
@@ -223,9 +363,71 @@ export function useChat(conversationId: string | null) {
           };
 
           setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev;
-            return [...prev, newMsg];
+            if (prev.some((m) => m.id === mapped.id)) return prev;
+            return [...prev, mapped];
           });
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        async (payload) => {
+          const row = payload.new as RawMsg;
+          if (row.deleted_at) return;
+
+          const editHistoryMap = await loadEditHistory([row.id]);
+          const edits = editHistoryMap.get(row.id) ?? [];
+
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id !== row.id
+                ? msg
+                : {
+                    ...msg,
+                    content: row.content,
+                    updatedAt: row.updated_at,
+                    editedAt: edits[0]?.editedAt ?? (row.updated_at !== row.created_at ? row.updated_at : null),
+                    editHistory: edits.length ? edits : msg.editHistory ?? [],
+                  }
+            )
+          );
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "conversation_participants",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as { user_id?: string; last_read_at?: string | null } | null;
+          if (!row?.user_id || !currentUserId) return;
+          if (row.user_id !== currentUserId) {
+            setOtherParticipantLastReadAt(row.last_read_at ?? null);
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "conversation_participants",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          const row = payload.new as { user_id?: string; last_read_at?: string | null } | null;
+          if (!row?.user_id || !currentUserId) return;
+          if (row.user_id !== currentUserId) {
+            setOtherParticipantLastReadAt(row.last_read_at ?? null);
+          }
         }
       )
       .subscribe();
@@ -236,7 +438,7 @@ export function useChat(conversationId: string | null) {
       supabase.removeChannel(channel);
       channelRef.current = null;
     };
-  }, [conversationId, fetchMessages]);
+  }, [conversationId, currentUserId, fetchMessages]);
 
   return {
     messages,
@@ -244,9 +446,10 @@ export function useChat(conversationId: string | null) {
     sending,
     hasMore,
     currentUserId,
+    otherParticipantLastReadAt,
     sendMessage,
+    editMessage,
     loadMore,
     markAsRead,
-    deleteMessage,
   };
 }

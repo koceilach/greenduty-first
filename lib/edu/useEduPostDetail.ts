@@ -39,6 +39,7 @@ type EduPostRow = {
   body: string | null;
   media_type: string;
   media_urls: string[] | null;
+  resource_url: string | null;
   hashtags: string[] | null;
   sources: string[] | null;
   status: string;
@@ -142,6 +143,7 @@ const buildPost = (row: EduPostRow): EduFeedPost => {
       assetUrl: isCarousel ? undefined : mediaUrls[0],
       assetUrls: isCarousel ? mediaUrls : undefined,
       posterUrl: isVideo ? mediaUrls[1] ?? "/student2.jpg" : undefined,
+      resourceUrl: row.resource_url,
     },
     caption: row.body ?? row.title,
     explanation: row.body ?? row.title,
@@ -188,6 +190,7 @@ export function useEduPostDetail(postId?: string) {
             body,
             media_type,
             media_urls,
+            resource_url,
             hashtags,
             sources,
             status,

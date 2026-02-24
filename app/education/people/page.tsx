@@ -34,6 +34,9 @@ type DiscoverProfile = {
   location: string | null;
 };
 
+const escapeIlike = (value: string) =>
+  value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+
 /* ── main page ─────────────────────────────────────────────── */
 
 export default function PeoplePage() {
@@ -101,14 +104,31 @@ export default function PeoplePage() {
     }
     setSearching(true);
 
-    const { data: rows } = await supabase
-      .from("profiles")
-      .select("id, full_name, username, avatar_url, role, bio, location")
-      .or(`full_name.ilike.%${query.trim()}%,username.ilike.%${query.trim()}%`)
-      .neq("id", currentUserId ?? "")
-      .limit(30);
+    const pattern = `%${escapeIlike(query.trim())}%`;
+    const [byNameResult, byUsernameResult] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("id, full_name, username, avatar_url, role, bio, location")
+        .ilike("full_name", pattern)
+        .neq("id", currentUserId ?? "")
+        .limit(30),
+      supabase
+        .from("profiles")
+        .select("id, full_name, username, avatar_url, role, bio, location")
+        .ilike("username", pattern)
+        .neq("id", currentUserId ?? "")
+        .limit(30),
+    ]);
 
-    const mapped: DiscoverProfile[] = (rows ?? []).map((r) => ({
+    const mergedRows = [
+      ...(byNameResult.data ?? []),
+      ...(byUsernameResult.data ?? []),
+    ];
+    const rows = Array.from(
+      new Map(mergedRows.map((row) => [row.id, row])).values()
+    ).slice(0, 30);
+
+    const mapped: DiscoverProfile[] = rows.map((r) => ({
       id: r.id,
       fullName: r.full_name ?? "User",
       username: r.username ?? "",
@@ -131,24 +151,24 @@ export default function PeoplePage() {
   const isLoading = query.trim() ? searching : loadingSuggested;
 
   return (
-    <div className="min-h-screen bg-[#F6F8F7] text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div className="gd-edu min-h-screen bg-slate-50 text-slate-900">
       <EduNavbar />
 
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 px-3 pb-24 pt-4 sm:gap-6 sm:px-6 sm:pt-6 lg:grid-cols-[260px_minmax(0,1fr)_300px] lg:px-8">
+      <div className="mx-auto grid w-full max-w-[1440px] grid-cols-1 gap-4 px-3 pb-[calc(6.8rem+env(safe-area-inset-bottom,0px))] pt-4 sm:gap-5 sm:px-4 lg:grid-cols-[280px_minmax(0,1fr)_320px] lg:gap-6 lg:px-6 lg:pb-8 lg:pt-6">
         {/* Left sidebar */}
         <aside className="hidden lg:block">
           <EduSidebar side="left" />
         </aside>
 
-        <main>
+        <main className="min-w-0">
           {/* Tabs */}
           <div className="mb-4 flex gap-2 overflow-x-auto sm:mb-6 sm:overflow-x-visible">
             <button
               onClick={() => setTab("discover")}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
                 tab === "discover"
-                  ? "bg-[#1E7F43] text-white shadow-sm"
-                  : "bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
+                  ? "bg-emerald-500 text-white shadow-sm"
+                  : "bg-white text-slate-600 shadow-[0_8px_24px_rgb(0,0,0,0.04)] hover:bg-slate-100"
               }`}
             >
               <Users className="mr-1.5 inline h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
@@ -158,8 +178,8 @@ export default function PeoplePage() {
               onClick={() => setTab("requests")}
               className={`relative shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition sm:px-4 sm:py-2 sm:text-sm ${
                 tab === "requests"
-                  ? "bg-[#1E7F43] text-white shadow-sm"
-                  : "bg-white text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300"
+                  ? "bg-emerald-500 text-white shadow-sm"
+                  : "bg-white text-slate-600 shadow-[0_8px_24px_rgb(0,0,0,0.04)] hover:bg-slate-100"
               }`}
             >
               <UserPlus className="mr-1.5 inline h-3.5 w-3.5 sm:mr-2 sm:h-4 sm:w-4" />
@@ -176,7 +196,7 @@ export default function PeoplePage() {
             <>
               {/* Search */}
               <form onSubmit={handleSubmit} className="mb-4 sm:mb-6">
-                <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-2xl sm:px-4 sm:py-3">
+                <div className="flex items-center gap-2 rounded-[2rem] bg-white px-3 py-2.5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:px-4 sm:py-3">
                   <Search className="h-5 w-5 text-slate-400" />
                   <input
                     type="text"
@@ -199,7 +219,7 @@ export default function PeoplePage() {
                   )}
                   <button
                     type="submit"
-                    className="rounded-full bg-[#1E7F43] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#166536]"
+                    className="inline-flex h-10 items-center rounded-full bg-emerald-500 px-4 text-xs font-semibold text-white transition hover:bg-emerald-600"
                   >
                     Search
                   </button>
@@ -256,7 +276,7 @@ export default function PeoplePage() {
                   <Loader2 className="h-5 w-5 animate-spin text-emerald-500" />
                 </div>
               ) : incoming.length === 0 ? (
-                <p className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-400 dark:border-slate-800 dark:bg-slate-900">
+                <p className="mb-8 rounded-[2rem] bg-white p-6 text-center text-sm text-slate-400 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                   No pending friend requests
                 </p>
               ) : (
@@ -264,7 +284,7 @@ export default function PeoplePage() {
                   {incoming.map((req) => (
                     <div
                       key={req.id}
-                      className="flex flex-wrap items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:flex-nowrap sm:gap-3 sm:rounded-2xl sm:p-4"
+                      className="flex flex-wrap items-center gap-2.5 rounded-[1.6rem] bg-white p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] sm:flex-nowrap sm:gap-3 sm:p-4"
                     >
                       <Link href={`/profile/${req.profile.id}`}>
                         <Avatar name={req.profile.fullName} url={req.profile.avatarUrl} />
@@ -309,7 +329,7 @@ export default function PeoplePage() {
                 Sent Requests ({outgoing.length})
               </h2>
               {outgoing.length === 0 ? (
-                <p className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-sm text-slate-400 dark:border-slate-800 dark:bg-slate-900">
+                <p className="rounded-[2rem] bg-white p-6 text-center text-sm text-slate-400 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
                   No pending sent requests
                 </p>
               ) : (
@@ -317,7 +337,7 @@ export default function PeoplePage() {
                   {outgoing.map((req) => (
                     <div
                       key={req.id}
-                      className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900"
+                      className="flex items-center gap-3 rounded-[1.6rem] bg-white p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)]"
                     >
                       <Link href={`/profile/${req.profile.id}`}>
                         <Avatar name={req.profile.fullName} url={req.profile.avatarUrl} />
@@ -356,7 +376,6 @@ export default function PeoplePage() {
           <EduSidebar side="right" />
         </aside>
       </div>
-      <div className="h-20 lg:hidden" />
       <MobileBottomNav />
     </div>
   );
@@ -411,7 +430,7 @@ function PersonCard({
   };
 
   return (
-    <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900 sm:gap-3 sm:rounded-2xl sm:p-4">
+    <div className="flex items-center gap-2.5 rounded-[1.6rem] bg-white p-3 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition hover:shadow-[0_14px_34px_-18px_rgba(15,23,42,0.35)] sm:gap-3 sm:p-4">
       <Link href={`/profile/${person.id}`} className="flex-shrink-0">
         <Avatar name={person.fullName} url={person.avatarUrl} />
       </Link>

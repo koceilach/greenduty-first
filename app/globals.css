@@ -2655,3 +2655,198 @@ html.light {
 .green .gd-auth-shell textarea::placeholder {
   color: rgba(255, 255, 255, 0.46) !important;
 }
+
+/* Shared: hide visual scrollbars while keeping scroll behavior */
+.gd-scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.gd-scroll-hide::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+/* Messages: allow local light chat theme to stay readable even when global theme is green */
+.green .gd-chat-light {
+  color: #0f172a !important;
+}
+
+.green .gd-chat-light .bg-white {
+  background-color: #ffffff !important;
+}
+
+.green .gd-chat-light .bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+
+.green .gd-chat-light .bg-slate-100 {
+  background-color: #f1f5f9 !important;
+}
+
+.green .gd-chat-light .bg-slate-200 {
+  background-color: #e2e8f0 !important;
+}
+
+.green .gd-chat-light .border-slate-100 {
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+.green .gd-chat-light .border-slate-200 {
+  border-color: rgba(148, 163, 184, 0.28) !important;
+}
+
+.green .gd-chat-light .border-slate-300 {
+  border-color: rgba(148, 163, 184, 0.42) !important;
+}
+
+.green .gd-chat-light .text-slate-900 {
+  color: #0f172a !important;
+}
+
+.green .gd-chat-light .text-slate-800 {
+  color: #1e293b !important;
+}
+
+.green .gd-chat-light .text-slate-700 {
+  color: #334155 !important;
+}
+
+.green .gd-chat-light .text-slate-600 {
+  color: #475569 !important;
+}
+
+.green .gd-chat-light .text-slate-500 {
+  color: #64748b !important;
+}
+
+.green .gd-chat-light .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.green .gd-chat-light .bg-white\/5 {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.green .gd-chat-light .bg-white\/10 {
+  background-color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.green .gd-chat-light .bg-white\/15 {
+  background-color: rgba(255, 255, 255, 0.82) !important;
+}
+
+.green .gd-chat-light .bg-white\/20 {
+  background-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.green .gd-chat-light .text-emerald-600 {
+  color: #059669 !important;
+}
+
+/* Education: scoped theme normalization (light + green) */
+.green .gd-edu {
+  background-color: #071811;
+  color: #f3f4f6;
+}
+
+.light .gd-edu {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+.green .gd-edu .ring-gray-100,
+.green .gd-edu .ring-slate-100 {
+  --tw-ring-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.green .gd-edu .ring-gray-200,
+.green .gd-edu .ring-slate-200 {
+  --tw-ring-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.green .gd-edu .hover\:bg-gray-50:hover,
+.green .gd-edu .hover\:bg-slate-50:hover {
+  background-color: rgba(255, 255, 255, 0.09) !important;
+}
+
+.green .gd-edu .hover\:bg-gray-100:hover,
+.green .gd-edu .hover\:bg-slate-100:hover {
+  background-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.green .gd-edu .hover\:text-gray-900:hover,
+.green .gd-edu .hover\:text-slate-900:hover {
+  color: #f3f4f6 !important;
+}
+
+.green .gd-edu .text-emerald-700 {
+  color: #6ee7b7 !important;
+}
+
+.green .gd-edu .text-emerald-600,
+.green .gd-edu .text-emerald-500 {
+  color: #34d399 !important;
+}
+
+.green .gd-edu .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.14) !important;
+}
+
+.green .gd-edu .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+.green .gd-edu .hover\:bg-emerald-50:hover {
+  background-color: rgba(16, 185, 129, 0.22) !important;
+}
+
+/* Keep white-on-accent and white-on-video legible in education light mode */
+.light .gd-edu .text-white {
+  color: #ffffff !important;
+}
+
+.light .gd-edu .text-white\/90 {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.light .gd-edu .text-white\/80 {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.light .gd-edu .text-white\/70 {
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.light .gd-edu .text-white\/60 {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.light .gd-edu .text-white\/50 {
+  color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.light .gd-edu .text-white\/40 {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+.light .gd-edu .bg-black\/20 {
+  background-color: rgba(2, 6, 23, 0.2) !important;
+}
+
+.light .gd-edu .bg-black\/30 {
+  background-color: rgba(2, 6, 23, 0.3) !important;
+}
+
+.light .gd-edu .bg-black\/35 {
+  background-color: rgba(2, 6, 23, 0.35) !important;
+}
+
+.light .gd-edu .bg-black\/45 {
+  background-color: rgba(2, 6, 23, 0.45) !important;
+}
+
+.light .gd-edu .bg-black\/60 {
+  background-color: rgba(2, 6, 23, 0.6) !important;
+}

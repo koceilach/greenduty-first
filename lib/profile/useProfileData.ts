@@ -22,12 +22,22 @@ export type ProfileState = {
   gender?: string | null;
   stats: {
     posts: number;
+    reels?: number;
     likes: number;
     saves: number;
     follows?: number;
     friends?: number;
   };
   bio: string;
+};
+
+export type ProfileReel = {
+  id: string;
+  caption: string;
+  videoUrl: string;
+  likesCount: number;
+  commentsCount: number;
+  createdAt: string;
 };
 
 type ProfileEduCategoryJoin = { name: string };
@@ -44,6 +54,15 @@ type ProfileEduPostRow = {
   created_at: string;
   edu_categories: ProfileEduCategoryJoin | ProfileEduCategoryJoin[] | null;
   edu_post_stats: ProfileEduPostStatsJoin | ProfileEduPostStatsJoin[] | null;
+};
+
+type ProfileEduReelRow = {
+  id: string;
+  caption: string | null;
+  video_url: string;
+  likes_count: number | null;
+  comments_count: number | null;
+  created_at: string;
 };
 
 const firstOf = <T,>(v: T | T[] | null | undefined): T | null =>
@@ -99,6 +118,7 @@ export function useProfileData() {
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [userPosts, setUserPosts] = useState<EduFeedPost[]>([]);
+  const [userReels, setUserReels] = useState<ProfileReel[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -113,7 +133,7 @@ export function useProfileData() {
 
       setCurrentUserId(user.id);
 
-      const [{ data: profileRow }, { data: postRows }, { count: followCount }, { count: friendCount }] = await Promise.all([
+      const [{ data: profileRow }, { data: postRows }, { data: reelRows, error: reelsError }, { count: followCount }, { count: friendCount }] = await Promise.all([
         supabase
           .from("profiles")
           .select("full_name, username, role, bio, avatar_url, cover_url, location, phone, website, education, work, date_of_birth, gender")
@@ -137,6 +157,11 @@ export function useProfileData() {
             `
           )
           .eq("user_id", user.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("edu_reels")
+          .select("id, caption, video_url, likes_count, comments_count, created_at")
+          .eq("author_id", user.id)
           .order("created_at", { ascending: false }),
         supabase.from("profile_follows").select("id", { count: "exact", head: true }).eq("follower_id", user.id),
         supabase.from("friendships").select("id", { count: "exact", head: true }).or(`user_a.eq.${user.id},user_b.eq.${user.id}`),
@@ -227,6 +252,20 @@ export function useProfileData() {
         } satisfies EduFeedPost;
       });
 
+      if (reelsError && !reelsError.message.toLowerCase().includes("edu_reels")) {
+        console.warn("Failed to load reels:", reelsError.message);
+      }
+      const mappedReels: ProfileReel[] = ((reelRows ?? []) as ProfileEduReelRow[]).map(
+        (row) => ({
+          id: row.id,
+          caption: row.caption ?? "",
+          videoUrl: row.video_url,
+          likesCount: row.likes_count ?? 0,
+          commentsCount: row.comments_count ?? 0,
+          createdAt: row.created_at,
+        })
+      );
+
       setProfile((prev) => ({
         ...prev,
         name: displayName,
@@ -245,6 +284,7 @@ export function useProfileData() {
         bio: profileRow?.bio || prev.bio,
         stats: {
           posts: postIds.length,
+          reels: mappedReels.length,
           likes: likeCount,
           saves: saveCount,
           follows: followCount ?? 0,
@@ -252,6 +292,7 @@ export function useProfileData() {
         },
       }));
       setUserPosts(mappedPosts);
+      setUserReels(mappedReels);
       setLoading(false);
     };
 
@@ -269,11 +310,14 @@ export function useProfileData() {
     [displayPosts]
   );
 
+  const displayReels = useMemo(() => userReels, [userReels]);
+
   return {
     profile,
     loading,
     currentUserId,
     displayPosts,
+    displayReels,
     mediaPosts,
   };
 }

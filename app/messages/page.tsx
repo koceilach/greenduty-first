@@ -8,7 +8,15 @@ import { usePresence } from "@/lib/messages/usePresence";
 import { MessageCircle } from "lucide-react";
 
 export default function MessagesPage() {
-  const { conversations, loading, currentUserId } = useConversations();
+  const {
+    conversations,
+    loading,
+    currentUserId,
+    findOrCreateDM,
+    togglePinned,
+    toggleMuted,
+    markConversationRead,
+  } = useConversations();
   usePresence(); // keeps user online
 
   return (
@@ -29,6 +37,10 @@ export default function MessagesPage() {
               conversations={conversations}
               loading={loading}
               currentUserId={currentUserId}
+              onOpenDirect={findOrCreateDM}
+              onTogglePin={togglePinned}
+              onToggleMute={toggleMuted}
+              onMarkRead={markConversationRead}
             />
           </div>
 
