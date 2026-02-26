@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Bug, X } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
 import { Interactive3DSection } from "@/components/interactive-3d-section";
@@ -136,6 +136,56 @@ function BackToTopButton() {
   );
 }
 
+function BugNoticePopup({ enabled }: { enabled: boolean }) {
+  const { t, locale } = useI18n();
+  const isArabic = locale === "ar";
+  const [dismissed, setDismissed] = useState(false);
+
+  if (!enabled || dismissed) {
+    return null;
+  }
+
+  return (
+    <motion.aside
+      initial={{ opacity: 0, y: 20, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-[max(0.9rem,env(safe-area-inset-left))] z-[55] w-[min(92vw,360px)] rounded-2xl border border-white/20 bg-slate-950/78 p-4 text-slate-100 shadow-[0_20px_55px_rgba(2,6,23,0.45)] backdrop-blur-xl light:border-slate-300 light:bg-white/92 light:text-slate-800"
+    >
+      <div className={`flex items-start justify-between gap-3 ${isArabic ? "flex-row-reverse" : ""}`}>
+        <div className={`inline-flex items-center gap-2 ${isArabic ? "flex-row-reverse" : ""}`}>
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/16 text-emerald-300 light:bg-emerald-100 light:text-emerald-700">
+            <Bug className="h-4 w-4" />
+          </span>
+          <p className="text-sm font-semibold">{t("landing.notice.title")}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          aria-label={t("landing.notice.close")}
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/5 text-slate-200 transition-colors hover:border-emerald-300/60 hover:bg-emerald-400/18 light:border-slate-300 light:bg-slate-100 light:text-slate-700 light:hover:border-emerald-500/60 light:hover:bg-emerald-100"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      <p className={`mt-2 text-sm leading-relaxed text-slate-300 light:text-slate-600 ${isArabic ? "text-right" : "text-left"}`}>
+        {t("landing.notice.message")}
+      </p>
+
+      <div className={`mt-3 flex ${isArabic ? "justify-end" : "justify-start"}`}>
+        <a
+          href="#help-us"
+          className="inline-flex items-center rounded-full border border-emerald-300/45 bg-emerald-500/18 px-3.5 py-1.5 text-xs font-semibold text-emerald-100 transition-colors hover:border-emerald-200/70 hover:bg-emerald-500/28 light:border-emerald-500/35 light:bg-emerald-500/10 light:text-emerald-700 light:hover:bg-emerald-500/18"
+        >
+          {t("landing.notice.cta")}
+        </a>
+      </div>
+    </motion.aside>
+  );
+}
+
 export default function Home() {
   const [showEntrance, setShowEntrance] = useState<boolean | null>(null);
 
@@ -176,6 +226,7 @@ export default function Home() {
       >
         <ScrollProgressRail />
         <BackToTopButton />
+        <BugNoticePopup enabled={entranceResolved && !entranceActive} />
 
         <Navbar />
         <SectionReveal>
