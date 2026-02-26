@@ -49,6 +49,8 @@ const GD_System_disableAuthRedirect = false;
 const GD_System_STORAGE_BUCKET = "pollution_images";
 const GD_System_AVATAR_BUCKET = "avatars";
 const GD_System_LOCATION_PULSE_MS = 1600;
+const GD_System_LEGEND_SWIPE_THRESHOLD = 48;
+const GD_System_LEGEND_SWIPE_MAX_Y_DRIFT = 44;
 const GD_System_MapComponent = dynamic(
   () => import("@/components/MapComponent"),
   { ssr: false }
@@ -1466,6 +1468,10 @@ export default function GD_System_ReportedAreaPage() {
   const [GD_System_mapReady, setGD_System_mapReady] = useState(false);
   const [GD_System_lowPowerMode, setGD_System_lowPowerMode] = useState(false);
   const [GD_System_isMobileViewport, setGD_System_isMobileViewport] = useState(false);
+  const [GD_System_mobileLegendOpen, setGD_System_mobileLegendOpen] = useState(false);
+  const GD_System_legendSwipeStartRef = useRef<{ x: number; y: number } | null>(
+    null
+  );
   const GD_System_mapFlyDuration = GD_System_lowPowerMode ? 0 : 0.9;
   const GD_System_currentUserId = GD_System_authState.user?.id ?? null;
   const [GD_System_reportToDelete, setGD_System_reportToDelete] = useState<
@@ -1570,6 +1576,46 @@ export default function GD_System_ReportedAreaPage() {
     media.addListener(update);
     return () => media.removeListener(update);
   }, []);
+
+  useEffect(() => {
+    if (!GD_System_isMobileViewport) {
+      setGD_System_mobileLegendOpen(false);
+    }
+  }, [GD_System_isMobileViewport]);
+
+  const GD_System_handleLegendSwipeStart = useCallback(
+    (event: React.TouchEvent<HTMLElement>) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      GD_System_legendSwipeStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+      };
+    },
+    []
+  );
+
+  const GD_System_handleLegendSwipeEnd = useCallback(
+    (event: React.TouchEvent<HTMLElement>, direction: "open" | "close") => {
+      const start = GD_System_legendSwipeStartRef.current;
+      GD_System_legendSwipeStartRef.current = null;
+      const touch = event.changedTouches[0];
+      if (!start || !touch) return;
+
+      const deltaX = touch.clientX - start.x;
+      const deltaY = Math.abs(touch.clientY - start.y);
+      if (deltaY > GD_System_LEGEND_SWIPE_MAX_Y_DRIFT) return;
+
+      if (direction === "open" && deltaX <= -GD_System_LEGEND_SWIPE_THRESHOLD) {
+        setGD_System_mobileLegendOpen(true);
+      }
+
+      if (direction === "close" && deltaX >= GD_System_LEGEND_SWIPE_THRESHOLD) {
+        setGD_System_mobileLegendOpen(false);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1852,7 +1898,7 @@ export default function GD_System_ReportedAreaPage() {
     "border-[var(--gd-border-soft)] bg-[var(--gd-surface)] text-[var(--gd-ink)]"
   );
   const GD_System_navButtonClassName = clsx(
-    "inline-flex h-14 min-w-[56px] shrink-0 items-center justify-center gap-2 rounded-full border px-4 text-[11px] font-semibold transition-transform duration-200 active:scale-[0.97] md:px-5",
+    "inline-flex h-10 w-10 shrink-0 items-center justify-center gap-2 rounded-full border px-0 text-[11px] font-semibold transition-transform duration-200 active:scale-[0.97] md:h-14 md:w-auto md:min-w-[56px] md:px-5",
     "border-[var(--gd-border-soft)] bg-[var(--gd-surface)] text-[var(--gd-ink)] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]"
   );
 
@@ -3117,7 +3163,7 @@ export default function GD_System_ReportedAreaPage() {
           <div className="absolute inset-0 z-20 pointer-events-none">
             <div
               className={clsx(
-                "pointer-events-auto fixed top-3 left-3 right-3 z-[1000] transition-[left,right] duration-300 ease-in-out sm:top-4 sm:left-4 sm:right-4",
+                "pointer-events-auto fixed left-3 right-3 top-3 z-[1000] transition-[left,right] duration-300 ease-in-out sm:left-4 sm:right-4 sm:top-4",
                 GD_System_intelOpen && "md:left-[calc(1rem+18rem)] lg:left-[calc(1rem+380px)]"
               )}
             >
@@ -3126,20 +3172,20 @@ export default function GD_System_ReportedAreaPage() {
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 180, damping: 20 }}
                 style={{ fontFamily: "Inter, system-ui, sans-serif" }}
-                className="relative flex h-16 items-center overflow-hidden rounded-full border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] px-4 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] md:h-16 md:px-5 lg:px-6"
+                className="relative flex h-14 items-center overflow-hidden rounded-2xl border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] px-3 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)] sm:rounded-full sm:px-4 md:h-16 md:px-5 lg:px-6"
               >
                 <div
                   className="pointer-events-none absolute inset-0 rounded-full bg-gradient-to-r from-[var(--gd-surface)]/80 via-transparent to-transparent"
                 />
                 <div className="relative flex w-full min-w-0 items-center gap-2 md:gap-3">
-                  <div className="flex shrink-0 items-center gap-2.5">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--gd-accent)] text-[var(--gd-accent-ink)]">
-                      <Leaf className="h-4 w-4" />
+                  <div className="flex shrink-0 items-center gap-2">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--gd-accent)] text-[var(--gd-accent-ink)] sm:h-10 sm:w-10">
+                      <Leaf className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     </div>
                     <div className="flex min-w-0 flex-col">
                       <span
                         className={clsx(
-                          "truncate text-sm font-semibold tracking-wide",
+                          "truncate text-xs font-semibold tracking-wide sm:text-sm",
                           GD_System_navTextTone
                         )}
                       >
@@ -3194,7 +3240,7 @@ export default function GD_System_ReportedAreaPage() {
                     ) : null}
                   </div>
 
-                  <div className="ml-auto flex shrink-0 items-center gap-1.5 md:gap-2">
+                  <div className="ml-auto flex shrink-0 items-center gap-1 md:gap-2">
                     <button
                       onClick={() => setGD_System_profileModalOpen(true)}
                       className={clsx(
@@ -3220,7 +3266,7 @@ export default function GD_System_ReportedAreaPage() {
                     <button
                       onClick={() => setGD_System_profileModalOpen(true)}
                       className={clsx(
-                        "flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] text-[var(--gd-ink)] transition-transform duration-200 active:scale-[0.97]",
+                        "flex h-10 w-10 items-center justify-center overflow-hidden rounded-full border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] text-[var(--gd-ink)] transition-transform duration-200 active:scale-[0.97] md:h-14 md:w-14",
                         GD_System_navCompact ? "md:flex xl:hidden" : "md:hidden"
                       )}
                       aria-label="Open profile settings"
@@ -3316,14 +3362,47 @@ export default function GD_System_ReportedAreaPage() {
               <Users className="h-4.5 w-4.5" />
             </button>
 
+            {GD_System_isMobileViewport && !GD_System_mobileLegendOpen && (
+              <button
+                type="button"
+                onClick={() => setGD_System_mobileLegendOpen(true)}
+                onTouchStart={GD_System_handleLegendSwipeStart}
+                onTouchEnd={(event) =>
+                  GD_System_handleLegendSwipeEnd(event, "open")
+                }
+                className="gd-mobile-legend-tab pointer-events-auto fixed right-2 top-[calc(env(safe-area-inset-top)+68px)] z-20 inline-flex h-10 items-center gap-2 rounded-full border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--gd-muted)] shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]"
+                aria-label="Show legend"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--gd-accent)]" />
+                Legend
+              </button>
+            )}
+
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: "spring", stiffness: 140, damping: 18 }}
               className={clsx(
                 "gd-mobile-legend pointer-events-auto z-20",
-                "fixed right-2 top-[calc(env(safe-area-inset-top)+74px)] w-[min(72vw,248px)] max-h-[42vh] overflow-y-auto md:absolute md:bottom-8 md:left-6 md:top-auto md:right-auto md:w-56 md:max-h-none md:overflow-visible"
+                GD_System_isMobileViewport
+                  ? clsx(
+                      "fixed right-2 top-[calc(env(safe-area-inset-top)+68px)] w-[min(72vw,248px)] max-h-[42vh] overflow-y-auto transition-transform duration-300 ease-out",
+                      GD_System_mobileLegendOpen
+                        ? "translate-x-0 opacity-100"
+                        : "translate-x-[120%] opacity-0 pointer-events-none"
+                    )
+                  : "absolute bottom-8 left-6 w-56 max-h-none overflow-visible"
               )}
+              onTouchStart={
+                GD_System_isMobileViewport
+                  ? GD_System_handleLegendSwipeStart
+                  : undefined
+              }
+              onTouchEnd={
+                GD_System_isMobileViewport
+                  ? (event) => GD_System_handleLegendSwipeEnd(event, "close")
+                  : undefined
+              }
             >
               <GD_System_GlassCard
                 className="rounded-[2rem] border border-[var(--gd-border-soft)] bg-[var(--gd-surface-strong)] p-4 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]"
@@ -3332,9 +3411,21 @@ export default function GD_System_ReportedAreaPage() {
                   <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--gd-muted-2)]">
                     {GD_System_showHeatmap ? "Density Scale" : "Legend"}
                   </div>
-                  <span className="rounded-full border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-[var(--gd-muted)]">
-                    Live
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {GD_System_isMobileViewport && (
+                      <button
+                        type="button"
+                        onClick={() => setGD_System_mobileLegendOpen(false)}
+                        className="flex h-6 w-6 items-center justify-center rounded-full border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] text-[var(--gd-muted)]"
+                        aria-label="Hide legend"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                    <span className="rounded-full border border-[var(--gd-border-soft)] bg-[var(--gd-surface)] px-2 py-0.5 text-[9px] uppercase tracking-[0.16em] text-[var(--gd-muted)]">
+                      Live
+                    </span>
+                  </div>
                 </div>
                 {GD_System_showHeatmap ? (
                   <div className="mt-2.5 space-y-2.5">
@@ -4121,8 +4212,11 @@ export default function GD_System_ReportedAreaPage() {
             bottom: calc(env(safe-area-inset-bottom) + 8px) !important;
             transform: none !important;
           }
-          .gd-mobile-legend {
+          .gd-mobile-legend,
+          .gd-mobile-legend-tab {
             top: calc(env(safe-area-inset-top) + 8px) !important;
+          }
+          .gd-mobile-legend {
             right: 8px !important;
             width: min(62vw, 220px) !important;
             max-height: 44vh !important;
