@@ -99,6 +99,7 @@ export default function MapComponent({
   viewportMode = 'regional',
   lowPowerMode = false,
   minZoomOverride,
+  controlsClassName,
 }: {
   reports: MapReport[];
   externalMapRef?: { current: L.Map | null };
@@ -117,6 +118,7 @@ export default function MapComponent({
   viewportMode?: 'regional' | 'global';
   lowPowerMode?: boolean;
   minZoomOverride?: number;
+  controlsClassName?: string;
 }) {
   const mapNodeRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -132,6 +134,8 @@ export default function MapComponent({
     mapIdProp ?? `gd-map-${Math.random().toString(36).slice(2, 8)}`
   );
   const mapId = mapIdRef.current;
+  const controlsPositionClassName =
+    controlsClassName ?? 'bottom-24 right-4 md:bottom-16 md:right-6';
   const markerRootsRef = useRef<Root[]>([]);
   const heatmapActive =
     !lowPowerMode &&
@@ -950,7 +954,9 @@ export default function MapComponent({
         />
       </div>
       {showControls ? (
-        <div className="pointer-events-auto absolute bottom-24 right-4 z-20 flex flex-col gap-2 md:bottom-16 md:right-6">
+        <div
+          className={`pointer-events-auto absolute z-20 flex flex-col gap-2 ${controlsPositionClassName}`}
+        >
           <button
             onClick={handleHeatmapToggle}
             disabled={lowPowerMode}

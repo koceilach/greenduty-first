@@ -21,6 +21,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: 'cover',
   themeColor: '#059669',
 }
 
@@ -71,6 +72,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="green" suppressHydrationWarning>
+      <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-touch-fullscreen" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <body className={`${geist.variable} ${cairo.variable} ${geist.className} font-sans antialiased`}>
         <ThemeProvider>
           <I18nProvider>

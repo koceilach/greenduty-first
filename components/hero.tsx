@@ -34,7 +34,7 @@ export function Hero() {
   );
 
   return (
-    <section id="home" className="relative scroll-mt-24 overflow-hidden pb-10 pt-20 sm:pb-14 sm:pt-28">
+    <section id="home" className="relative scroll-mt-24 overflow-hidden pb-10 pt-28 sm:pb-14 sm:pt-36">
       <div className="mx-auto max-w-[1220px] px-3 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-[24px] border border-white/20 shadow-[0_28px_80px_rgba(0,0,0,0.48)] sm:rounded-[28px]">
           <Image

@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { motion, useScroll, useSpring, useTransform } from "framer-motion";
+import { ArrowUp } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
 import { Interactive3DSection } from "@/components/interactive-3d-section";
@@ -14,6 +15,8 @@ import { Contact } from "@/components/contact";
 import { Footer } from "@/components/footer";
 import { WelcomeEntrance } from "@/components/welcome-entrance";
 import { useI18n } from "@/lib/i18n/context";
+
+const GD_WELCOME_SEEN_KEY = "gd_welcome_seen_v1";
 
 function SectionReveal({ children }: { children: ReactNode }) {
   const sectionRef = useRef<HTMLDivElement | null>(null);
@@ -89,25 +92,90 @@ function HeroEarthScrollCue() {
   );
 }
 
+function BackToTopButton() {
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const heroSection = document.getElementById("home");
+
+    const updateVisibility = () => {
+      if (!heroSection) {
+        setVisible(window.scrollY > 360);
+        return;
+      }
+      const heroBottom = heroSection.getBoundingClientRect().bottom;
+      setVisible(heroBottom <= 0);
+    };
+
+    updateVisibility();
+    window.addEventListener("scroll", updateVisibility, { passive: true });
+    window.addEventListener("resize", updateVisibility);
+    return () => {
+      window.removeEventListener("scroll", updateVisibility);
+      window.removeEventListener("resize", updateVisibility);
+    };
+  }, []);
+
+  return (
+    <motion.button
+      type="button"
+      initial={false}
+      animate={{
+        opacity: visible ? 1 : 0,
+        y: visible ? 0 : 12,
+        scale: visible ? 1 : 0.94,
+      }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+      aria-label="Back to top"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-[max(0.9rem,env(safe-area-inset-right))] z-50 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/20 bg-slate-950/70 text-white shadow-[0_16px_32px_rgba(0,0,0,0.35)] backdrop-blur-md transition-colors hover:bg-emerald-500/90 light:border-slate-300 light:bg-white/90 light:text-slate-700 light:hover:border-emerald-500 light:hover:bg-emerald-500 light:hover:text-white"
+      style={{ pointerEvents: visible ? "auto" : "none" }}
+    >
+      <ArrowUp className="h-4.5 w-4.5" />
+    </motion.button>
+  );
+}
+
 export default function Home() {
-  const [showEntrance, setShowEntrance] = useState(true);
+  const [showEntrance, setShowEntrance] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    try {
+      setShowEntrance(window.localStorage.getItem(GD_WELCOME_SEEN_KEY) !== "1");
+    } catch {
+      setShowEntrance(true);
+    }
+  }, []);
+
+  const handleEntranceDone = useCallback(() => {
+    try {
+      window.localStorage.setItem(GD_WELCOME_SEEN_KEY, "1");
+    } catch {
+      // Ignore storage failures and just continue.
+    }
+    setShowEntrance(false);
+  }, []);
+
+  const entranceResolved = showEntrance !== null;
+  const entranceActive = showEntrance === true;
 
   return (
     <>
-      {showEntrance && <WelcomeEntrance onDone={() => setShowEntrance(false)} />}
+      {entranceActive && <WelcomeEntrance onDone={handleEntranceDone} />}
 
       <main
-        className={`relative min-h-screen snap-y snap-proximity overflow-x-clip bg-[var(--gd-home-bg-gradient)] text-[var(--gd-text-100)] transition-[filter,transform,opacity] duration-700 ${
-          showEntrance ? "pointer-events-none select-none" : ""
+        className={`relative min-h-screen snap-y snap-proximity overflow-x-clip bg-[var(--gd-home-bg-gradient)] text-[var(--gd-text-100)] transition-[filter,transform,opacity] duration-500 ${
+          !entranceResolved || entranceActive ? "pointer-events-none select-none" : ""
         }`}
         style={{
-          opacity: showEntrance ? 0.88 : 1,
-          transform: showEntrance ? "scale(1.01)" : "scale(1)",
-          filter: showEntrance ? "blur(5px)" : "blur(0px)",
+          opacity: !entranceResolved ? 0 : entranceActive ? 0.95 : 1,
+          transform: entranceActive ? "scale(1.005)" : "scale(1)",
+          filter: entranceActive ? "blur(2px)" : "blur(0px)",
           willChange: "transform, filter, opacity",
         }}
       >
         <ScrollProgressRail />
+        <BackToTopButton />
 
         <Navbar />
         <SectionReveal>

@@ -277,14 +277,14 @@ export function ImpactStats() {
 
             <div
               className={`mt-7 flex flex-col gap-5 sm:flex-row sm:items-center sm:gap-6 ${
-                isArabic ? "items-end sm:flex-row-reverse" : "items-start"
+                isArabic ? "w-full items-end sm:flex-row-reverse sm:justify-end" : "items-start"
               }`}
             >
               <div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-emerald-300/30 text-emerald-200 light:border-emerald-500/35 light:text-emerald-700 sm:h-24 sm:w-24">
                 <spotlightStat.icon className="h-8 w-8" />
               </div>
 
-              <div className={isArabic ? "text-right" : ""}>
+              <div className={isArabic ? "w-full text-right sm:w-auto" : ""}>
                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400 light:text-slate-600">
                   {t("landing.impact.currentValue")}
                 </p>

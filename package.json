@@ -2,6 +2,13 @@
   "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
+  "browserslist": [
+    "> 0.2%",
+    "last 2 versions",
+    "Samsung >= 12",
+    "iOS >= 12",
+    "not dead"
+  ],
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build",
