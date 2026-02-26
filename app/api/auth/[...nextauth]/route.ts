@@ -1,20 +1,45 @@
 import NextAuth, { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
-// 1. هذا هو السطر السحري الذي سيمنع Next.js من تجميد الملف!
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-// 2. هذه رسالة ستظهر في سجلات Vercel لنعرف هل قرأ المتغير أم لا
-console.log("Vercel Env Check - Google ID exists?:", !!process.env.GOOGLE_CLIENT_ID);
+function readEnv(...keys: string[]): string {
+  for (const key of keys) {
+    const raw = process.env[key];
+    if (!raw) continue;
+    const normalized = raw.trim().replace(/^['"]|['"]$/g, "");
+    if (normalized) return normalized;
+  }
+  return "";
+}
 
-export const authOptions: NextAuthOptions = {
+const googleClientId = readEnv(
+  "GOOGLE_CLIENT_ID",
+  "AUTH_GOOGLE_ID",
+  "NEXT_PUBLIC_GOOGLE_CLIENT_ID"
+);
+const googleClientSecret = readEnv(
+  "GOOGLE_CLIENT_SECRET",
+  "AUTH_GOOGLE_SECRET",
+  "NEXT_PUBLIC_GOOGLE_CLIENT_SECRET"
+);
+const nextAuthSecret = readEnv("NEXTAUTH_SECRET", "AUTH_SECRET");
+
+console.log("[Auth] Env check", {
+  hasGoogleClientId: Boolean(googleClientId),
+  hasGoogleClientSecret: Boolean(googleClientSecret),
+  hasNextAuthSecret: Boolean(nextAuthSecret),
+});
+
+const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID as string,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
     }),
   ],
-  secret: process.env.NEXTAUTH_SECRET as string,
+  secret: nextAuthSecret,
 };
 
 const handler = NextAuth(authOptions);
