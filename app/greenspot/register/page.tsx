@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Lock, User, ArrowRight } from "lucide-react";
 import { greenspotClient, supabaseClient } from "@/lib/supabase/client";
+import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect";
 import { GreenspotAuthLayout } from "@/components/greenspot-auth-layout";
 
 const greenspotSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "";
@@ -90,18 +91,19 @@ function GreenspotRegisterPage() {
 
       const fullName = formData.fullName.trim();
       const emailValue = formData.email.trim();
-      const redirectBase = greenspotSiteUrl
-        ? greenspotSiteUrl.replace(/\/+$/, "")
-        : typeof window !== "undefined"
-          ? window.location.origin
-          : "";
+      const emailRedirectTo = buildOAuthRedirect(redirectTarget, {
+        siteUrl: greenspotSiteUrl,
+        origin:
+          typeof window !== "undefined" ? window.location.origin : undefined,
+        fallbackPath: "/greenspot/reported-green",
+      });
 
       try {
         const { data, error: signUpError } = await supabaseClient.auth.signUp({
           email: emailValue,
           password: formData.password,
           options: {
-            emailRedirectTo: redirectBase ? `${redirectBase}${redirectTarget}` : undefined,
+            emailRedirectTo,
             data: {
               full_name: fullName,
               username: fullName,

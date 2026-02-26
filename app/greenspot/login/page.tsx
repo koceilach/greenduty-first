@@ -3,9 +3,9 @@
 import { Suspense, useCallback, useMemo, useState, type InputHTMLAttributes, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { Mail, Lock, ArrowRight } from "lucide-react";
 import { supabaseClient } from "@/lib/supabase/client";
+import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect";
 import { GreenspotAuthLayout } from "@/components/greenspot-auth-layout";
 
 function AuthField({
@@ -112,11 +112,32 @@ function GreenspotLoginPage() {
   const handleGoogleLogin = useCallback(() => {
     setGoogleLoading(true);
     setError("");
-    void signIn("google", { callbackUrl: "/greenspot/dashboard" }).catch(() => {
+    const redirectTo = buildOAuthRedirect(redirectTarget, {
+      origin: window.location.origin,
+      fallbackPath: "/greenspot/reported-green",
+    });
+    if (!redirectTo) {
       setGoogleLoading(false);
       setError("Google sign-in failed. Please try again.");
-    });
-  }, []);
+      return;
+    }
+    void supabaseClient.auth
+      .signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      })
+      .then(({ error }) => {
+        if (!error) return;
+        setGoogleLoading(false);
+        setError("Google sign-in failed. Please try again.");
+      })
+      .catch(() => {
+        setGoogleLoading(false);
+        setError("Google sign-in failed. Please try again.");
+      });
+  }, [redirectTarget]);
 
   return (
     <GreenspotAuthLayout

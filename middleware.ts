@@ -5,7 +5,14 @@ const GD_System_supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
 const GD_System_supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
+  const pathname = request.nextUrl.pathname;
+
+  // Do not intercept auth API callbacks/routes.
+  if (pathname.startsWith("/api/auth")) {
+    return NextResponse.next();
+  }
+
+  const response = NextResponse.next({
     request: {
       headers: request.headers,
     },
@@ -33,16 +40,15 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const pathname = request.nextUrl.pathname;
+  const targetPath = `${pathname}${request.nextUrl.search}`;
 
   if (!user && pathname.startsWith("/reported-area")) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
-    redirectUrl.searchParams.set("redirectedFrom", pathname);
+    redirectUrl.searchParams.set("redirect", targetPath);
     return NextResponse.redirect(redirectUrl);
   }
 
-  /* ── Education / Messages / Profile route protection ────────────────────── */
   const isEduRoute =
     pathname.startsWith("/education") ||
     pathname.startsWith("/messages") ||
@@ -54,7 +60,7 @@ export async function middleware(request: NextRequest) {
   if (!user && isEduRoute && !isPublicEduRoute) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/education/login";
-    redirectUrl.searchParams.set("redirect", pathname);
+    redirectUrl.searchParams.set("redirect", targetPath);
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -67,5 +73,6 @@ export const config = {
     "/education/:path*",
     "/messages/:path*",
     "/profile/:path*",
+    "/api/auth/:path*",
   ],
 };

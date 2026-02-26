@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabaseClient } from "@/lib/supabase/client";
+import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect";
 import Link from "next/link";
 import {
   BookOpen,
@@ -218,12 +219,17 @@ function EduRegisterPage() {
 
     setLoading(true);
     try {
+      const emailRedirectTo = buildOAuthRedirect(redirectTarget, {
+        siteUrl,
+        origin: window.location.origin,
+        fallbackPath: "/education",
+      });
       const { error: signUpError } = await supabaseClient.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
           data: { full_name: trimmedName, display_name: trimmedName },
-          emailRedirectTo: `${siteUrl || window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTarget)}`,
+          emailRedirectTo,
         },
       });
       if (signUpError) {
@@ -241,11 +247,20 @@ function EduRegisterPage() {
   /* google oauth */
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    const base = siteUrl ? siteUrl.replace(/\/+$/, "") : window.location.origin;
+    const redirectTo = buildOAuthRedirect(redirectTarget, {
+      siteUrl,
+      origin: window.location.origin,
+      fallbackPath: "/education",
+    });
+    if (!redirectTo) {
+      setGoogleLoading(false);
+      setError("Google sign-in failed. Please try again.");
+      return;
+    }
     try {
       const { error: oauthError } = await supabaseClient.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${base}/auth/callback?next=${encodeURIComponent(redirectTarget)}` },
+        options: { redirectTo },
       });
       if (oauthError) {
         setError(normalizeError(oauthError.message));

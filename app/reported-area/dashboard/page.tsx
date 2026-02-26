@@ -1,11 +1,13 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth/options";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export default async function ReportedAreaDashboardPage() {
-  const session = await getServerSession(authOptions);
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session?.user) {
+  if (!user) {
     redirect("/login?redirect=/reported-area");
   }
 

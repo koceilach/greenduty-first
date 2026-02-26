@@ -3,9 +3,9 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { ArrowRight, Leaf, Lock, Mail } from "lucide-react";
 import { supabaseClient } from "@/lib/supabase/client";
+import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -28,9 +28,12 @@ function LoginPage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const redirectTarget = useMemo(() => {
-    const redirectParam = searchParams.get("redirect")?.trim();
-    if (!redirectParam) return "/reported-area";
-    if (!redirectParam.startsWith("/")) return "/reported-area";
+    const redirectParam =
+      searchParams.get("redirect")?.trim() ??
+      searchParams.get("redirectedFrom")?.trim();
+    if (!redirectParam || !redirectParam.startsWith("/")) {
+      return "/reported-area";
+    }
     const redirectPath = redirectParam.split("?")[0] ?? redirectParam;
     if (redirectPath === "/reported-area/dashboard") {
       return "/reported-area";
@@ -87,7 +90,25 @@ function LoginPage() {
     if (oauthLoading || submitting) return;
     setOauthLoading(true);
     setErrorMessage(null);
-    await signIn("google", { callbackUrl: redirectTarget });
+    const redirectTo = buildOAuthRedirect(redirectTarget, {
+      origin: window.location.origin,
+      fallbackPath: "/reported-area",
+    });
+    if (!redirectTo) {
+      setOauthLoading(false);
+      setErrorMessage("Google sign-in failed. Please try again.");
+      return;
+    }
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+      },
+    });
+    if (error) {
+      setOauthLoading(false);
+      setErrorMessage("Google sign-in failed. Please try again.");
+    }
   }, [oauthLoading, redirectTarget, submitting]);
 
   return (

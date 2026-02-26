@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Leaf, Lock, Mail } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
+import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -58,13 +59,18 @@ export default function MarketplaceLoginPage() {
     }
     setGoogleLoading(true);
     setMessage(null);
-    const redirectTo =
-      typeof window === "undefined"
-        ? undefined
-        : `${window.location.origin}/market-place`;
+    const redirectTo = buildOAuthRedirect("/market-place", {
+      origin: window.location.origin,
+      fallbackPath: "/market-place",
+    });
+    if (!redirectTo) {
+      setGoogleLoading(false);
+      setMessage("Google sign-in failed. Please try again.");
+      return;
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: redirectTo ? { redirectTo } : undefined,
+      options: { redirectTo },
     });
     if (error) {
       setGoogleLoading(false);

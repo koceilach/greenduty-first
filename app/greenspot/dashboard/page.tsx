@@ -1,6 +1,5 @@
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth/options";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const getInitials = (name?: string | null) => {
   if (!name) return "GS";
@@ -11,14 +10,24 @@ const getInitials = (name?: string | null) => {
 };
 
 export default async function GreenspotDashboardPage() {
-  const session = await getServerSession(authOptions);
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session?.user) {
+  if (!user) {
     redirect("/greenspot/login?redirect=/greenspot/dashboard");
   }
 
-  const user = session.user;
-  const initials = getInitials(user.name);
+  const userName =
+    (user.user_metadata?.full_name as string | undefined) ??
+    (user.user_metadata?.name as string | undefined) ??
+    null;
+  const userAvatar =
+    (user.user_metadata?.avatar_url as string | undefined) ??
+    (user.user_metadata?.picture as string | undefined) ??
+    null;
+  const initials = getInitials(userName);
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-900 dark:bg-[#062019] dark:text-slate-100 light:bg-slate-100 light:text-slate-900">
@@ -41,10 +50,10 @@ export default async function GreenspotDashboardPage() {
               Google Profile
             </p>
             <div className="mt-4 flex items-center gap-4">
-              {user.image ? (
+              {userAvatar ? (
                 <img
-                  src={user.image}
-                  alt={user.name ?? "User profile"}
+                  src={userAvatar ?? ""}
+                  alt={userName ?? "User profile"}
                   className="h-16 w-16 rounded-full border border-emerald-200 object-cover dark:border-emerald-400/30 light:border-emerald-200"
                 />
               ) : (
@@ -53,7 +62,7 @@ export default async function GreenspotDashboardPage() {
                 </div>
               )}
               <div>
-                <p className="text-base font-semibold">{user.name ?? "Not provided"}</p>
+                <p className="text-base font-semibold">{userName ?? "Not provided"}</p>
                 <p className="text-sm text-slate-600 dark:text-slate-300 light:text-slate-600">
                   {user.email ?? "Not provided"}
                 </p>
@@ -66,7 +75,7 @@ export default async function GreenspotDashboardPage() {
               Session Status
             </p>
             <p className="mt-3 text-sm text-slate-600 dark:text-slate-300 light:text-slate-600">
-              Protected route active with `getServerSession`. If your session ends, you will be sent back to GreenSpot login.
+              Protected route active with Supabase server auth. If your session ends, you will be sent back to GreenSpot login.
             </p>
           </div>
         </div>

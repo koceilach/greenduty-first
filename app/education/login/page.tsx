@@ -2,8 +2,8 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { supabaseClient } from "@/lib/supabase/client";
+import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -287,7 +287,33 @@ function EduLoginPage() {
                 type="button"
                 onClick={() => {
                   setGoogleLoading(true);
-                  void signIn("google", { callbackUrl: "/dashboard" });
+                  const redirectTo = buildOAuthRedirect(redirectTarget, {
+                    origin: window.location.origin,
+                    fallbackPath: "/education",
+                  });
+                  if (!redirectTo) {
+                    setGoogleLoading(false);
+                    setError("Google sign-in failed. Please try again.");
+                    return;
+                  }
+                  void supabaseClient.auth
+                    .signInWithOAuth({
+                      provider: "google",
+                      options: {
+                        redirectTo,
+                      },
+                    })
+                    .then(({ error }) => {
+                      if (!error) return;
+                      setGoogleLoading(false);
+                      setError(normalizeError(error.message));
+                    })
+                    .catch((err) => {
+                      const message =
+                        err instanceof Error ? err.message : undefined;
+                      setGoogleLoading(false);
+                      setError(normalizeError(message));
+                    });
                 }}
                 disabled={googleLoading}
                 className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white/70 py-3 text-sm font-medium text-slate-700 transition hover:bg-white hover:shadow-sm disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-200 dark:hover:bg-slate-800"

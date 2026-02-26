@@ -3,7 +3,6 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Cairo } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from "@/components/auth-provider"
-import { Provider } from "@/components/AuthProvider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { I18nProvider } from "@/lib/i18n/context"
@@ -73,15 +72,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="green" suppressHydrationWarning>
       <body className={`${geist.variable} ${cairo.variable} ${geist.className} font-sans antialiased`}>
-        <Provider>
-          <ThemeProvider>
-            <I18nProvider>
-              <AuthProvider>{children}</AuthProvider>
-            </I18nProvider>
-            <ThemeToggle />
-          </ThemeProvider>
-          <Analytics />
-        </Provider>
+        <ThemeProvider>
+          <I18nProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </I18nProvider>
+          <ThemeToggle />
+        </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   )

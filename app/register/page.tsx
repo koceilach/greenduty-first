@@ -7,6 +7,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabaseClient } from "@/lib/supabase/client"
+import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect"
 
 const GDutyRegisterSiteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? ""
 
@@ -287,17 +288,18 @@ function RegisterPage() {
       setIsLoading(true)
       const fullName = formData.fullName.trim()
       const emailValue = formData.email.trim()
-      const redirectBase = GDutyRegisterSiteUrl
-        ? GDutyRegisterSiteUrl.replace(/\/+$/, "")
-        : typeof window !== "undefined"
-          ? window.location.origin
-          : ""
+      const emailRedirectTo = buildOAuthRedirect(GDutyAuthRedirectTarget, {
+        siteUrl: GDutyRegisterSiteUrl,
+        origin:
+          typeof window !== "undefined" ? window.location.origin : undefined,
+        fallbackPath: "/reported-area",
+      })
       try {
         const { data, error } = await supabase.auth.signUp({
           email: emailValue,
           password: formData.password,
           options: {
-            emailRedirectTo: redirectBase ? `${redirectBase}${GDutyAuthRedirectTarget}` : undefined,
+            emailRedirectTo,
             data: {
               full_name: fullName,
               username: fullName,
@@ -373,14 +375,22 @@ function RegisterPage() {
       } else {
         setIsAppleLoading(true)
       }
-      const redirectBase = GDutyRegisterSiteUrl
-        ? GDutyRegisterSiteUrl.replace(/\/+$/, "")
-        : window.location.origin
+      const redirectTo = buildOAuthRedirect(GDutyAuthRedirectTarget, {
+        siteUrl: GDutyRegisterSiteUrl,
+        origin: window.location.origin,
+        fallbackPath: "/reported-area",
+      })
+      if (!redirectTo) {
+        showError("Unable to start social login right now.")
+        setIsGoogleLoading(false)
+        setIsAppleLoading(false)
+        return
+      }
       try {
         const { error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {
-            redirectTo: `${redirectBase}${GDutyAuthRedirectTarget}`,
+            redirectTo,
           },
         })
         if (error) {
