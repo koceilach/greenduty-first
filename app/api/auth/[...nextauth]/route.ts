@@ -4,27 +4,9 @@ import GoogleProvider from "next-auth/providers/google";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function readEnv(...keys: string[]): string {
-  for (const key of keys) {
-    const raw = process.env[key];
-    if (!raw) continue;
-    const normalized = raw.trim().replace(/^['"]|['"]$/g, "");
-    if (normalized) return normalized;
-  }
-  return "";
-}
-
-const googleClientId = readEnv(
-  "GOOGLE_CLIENT_ID",
-  "AUTH_GOOGLE_ID",
-  "NEXT_PUBLIC_GOOGLE_CLIENT_ID"
-);
-const googleClientSecret = readEnv(
-  "GOOGLE_CLIENT_SECRET",
-  "AUTH_GOOGLE_SECRET",
-  "NEXT_PUBLIC_GOOGLE_CLIENT_SECRET"
-);
-const nextAuthSecret = readEnv("NEXTAUTH_SECRET", "AUTH_SECRET");
+const googleClientId = process.env.GOOGLE_CLIENT_ID as string;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET as string;
+const nextAuthSecret = process.env.NEXTAUTH_SECRET as string;
 
 console.log("[Auth] Env check", {
   hasGoogleClientId: Boolean(googleClientId),
@@ -32,14 +14,26 @@ console.log("[Auth] Env check", {
   hasNextAuthSecret: Boolean(nextAuthSecret),
 });
 
+if (!googleClientId || !googleClientSecret) {
+  throw new Error(
+    "Missing Google OAuth env vars in runtime. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in Vercel Production, then redeploy."
+  );
+}
+
+if (!nextAuthSecret) {
+  throw new Error(
+    "Missing NEXTAUTH_SECRET in runtime. Set it in Vercel Production, then redeploy."
+  );
+}
+
 const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
-      clientId: googleClientId,
-      clientSecret: googleClientSecret,
+      clientId: process.env.GOOGLE_CLIENT_ID as string,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET as string,
     }),
   ],
-  secret: nextAuthSecret,
+  secret: process.env.NEXTAUTH_SECRET as string,
 };
 
 const handler = NextAuth(authOptions);
