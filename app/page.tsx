@@ -226,7 +226,6 @@ export default function Home() {
       >
         <ScrollProgressRail />
         <BackToTopButton />
-        <BugNoticePopup enabled={entranceResolved && !entranceActive} />
 
         <Navbar />
         <SectionReveal>
@@ -258,6 +257,7 @@ export default function Home() {
           <Footer />
         </SectionReveal>
       </main>
+      <BugNoticePopup enabled={entranceResolved && !entranceActive} />
     </>
   );
 }

@@ -20,6 +20,7 @@ import {
   GD_runEscrowRpc,
 } from "@/lib/marketplace/escrow-client";
 import { GD_findOrCreateMarketplaceDirectConversation } from "@/lib/marketplace/messages/direct-conversation";
+import { GD_getMarketplaceProductDetailsHref } from "@/lib/marketplace/routes";
 import { GD_WILAYAS } from "@/lib/wilayas";
 
 type OrderDispute = {
@@ -1024,7 +1025,7 @@ export default function BuyerDashboardPage() {
                     </span>
                     {entry.item?.id && (
                       <Link
-                        href={`/market-place/product/${entry.item.id}`}
+                        href={GD_getMarketplaceProductDetailsHref(entry.item.id)}
                         className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-100/90 transition hover:text-emerald-100"
                       >
                         View
@@ -1117,7 +1118,7 @@ export default function BuyerDashboardPage() {
                       </span>
                       {entry.item?.id && (
                         <Link
-                          href={`/market-place/product/${entry.item.id}`}
+                          href={GD_getMarketplaceProductDetailsHref(entry.item.id)}
                           className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-100/90 transition hover:text-emerald-100"
                         >
                           View
@@ -1313,7 +1314,7 @@ export default function BuyerDashboardPage() {
                         )}
                         {order.item?.id && (
                           <Link
-                            href={`/market-place/product/${order.item.id}`}
+                            href={GD_getMarketplaceProductDetailsHref(order.item.id)}
                             className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-100/90 transition hover:text-emerald-100"
                           >
                             View listing

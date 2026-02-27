@@ -2,6 +2,7 @@
 
 import React from "react";
 import { MarketplaceAuthProvider } from "@/components/marketplace-auth-provider";
+import { MarketplaceAutoTranslate } from "@/components/marketplace-auto-translate";
 
 export default function MarketPlaceLayout({
   children,
@@ -10,7 +11,10 @@ export default function MarketPlaceLayout({
 }) {
   return (
     <MarketplaceAuthProvider>
-      <div className="gd-mp">{children}</div>
+      <div className="gd-mp" data-gd-marketplace-root="1">
+        {children}
+      </div>
+      <MarketplaceAutoTranslate />
     </MarketplaceAuthProvider>
   );
 }

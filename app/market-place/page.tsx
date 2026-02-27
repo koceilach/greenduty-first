@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import * as Select from "@radix-ui/react-select";
 import {
@@ -19,6 +20,7 @@ import {
   Clock3,
   Droplets,
   Gauge,
+  Globe,
   Home,
   Leaf,
   LineChart,
@@ -32,6 +34,7 @@ import {
   PieChart,
   Play,
   Plus,
+  PawPrint,
   Search,
   ShoppingBag,
   ShoppingCart,
@@ -46,7 +49,17 @@ import {
   X,
 } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
+import { useI18n } from "@/lib/i18n/context";
 import { GD_WILAYAS } from "@/lib/wilayas";
+import {
+  GD_MARKET_LOCALE_LABELS,
+  GD_MARKET_LOCALES,
+  GD_translateMarketplaceText,
+} from "@/lib/marketplace/i18n";
+import { GD_getMarketplaceProductDetailsHref } from "@/lib/marketplace/routes";
+import { GD_saveMarketplaceDetailsSnapshot } from "@/lib/marketplace/details-cache";
+import YieldPredictor from "@/components/marketplace/YieldPredictor";
+import VisualSearch from "@/components/marketplace/VisualSearch";
 
 const GD_HERO_STATS = [
   {
@@ -89,6 +102,7 @@ const GD_FEATURED_FILTERS = [
   "Herbs",
   "Grains",
   "Flowers",
+  "Pets",
 ] as const;
 
 const GD_LISTING_CATEGORIES = [
@@ -97,9 +111,16 @@ const GD_LISTING_CATEGORIES = [
   "Plants",
   "Tools",
   "Fertilizers",
+  "Pets",
 ] as const;
 
-const GD_PRODUCT_CATEGORIES = ["Seeds", "Plants", "Tools", "Fertilizers"] as const;
+const GD_PRODUCT_CATEGORIES = [
+  "Seeds",
+  "Plants",
+  "Tools",
+  "Fertilizers",
+  "Pets",
+] as const;
 const GD_PRODUCT_TYPES = [
   "Vegetables",
   "Fruits",
@@ -107,7 +128,43 @@ const GD_PRODUCT_TYPES = [
   "Grains",
   "Flowers",
   "Agronomy Tools",
+  "Pets",
+  "Chickens",
+  "Goats",
+  "Cows",
+  "Sheep",
+  "Rabbits",
 ] as const;
+
+const GD_PET_TYPES = [
+  "Chickens",
+  "Goats",
+  "Cows",
+  "Sheep",
+  "Rabbits",
+  "Birds",
+  "Cats",
+  "Dogs",
+  "Other",
+] as const;
+
+const GD_PET_GENDER_OPTIONS = [
+  { value: "female", label: "Female" },
+  { value: "male", label: "Male" },
+  { value: "mixed", label: "Both (Female & Male)" },
+] as const;
+
+const GD_isPetCategory = (value?: string | null) => {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized.startsWith("pet") ||
+    normalized.includes("animal") ||
+    normalized.includes("livestock") ||
+    normalized.includes("animaux") ||
+    normalized.includes("حيوان")
+  );
+};
 
 const GD_CATEGORY_CARDS = [
   {
@@ -145,6 +202,23 @@ const GD_CATEGORY_CARDS = [
     description: "Ornamental and pollinator-friendly blooms.",
     icon: Award,
     matchers: ["flower", "ornamental", "rose", "jasmine", "lavender", "sunflower"],
+  },
+  {
+    title: "Pets & Livestock",
+    description: "Chickens, goats, cows, and other farm animals.",
+    icon: PawPrint,
+    matchers: [
+      "pet",
+      "pets",
+      "animal",
+      "livestock",
+      "chicken",
+      "goat",
+      "cow",
+      "sheep",
+      "rabbit",
+      "poultry",
+    ],
   },
 ] as const;
 
@@ -429,8 +503,7 @@ const GD_CARD_BASE =
   "rounded-2xl border border-white/10 bg-white/5 shadow-[0_12px_30px_rgba(0,0,0,0.25)]";
 const GD_WEATHER_REFRESH_MS = 5 * 60 * 1000;
 const GD_SPOTLIGHT_LIMIT = 6;
-const GD_PUBLISH_TIMEOUT_MS = 12000;
-const GD_PUBLISH_WATCHDOG_MS = 18000;
+const GD_IMAGE_UPLOAD_TIMEOUT_MS = 30000;
 const GD_BOTTOM_NAV_ITEM =
   "gd-bottom-nav-item group flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-1.5 text-center text-[11px] font-medium text-gray-500 transition-colors duration-200 hover:text-gray-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-200/70 max-[360px]:gap-0.5 max-[360px]:px-1 max-[360px]:text-[9px] sm:text-[12px]";
 const GD_BOTTOM_NAV_ICON =
@@ -474,6 +547,9 @@ const GD_formatCountdown = (timeLeftMs: number) => {
 function GDMarketplaceFeaturesSection() {
   const [isLocked, setIsLocked] = useState(true);
   const [timeLeftMs, setTimeLeftMs] = useState(GD_FEATURES_LOCK_DURATION_MS);
+  const [yieldModalOpen, setYieldModalOpen] = useState(false);
+  const [visualSearchModalOpen, setVisualSearchModalOpen] = useState(false);
+  const isFeatureModalOpen = yieldModalOpen || visualSearchModalOpen;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -512,6 +588,23 @@ function GDMarketplaceFeaturesSection() {
 
     return () => window.clearInterval(intervalId);
   }, []);
+
+  useEffect(() => {
+    if (!isFeatureModalOpen || typeof window === "undefined") return;
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setYieldModalOpen(false);
+        setVisualSearchModalOpen(false);
+      }
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isFeatureModalOpen]);
 
   const countdownLabel = useMemo(() => GD_formatCountdown(timeLeftMs), [timeLeftMs]);
 
@@ -566,33 +659,150 @@ function GDMarketplaceFeaturesSection() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
-          {GD_FEATURES.map((feature) => {
-            const Icon = feature.icon;
-            return (
-              <div
-                key={feature.title}
-                className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-              >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="mt-5 flex-1 space-y-3 pb-4">
-                  <div className="text-sm font-semibold text-gray-900">{feature.title}</div>
-                  <p className="text-xs leading-relaxed text-gray-500">
-                    {feature.description}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="mt-auto inline-flex w-max self-start items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-medium text-green-700 transition group-hover:bg-green-100"
+        <div className="space-y-5">
+          <div className="grid gap-5 sm:grid-cols-2 md:grid-cols-3">
+            {GD_FEATURES.map((feature) => {
+              const Icon = feature.icon;
+              const isCommunityForum = feature.title === "Community Forum";
+              const isVisualSearch = feature.title === "Visual Search";
+              const isYieldPredictor = feature.title === "Yield Predictor";
+              return (
+                <div
+                  key={feature.title}
+                  className="group flex flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                 >
-                  {feature.cta}
-                  <ArrowUpRight className="h-3 w-3" />
-                </button>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-green-50 text-green-600">
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <div className="mt-5 flex-1 space-y-3 pb-4">
+                    <div className="text-sm font-semibold text-gray-900">{feature.title}</div>
+                    <p className="text-xs leading-relaxed text-gray-500">
+                      {feature.description}
+                    </p>
+                  </div>
+                  {isCommunityForum ? (
+                    <Link
+                      href="/market-place/forum"
+                      className="mt-auto inline-flex w-max self-start items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-medium text-green-700 transition group-hover:bg-green-100"
+                    >
+                      {feature.cta}
+                      <ArrowUpRight className="h-3 w-3" />
+                    </Link>
+                  ) : isVisualSearch ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setYieldModalOpen(false);
+                        setVisualSearchModalOpen(true);
+                      }}
+                      className="mt-auto inline-flex w-max self-start items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-medium text-green-700 transition group-hover:bg-green-100"
+                    >
+                      {feature.cta}
+                      <ArrowUpRight className="h-3 w-3" />
+                    </button>
+                  ) : isYieldPredictor ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVisualSearchModalOpen(false);
+                        setYieldModalOpen(true);
+                      }}
+                      className="mt-auto inline-flex w-max self-start items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-medium text-green-700 transition group-hover:bg-green-100"
+                    >
+                      {feature.cta}
+                      <ArrowUpRight className="h-3 w-3" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mt-auto inline-flex w-max self-start items-center gap-1.5 rounded-full bg-green-50 px-3 py-1.5 text-[11px] font-medium text-green-700 transition group-hover:bg-green-100"
+                    >
+                      {feature.cta}
+                      <ArrowUpRight className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {visualSearchModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-6"
+          onClick={() => setVisualSearchModalOpen(false)}
+        >
+          <div
+            className="w-full max-h-[92vh] max-w-4xl overflow-y-auto rounded-t-[26px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-teal-50/45 shadow-[0_28px_70px_rgba(15,23,42,0.28)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:rounded-[28px]"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-emerald-100/80 bg-white/90 px-4 py-3 backdrop-blur sm:px-5">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
+                  Visual Search
+                </h3>
+                <p className="text-[11px] text-slate-500 sm:text-xs">
+                  Upload a photo and detect crop intelligence
+                </p>
               </div>
-            );
-          })}
+              <button
+                type="button"
+                aria-label="Close visual search"
+                onClick={() => setVisualSearchModalOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-3 sm:p-4">
+              <VisualSearch
+                sectionId="marketplace-visual-search-modal"
+                className="border-0 bg-transparent shadow-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {yieldModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-6"
+          onClick={() => setYieldModalOpen(false)}
+        >
+          <div
+            className="w-full max-h-[92vh] max-w-4xl overflow-y-auto rounded-t-[26px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-teal-50/45 shadow-[0_28px_70px_rgba(15,23,42,0.28)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:rounded-[28px]"
+            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-emerald-100/80 bg-white/90 px-4 py-3 backdrop-blur sm:px-5">
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
+                  Yield Predictor
+                </h3>
+                <p className="text-[11px] text-slate-500 sm:text-xs">
+                  Smart weather analysis for your farm
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Close yield predictor"
+                onClick={() => setYieldModalOpen(false)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-3 sm:p-4">
+              <YieldPredictor
+                sectionId="marketplace-yield-predictor-modal"
+                className="border-0 bg-transparent shadow-none"
+              />
+            </div>
+          </div>
         </div>
       )}
     </section>
@@ -643,14 +853,73 @@ const GD_LISTING_CATEGORY_MATCHERS: Record<string, string[]> = {
   Plants: ["plant", "tree", "flower", "herb"],
   Tools: ["tool", "equipment", "irrigation", "agronomy"],
   Fertilizers: ["fertilizer", "compost", "manure", "nutrient", "soil"],
+  Pets: [
+    "pet",
+    "pets",
+    "animal",
+    "livestock",
+    "chicken",
+    "hen",
+    "rooster",
+    "goat",
+    "cow",
+    "cattle",
+    "sheep",
+    "lamb",
+    "rabbit",
+    "duck",
+    "turkey",
+    "poultry",
+  ],
 };
 
+const GD_PET_LISTING_TERMS = Array.from(
+  new Set(
+    [
+      ...GD_LISTING_CATEGORY_MATCHERS.Pets,
+      ...GD_PET_TYPES.map((type) => type.toLowerCase()),
+      "dog",
+      "dogs",
+      "cat",
+      "cats",
+      "horse",
+      "horses",
+      "camel",
+      "camels",
+      "donkey",
+      "donkeys",
+      "animals",
+      "livestock",
+    ].map((term) => term.toLowerCase())
+  )
+);
+
 const GD_FEATURED_FILTER_MATCHERS: Record<string, string[]> = {
-  Vegetables: ["vegetable", "tomato", "pepper", "cucumber", "lettuce", "carrot"],
-  Fruits: ["fruit", "citrus", "berry", "melon", "grape", "apple"],
-  Herbs: ["herb", "spice", "basil", "mint", "thyme", "coriander"],
-  Grains: ["grain", "cereal", "wheat", "barley", "corn", "rice"],
-  Flowers: ["flower", "ornamental", "rose", "jasmine", "lavender", "sunflower"],
+  Vegetables: [
+    "vegetable",
+    "vegetables",
+    "tomato",
+    "pepper",
+    "cucumber",
+    "lettuce",
+    "carrot",
+    "onion",
+    "potato",
+  ],
+  Fruits: ["fruit", "fruits", "citrus", "berry", "melon", "grape", "apple", "orange"],
+  Herbs: ["herb", "herbs", "spice", "spices", "basil", "mint", "thyme", "coriander"],
+  Grains: ["grain", "grains", "cereal", "wheat", "barley", "corn", "rice", "seed", "seeds"],
+  Flowers: ["flower", "flowers", "ornamental", "rose", "jasmine", "lavender", "sunflower"],
+  Pets: GD_PET_LISTING_TERMS,
+};
+
+const GD_FEATURED_TO_CATEGORY: Record<string, string> = {
+  Vegetables: "Vegetables",
+  Fruits: "Fruits",
+  Herbs: "Herbs & Spices",
+  Grains: "Grains & Cereals",
+  Flowers: "Flowers",
+  Pets: "Pets & Livestock",
 };
 
 type GDMarketFilterOptions = {
@@ -681,6 +950,30 @@ const GD_normalizeSellerProfile = (
   };
 };
 
+const GD_normalizeMarketplaceItems = (rows: any[]): MarketplaceItem[] =>
+  (rows ?? []).map((row) => ({
+    id: row.id,
+    seller_id: row.seller_id,
+    title: row.title,
+    description: row.description ?? null,
+    price_dzd: row.price_dzd,
+    image_url: row.image_url ?? null,
+    stock_quantity: row.stock_quantity,
+    category: row.category ?? null,
+    plant_type: row.plant_type ?? null,
+    wilaya: row.wilaya ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    created_at: row.created_at,
+    seller_profile: GD_normalizeSellerProfile(
+      row.marketplace_profiles as
+        | MarketplaceSellerProfile
+        | MarketplaceSellerProfile[]
+        | null
+        | undefined
+    ),
+  }));
+
 const GD_sellerDisplayName = (profile?: MarketplaceSellerProfile | null) => {
   if (!profile) return "Marketplace Seller";
   if (profile.store_name && profile.store_name.trim().length > 0) {
@@ -710,6 +1003,24 @@ const GD_stableReviewCount = (seed?: string | null) => {
 
 const GD_matchesAnyTerm = (text: string, terms: string[]) =>
   terms.some((term) => text.includes(term));
+
+const GD_isPetListingItem = (item: MarketplaceItem) => {
+  if (GD_isPetCategory(item.category) || GD_isPetCategory(item.plant_type)) {
+    return true;
+  }
+  const text = GD_itemText(item);
+  return GD_PET_LISTING_TERMS.some((term) => text.includes(term));
+};
+
+const GD_matchesFeaturedFilter = (item: MarketplaceItem, filter: string) => {
+  if (filter === "All") return true;
+  if (filter === "Pets") {
+    return GD_isPetListingItem(item);
+  }
+  const text = GD_itemText(item);
+  const terms = GD_FEATURED_FILTER_MATCHERS[filter] ?? [filter.toLowerCase()];
+  return GD_matchesAnyTerm(text, terms);
+};
 
 const GD_filterMarketplaceItems = (
   items: MarketplaceItem[],
@@ -752,14 +1063,8 @@ const GD_filterMarketplaceItems = (
       }
     }
 
-    if (activeFeaturedFilter !== "All") {
-      const featuredTerms =
-        GD_FEATURED_FILTER_MATCHERS[activeFeaturedFilter] ?? [
-          activeFeaturedFilter.toLowerCase(),
-        ];
-      if (!GD_matchesAnyTerm(text, featuredTerms)) {
-        return false;
-      }
+    if (!GD_matchesFeaturedFilter(item, activeFeaturedFilter)) {
+      return false;
     }
 
     const price = Number(item.price_dzd);
@@ -776,6 +1081,7 @@ const GD_filterMarketplaceItems = (
 
 export default function MarketPlacePage() {
   const { supabase, user, profile, loading: authLoading, signOut } = useMarketplaceAuth();
+  const { locale, setLocale } = useI18n();
   const router = useRouter();
   const [activeAiFilter, setActiveAiFilter] = useState("All");
   const [activeFeaturedFilter, setActiveFeaturedFilter] = useState("All");
@@ -794,11 +1100,15 @@ export default function MarketPlacePage() {
   const [weatherError, setWeatherError] = useState<string | null>(null);
   const [minPrice, setMinPrice] = useState("0");
   const [maxPrice, setMaxPrice] = useState("10000");
+  const [isPriceRangeCustomized, setIsPriceRangeCustomized] = useState(false);
   const [marketItems, setMarketItems] = useState<MarketplaceItem[]>([]);
+  const [allMarketItems, setAllMarketItems] = useState<MarketplaceItem[]>([]);
   const [marketLoading, setMarketLoading] = useState(false);
   const [marketError, setMarketError] = useState<string | null>(null);
   const marketLoadRequestRef = useRef(0);
+  const languageMenuRef = useRef<HTMLDivElement | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [activeKnowledgeArticle, setActiveKnowledgeArticle] =
     useState<GDKnowledgeArticle | null>(null);
   const [signOutPending, setSignOutPending] = useState(false);
@@ -819,13 +1129,24 @@ export default function MarketPlacePage() {
     price: "",
     coupon: "",
     stock: "10",
+    animalType: "Chickens",
+    petWeightKg: "",
+    petQuantity: "1",
+    petGender: "mixed",
+    petAge: "",
     wilaya: "Algiers",
   });
   const [marketMode, setMarketMode] = useState<"buyer" | "seller">(
     profile?.role === "seller" ? "seller" : "buyer"
   );
   const isSeller = marketMode === "seller";
+  const isPetListingMode = GD_isPetCategory(productForm.category);
   const canSwitchModes = profile?.role === "seller" || profile?.role === "admin";
+
+  const translateMarketplaceText = useCallback(
+    (raw: string) => GD_translateMarketplaceText(locale, raw),
+    [locale]
+  );
 
   const filteredWilayas = useMemo(() => {
     const query = wilayaQuery.trim().toLowerCase();
@@ -876,6 +1197,23 @@ export default function MarketPlacePage() {
     };
   }, [activeKnowledgeArticle]);
 
+  useEffect(() => {
+    const handlePointerOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target;
+      if (!languageMenuRef.current || !(target instanceof Node)) return;
+      if (!languageMenuRef.current.contains(target)) {
+        setLanguageMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerOutside);
+    document.addEventListener("touchstart", handlePointerOutside, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handlePointerOutside);
+      document.removeEventListener("touchstart", handlePointerOutside);
+    };
+  }, []);
+
   const filteredMarketItems = useMemo(() => {
     return GD_filterMarketplaceItems(marketItems, {
       selectedWilaya,
@@ -892,6 +1230,66 @@ export default function MarketPlacePage() {
     minPrice,
     maxPrice,
   ]);
+
+  const petListingSourceItems = useMemo(() => {
+    const byId = new Map<string, MarketplaceItem>();
+    for (const item of allMarketItems) {
+      if (!item?.id) continue;
+      byId.set(item.id, item);
+    }
+    for (const item of marketItems) {
+      if (!item?.id) continue;
+      if (!byId.has(item.id)) {
+        byId.set(item.id, item);
+      }
+    }
+    return Array.from(byId.values());
+  }, [allMarketItems, marketItems]);
+
+  const petListingsAll = useMemo(() => {
+    return petListingSourceItems
+      .filter((item) => GD_isPetListingItem(item))
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  }, [petListingSourceItems]);
+
+  const petListings = useMemo(() => {
+    return filteredMarketItems
+      .filter((item) => GD_isPetListingItem(item))
+      .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+      .slice(0, 12);
+  }, [filteredMarketItems]);
+
+  const featuredCounterSourceItems = useMemo(() => {
+    if (allMarketItems.length > 0) return allMarketItems;
+    return marketItems;
+  }, [allMarketItems, marketItems]);
+
+  const featuredFilterCounts = useMemo(() => {
+    return GD_FEATURED_FILTERS.reduce<Record<string, number>>((acc, filter) => {
+      if (filter === "All") {
+        acc[filter] = featuredCounterSourceItems.length;
+        return acc;
+      }
+      if (filter === "Pets") {
+        acc[filter] = featuredCounterSourceItems.filter((item) =>
+          GD_isPetListingItem(item)
+        ).length;
+        return acc;
+      }
+      acc[filter] = featuredCounterSourceItems.filter((item) =>
+        GD_matchesFeaturedFilter(item, filter)
+      ).length;
+      return acc;
+    }, {});
+  }, [featuredCounterSourceItems]);
+
+  const handleFeaturedFilterClick = useCallback((filter: string) => {
+    setActiveFeaturedFilter((prev) => (prev === filter && filter !== "All" ? "All" : filter));
+    const category = GD_FEATURED_TO_CATEGORY[filter];
+    if (category) {
+      setSelectedCategory(category);
+    }
+  }, []);
 
   const aiRecommendationsSource = useMemo(() => {
     if (!supabase || filteredMarketItems.length === 0) return [];
@@ -990,31 +1388,8 @@ export default function MarketPlacePage() {
         return;
       }
 
-      const normalized =
-        ((data ?? []) as any[]).map((row) => ({
-          id: row.id,
-          seller_id: row.seller_id,
-          title: row.title,
-          description: row.description ?? null,
-          price_dzd: row.price_dzd,
-          image_url: row.image_url ?? null,
-          stock_quantity: row.stock_quantity,
-          category: row.category ?? null,
-          plant_type: row.plant_type ?? null,
-          wilaya: row.wilaya ?? null,
-          latitude: row.latitude ?? null,
-          longitude: row.longitude ?? null,
-          created_at: row.created_at,
-          seller_profile: GD_normalizeSellerProfile(
-            row.marketplace_profiles as
-              | MarketplaceSellerProfile
-              | MarketplaceSellerProfile[]
-              | null
-              | undefined
-          ),
-        })) ?? [];
-
-      setMarketItems(normalized as MarketplaceItem[]);
+      const normalized = GD_normalizeMarketplaceItems((data ?? []) as any[]);
+      setMarketItems(normalized);
     } catch (error) {
       if (requestId !== marketLoadRequestRef.current) return;
       setMarketItems([]);
@@ -1026,9 +1401,59 @@ export default function MarketPlacePage() {
     }
   }, [supabase, searchValue]);
 
+  const loadAllMarketplaceItems = useCallback(async () => {
+    if (!supabase) return;
+    try {
+      const { data, error } = await supabase
+        .from("marketplace_items")
+        .select(
+          "id, seller_id, title, description, price_dzd, image_url, stock_quantity, category, plant_type, wilaya, latitude, longitude, created_at, marketplace_profiles:seller_id ( id, username, store_name, avatar_url, location )"
+        )
+        .order("created_at", { ascending: false });
+      if (error) return;
+      const normalized = GD_normalizeMarketplaceItems((data ?? []) as any[]);
+      setAllMarketItems(normalized);
+    } catch {
+      // keep previous values if live refresh fails
+    }
+  }, [supabase]);
+
   useEffect(() => {
     loadMarketplaceItems();
-  }, [loadMarketplaceItems]);
+    void loadAllMarketplaceItems();
+  }, [loadMarketplaceItems, loadAllMarketplaceItems]);
+
+  useEffect(() => {
+    if (isPriceRangeCustomized) return;
+    const priceValues = allMarketItems
+      .map((item) => Number(item.price_dzd))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const highestPrice = priceValues.length > 0 ? Math.max(...priceValues) : 10000;
+    const dynamicMax = Math.max(10000, Math.ceil(highestPrice / 1000) * 1000);
+    const dynamicMaxLabel = String(dynamicMax);
+    if (maxPrice !== dynamicMaxLabel) {
+      setMaxPrice(dynamicMaxLabel);
+    }
+  }, [allMarketItems, isPriceRangeCustomized, maxPrice]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel("marketplace-items-live-feed")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "marketplace_items" },
+        () => {
+          void loadMarketplaceItems();
+          void loadAllMarketplaceItems();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [supabase, loadMarketplaceItems, loadAllMarketplaceItems]);
 
   useEffect(() => {
     let active = true;
@@ -1260,9 +1685,28 @@ export default function MarketPlacePage() {
 
   const handleViewDetails = useCallback(
     (itemId: string) => {
-      router.push(`/market-place/product/${itemId}`);
+      const sourceItem =
+        allMarketItems.find((item) => item.id === itemId) ??
+        marketItems.find((item) => item.id === itemId) ??
+        null;
+      if (sourceItem) {
+        GD_saveMarketplaceDetailsSnapshot({
+          id: sourceItem.id,
+          seller_id: sourceItem.seller_id ?? null,
+          title: sourceItem.title ?? null,
+          description: sourceItem.description ?? null,
+          price_dzd: sourceItem.price_dzd ?? null,
+          category: sourceItem.category ?? null,
+          plant_type: sourceItem.plant_type ?? null,
+          image_url: sourceItem.image_url ?? null,
+          wilaya: sourceItem.wilaya ?? null,
+          stock_quantity: sourceItem.stock_quantity ?? null,
+          seller_profile: sourceItem.seller_profile ?? null,
+        });
+      }
+      router.push(GD_getMarketplaceProductDetailsHref(itemId));
     },
-    [router]
+    [allMarketItems, marketItems, router]
   );
 
   const handleProfileClick = useCallback(() => {
@@ -1326,6 +1770,78 @@ export default function MarketPlacePage() {
     return Math.max(0, basePriceValue * (1 - discountPercent / 100));
   }, [basePriceValue, discountPercent]);
 
+  const petPreviewTitle = useMemo(() => {
+    if (!isPetListingMode) return "";
+    if (productForm.title.trim()) return productForm.title.trim();
+    const qty = Math.max(1, Number(productForm.petQuantity) || 1);
+    const type = (productForm.animalType || "Pet").trim();
+    return qty > 1 ? `${qty} ${type}` : type;
+  }, [
+    isPetListingMode,
+    productForm.title,
+    productForm.petQuantity,
+    productForm.animalType,
+  ]);
+
+  const petPreviewDescription = useMemo(() => {
+    if (!isPetListingMode) return "";
+    if (productForm.description.trim()) return productForm.description.trim();
+    const animalType = productForm.animalType.trim();
+    const quantity = Math.max(1, Number(productForm.petQuantity) || 1);
+    const parts = [
+      animalType ? `Type: ${animalType}` : "",
+      `Quantity: ${quantity}`,
+      productForm.petAge.trim() ? `Age: ${productForm.petAge.trim()}` : "",
+      productForm.petWeightKg.trim() ? `Weight: ${productForm.petWeightKg.trim()} kg` : "",
+      productForm.color.trim() ? `Color: ${productForm.color.trim()}` : "",
+      `Gender: ${
+        GD_PET_GENDER_OPTIONS.find((option) => option.value === productForm.petGender)
+          ?.label ?? "Both (Female & Male)"
+      }`,
+    ].filter(Boolean);
+    if (parts.length === 0) {
+      return "Animal listing shared by a verified marketplace seller.";
+    }
+    return parts.join(" | ");
+  }, [
+    isPetListingMode,
+    productForm.description,
+    productForm.animalType,
+    productForm.petQuantity,
+    productForm.petAge,
+    productForm.petWeightKg,
+    productForm.color,
+    productForm.petGender,
+  ]);
+
+  const previewCategoryLabel = useMemo(() => {
+    if (isPetListingMode) return "Pets";
+    return productForm.category.trim() || "Category";
+  }, [isPetListingMode, productForm.category]);
+
+  const previewTypeLabel = useMemo(() => {
+    if (isPetListingMode) {
+      return productForm.animalType.trim() || productForm.plantType.trim() || "Animal Type";
+    }
+    return productForm.plantType.trim() || "Type";
+  }, [isPetListingMode, productForm.animalType, productForm.plantType]);
+
+  const previewTitle = useMemo(() => {
+    const typedTitle = productForm.title.trim();
+    if (typedTitle) return typedTitle;
+    if (isPetListingMode) return petPreviewTitle || "Pet listing title";
+    return "Product title";
+  }, [isPetListingMode, petPreviewTitle, productForm.title]);
+
+  const previewDescription = useMemo(() => {
+    const typedDescription = productForm.description.trim();
+    if (typedDescription) return typedDescription;
+    if (isPetListingMode) {
+      return petPreviewDescription || "Animal details and condition will appear here.";
+    }
+    return "A short product description will appear here.";
+  }, [isPetListingMode, petPreviewDescription, productForm.description]);
+
   const handleProductImageChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -1381,6 +1897,11 @@ export default function MarketPlacePage() {
       price: "",
       coupon: "",
       stock: "10",
+      animalType: "Chickens",
+      petWeightKg: "",
+      petQuantity: "1",
+      petGender: "mixed",
+      petAge: "",
       wilaya: "Algiers",
     });
     if (productImagePreviewObjectUrlRef.current) {
@@ -1417,8 +1938,33 @@ export default function MarketPlacePage() {
       setToast("You must be an approved seller to list products.");
       return;
     }
-    if (!productForm.title.trim() || !productForm.description.trim()) {
+    if (
+      !isPetListingMode &&
+      (!productForm.title.trim() || !productForm.description.trim())
+    ) {
       setToast("Please add a title and description.");
+      return;
+    }
+    if (isPetListingMode && !productForm.animalType.trim()) {
+      setToast("Please choose the animal type.");
+      return;
+    }
+    if (
+      isPetListingMode &&
+      (!productForm.petWeightKg.trim() || Number(productForm.petWeightKg) <= 0)
+    ) {
+      setToast("Please add a valid animal weight.");
+      return;
+    }
+    if (isPetListingMode && !productForm.petAge.trim()) {
+      setToast("Please add the animal age.");
+      return;
+    }
+    if (
+      isPetListingMode &&
+      (!productForm.petQuantity.trim() || Number(productForm.petQuantity) < 1)
+    ) {
+      setToast("Please add a valid animal quantity.");
       return;
     }
     if (!basePriceValue) {
@@ -1428,12 +1974,10 @@ export default function MarketPlacePage() {
 
     setProductSubmitting(true);
     const imageFileSnapshot = productImageFile;
-    const watchdog = setTimeout(() => {
-      setProductSubmitting(false);
-      setToast("Publishing is taking too long. Please retry.");
-    }, GD_PUBLISH_WATCHDOG_MS);
     try {
-      const stockValue = Number(productForm.stock);
+      const stockValue = Number(
+        isPetListingMode ? productForm.petQuantity : productForm.stock
+      );
       const coords =
         GD_WILAYA_COORDINATES[productForm.wilaya] ??
         GD_WILAYA_COORDINATES["All Wilayas"];
@@ -1441,70 +1985,133 @@ export default function MarketPlacePage() {
       if (productForm.color.trim()) {
         extraDetails.push(`Color: ${productForm.color.trim()}`);
       }
-      if (productForm.size.trim()) {
+      if (!isPetListingMode && productForm.size.trim()) {
         extraDetails.push(`Size: ${productForm.size.trim()}`);
       }
+      if (isPetListingMode) {
+        const petGenderLabel =
+          GD_PET_GENDER_OPTIONS.find((option) => option.value === productForm.petGender)
+            ?.label ?? "Both (Female & Male)";
+        extraDetails.push(`Animal type: ${productForm.animalType.trim()}`);
+        extraDetails.push(`Weight: ${productForm.petWeightKg.trim()} kg`);
+        extraDetails.push(`Gender: ${petGenderLabel}`);
+        extraDetails.push(`Age: ${productForm.petAge.trim()}`);
+        extraDetails.push(`Quantity: ${productForm.petQuantity.trim()}`);
+      }
+      const baseDescription = productForm.description.trim();
+      const fallbackDescription = isPetListingMode
+        ? "Animal listing shared by a verified marketplace seller."
+        : "";
+      const descriptionSource = baseDescription || fallbackDescription;
       const fullDescription =
         extraDetails.length > 0
-          ? `${productForm.description.trim()}\n\nDetails: ${extraDetails.join(
+          ? `${descriptionSource}\n\n${isPetListingMode ? "Pet details" : "Details"}: ${extraDetails.join(
               " | "
             )}`
-          : productForm.description.trim();
+          : descriptionSource;
+      const listingTitle =
+        productForm.title.trim() ||
+        (isPetListingMode ? `${productForm.animalType.trim()} listing` : "");
 
       const payload = {
         seller_id: user.id,
-        title: productForm.title.trim(),
+        title: listingTitle,
         description: fullDescription,
         price_dzd: Number(discountedPriceValue.toFixed(2)),
         image_url: null,
         stock_quantity: Number.isFinite(stockValue) ? stockValue : 0,
-        category: productForm.category,
-        plant_type: productForm.plantType,
+        category: isPetListingMode ? "Pets" : productForm.category,
+        plant_type: isPetListingMode ? productForm.animalType : productForm.plantType,
         wilaya: productForm.wilaya,
         latitude: coords.lat,
         longitude: coords.lon,
       };
 
-      const result = await GD_withTimeout<{
-        data: { id: string } | null;
-        error: { message?: string } | null;
-      }>(
-        (async () => {
-          const { data, error } = await supabase
-            .from("marketplace_items")
-            .insert([payload])
-            .select("id")
-            .single();
-          return {
-            data: data ? ({ id: String((data as { id?: string }).id ?? "") }) : null,
-            error: error ? { message: error.message } : null,
-          };
-        })(),
-        GD_PUBLISH_TIMEOUT_MS,
-        "Publishing timed out. Please retry."
-      );
+      const { data: insertedData, error: insertError } = await supabase
+        .from("marketplace_items")
+        .insert([payload])
+        .select(
+          "id, seller_id, title, description, price_dzd, image_url, stock_quantity, category, plant_type, wilaya, latitude, longitude, created_at"
+        )
+        .maybeSingle();
 
-      if (result.error) {
-        if (/row level|permission|policy/i.test(result.error.message || "")) {
+      if (insertError) {
+        if (/row level|permission|policy/i.test(insertError.message || "")) {
           setToast("You need to be an approved seller to list products.");
         } else {
-          setToast(`Product creation failed: ${result.error.message}`);
+          setToast(`Product creation failed: ${insertError.message}`);
         }
         return;
       }
 
       setToast("Product listed successfully.");
-      const insertedId = result.data?.id ?? null;
+      const insertedId = insertedData?.id ? String(insertedData.id) : null;
+      if (insertedData?.id) {
+        const optimisticItem: MarketplaceItem = {
+          id: String(insertedData.id),
+          seller_id: String(insertedData.seller_id ?? user.id),
+          title: String(insertedData.title ?? (listingTitle || "Untitled listing")),
+          description:
+            insertedData.description === null || insertedData.description === undefined
+              ? null
+              : String(insertedData.description),
+          price_dzd: Number(insertedData.price_dzd ?? payload.price_dzd),
+          image_url:
+            insertedData.image_url === null || insertedData.image_url === undefined
+              ? null
+              : String(insertedData.image_url),
+          stock_quantity: Number(insertedData.stock_quantity ?? payload.stock_quantity ?? 0),
+          category:
+            insertedData.category === null || insertedData.category === undefined
+              ? null
+              : String(insertedData.category),
+          plant_type:
+            insertedData.plant_type === null || insertedData.plant_type === undefined
+              ? null
+              : String(insertedData.plant_type),
+          wilaya:
+            insertedData.wilaya === null || insertedData.wilaya === undefined
+              ? null
+              : String(insertedData.wilaya),
+          latitude:
+            insertedData.latitude === null || insertedData.latitude === undefined
+              ? null
+              : Number(insertedData.latitude),
+          longitude:
+            insertedData.longitude === null || insertedData.longitude === undefined
+              ? null
+              : Number(insertedData.longitude),
+          created_at: String(insertedData.created_at ?? new Date().toISOString()),
+          seller_profile: profile
+            ? {
+                id: user.id,
+                username: profile.username ?? null,
+                store_name: profile.store_name ?? null,
+                avatar_url: profile.avatar_url ?? null,
+                location: profile.location ?? null,
+              }
+            : null,
+        };
+        setMarketItems((prev) => [
+          optimisticItem,
+          ...prev.filter((item) => item.id !== optimisticItem.id),
+        ]);
+        setAllMarketItems((prev) => [
+          optimisticItem,
+          ...prev.filter((item) => item.id !== optimisticItem.id),
+        ]);
+      }
       resetProductForm();
       setProductModalOpen(false);
-      loadMarketplaceItems();
+      void loadMarketplaceItems();
+      void loadAllMarketplaceItems();
 
       if (imageFileSnapshot && insertedId) {
         void (async () => {
           try {
             const imageUrl = await GD_withTimeout(
               uploadProductImage(imageFileSnapshot),
-              GD_PUBLISH_TIMEOUT_MS,
+              GD_IMAGE_UPLOAD_TIMEOUT_MS,
               "Image upload timed out after publish."
             );
             if (!imageUrl) return;
@@ -1513,6 +2120,26 @@ export default function MarketPlacePage() {
               .update({ image_url: imageUrl })
               .eq("id", insertedId)
               .eq("seller_id", user.id);
+            setMarketItems((prev) =>
+              prev.map((item) =>
+                item.id === insertedId
+                  ? {
+                      ...item,
+                      image_url: imageUrl,
+                    }
+                  : item
+              )
+            );
+            setAllMarketItems((prev) =>
+              prev.map((item) =>
+                item.id === insertedId
+                  ? {
+                      ...item,
+                      image_url: imageUrl,
+                    }
+                  : item
+              )
+            );
           } catch {
             setToast("Product saved, but image upload is still pending.");
           }
@@ -1525,7 +2152,6 @@ export default function MarketPlacePage() {
           : "Publishing failed. Please try again.";
       setToast(message);
     } finally {
-      clearTimeout(watchdog);
       setProductSubmitting(false);
     }
   }, [
@@ -1534,6 +2160,7 @@ export default function MarketPlacePage() {
     user,
     profile?.role,
     isSeller,
+    isPetListingMode,
     productImageFile,
     productForm,
     basePriceValue,
@@ -1541,6 +2168,7 @@ export default function MarketPlacePage() {
     uploadProductImage,
     resetProductForm,
     loadMarketplaceItems,
+    loadAllMarketplaceItems,
   ]);
 
   const aiCards = showAllAi ? filteredAi : filteredAi.slice(0, 4);
@@ -1596,8 +2224,17 @@ export default function MarketPlacePage() {
         items: pickItems((item) => isIn(item.category, ["tools", "fertilizers"])),
         empty: "No agronomy tools listed yet.",
       },
+      {
+        id: "marketplace-pets-spotlight",
+        title: "Pets & Livestock",
+        subtitle: "Animals and livestock available from verified marketplace sellers.",
+        variant: "pet",
+        items: pickItems((item) => GD_isPetListingItem(item)),
+        count: petListingsAll.length,
+        empty: "No pet or livestock listings yet.",
+      },
     ];
-  }, [filteredMarketItems]);
+  }, [filteredMarketItems, petListingsAll]);
 
   const heroStats = useMemo(() => {
     if (!supabase || filteredMarketItems.length === 0) return GD_HERO_STATS;
@@ -1617,11 +2254,14 @@ export default function MarketPlacePage() {
 
   const categoryCards = useMemo(() => {
     return GD_CATEGORY_CARDS.map((card) => {
-      const count = filteredMarketItems.reduce((total, item) => {
-        const haystack = `${item.plant_type ?? ""} ${item.category ?? ""} ${item.title ?? ""} ${item.description ?? ""}`.toLowerCase();
-        const matches = card.matchers.some((term) => haystack.includes(term));
-        return total + (matches ? 1 : 0);
-      }, 0);
+      const count =
+        card.title === "Pets & Livestock"
+          ? petListingsAll.length
+          : filteredMarketItems.reduce((total, item) => {
+              const haystack = `${item.plant_type ?? ""} ${item.category ?? ""} ${item.title ?? ""} ${item.description ?? ""}`.toLowerCase();
+              const matches = card.matchers.some((term) => haystack.includes(term));
+              return total + (matches ? 1 : 0);
+            }, 0);
       return {
         title: card.title,
         description: card.description,
@@ -1629,7 +2269,7 @@ export default function MarketPlacePage() {
         count,
       };
     });
-  }, [filteredMarketItems]);
+  }, [filteredMarketItems, petListingsAll]);
 
   const categoryMaxCount = useMemo(() => {
     return Math.max(1, ...categoryCards.map((card) => card.count));
@@ -1761,12 +2401,12 @@ export default function MarketPlacePage() {
       <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400" />
 
       {/* -- Sticky Header / Navbar -- */}
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
+      <header className="gd-marketplace-header sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
         <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-3 lg:px-8">
           {/* Brand */}
           <Link href="/market-place" className="flex shrink-0 items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">
-              GD
+            <div className="relative h-9 w-9 overflow-hidden rounded-lg border border-emerald-200/70 bg-white shadow-sm">
+              <Image src="/logo.png" alt="GreenDuty logo" fill sizes="36px" className="object-cover" />
             </div>
             <span className="hidden text-lg font-bold text-gray-900 sm:block">
               GreenDuty
@@ -1795,9 +2435,11 @@ export default function MarketPlacePage() {
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <button
               type="submit"
-              className="absolute right-1 top-1 h-8 rounded-full bg-emerald-600 px-5 text-xs font-semibold text-white transition hover:bg-emerald-700"
+              aria-label="Search marketplace"
+              title="Search marketplace"
+              className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white transition hover:bg-emerald-700"
             >
-              Search
+              <Search className="h-4 w-4" />
             </button>
           </form>
 
@@ -1809,34 +2451,35 @@ export default function MarketPlacePage() {
 
           {/* Right actions */}
           <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+            
             {/* Mode pills — seller pill only visible to approved sellers/admins */}
             {canSwitchModes && (
               <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 p-0.5">
                 <button
                   type="button"
                   onClick={() => handleSwitchRole("buyer")}
-                  className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 ${
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold transition ${
                     !isSeller
                       ? "bg-emerald-600 text-white shadow-sm"
                       : "text-gray-500 hover:text-gray-800"
                   }`}
+                  aria-label="Switch to buyer mode"
                   title="Switch to buyer mode"
                 >
                   <ShoppingCart className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Buyer</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleSwitchRole("seller")}
-                  className={`flex h-8 items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition sm:px-3 ${
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold transition ${
                     isSeller
                       ? "bg-emerald-600 text-white shadow-sm"
                       : "text-gray-500 hover:text-gray-800"
                   }`}
+                  aria-label="Switch to seller mode"
                   title="Switch to seller mode"
                 >
                   <ShoppingBag className="h-3.5 w-3.5" />
-                  <span className="hidden sm:inline">Seller</span>
                 </button>
               </div>
             )}
@@ -1910,23 +2553,97 @@ export default function MarketPlacePage() {
         </div>
 
         {/* Category navbar */}
-        <div className="border-t border-gray-100 bg-white/95 backdrop-blur-sm">
+        <div className="gd-marketplace-subnav border-t border-gray-100 bg-white/95 backdrop-blur-sm">
           <div className="gd-mp-container mx-auto w-full max-w-7xl px-3 py-2 sm:px-4 lg:px-8">
-            <div className="flex snap-x snap-mandatory flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-              {GD_FEATURED_FILTERS.map((filter) => (
-                <button
-                  key={filter}
-                  type="button"
-                  onClick={() => setActiveFeaturedFilter(filter)}
-                  className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold leading-none transition ${
-                    activeFeaturedFilter === filter
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-[0_6px_18px_rgba(16,185,129,0.18)]"
-                      : "border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/40 hover:text-emerald-700"
-                  }`}
-                >
-                  {filter}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <div data-gd-i18n-skip="1">
+                <div ref={languageMenuRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setLanguageMenuOpen((prev) => !prev)}
+                    className="inline-flex h-9 min-w-[98px] items-center gap-1.5 rounded-full border border-emerald-100 bg-white/95 px-2.5 text-[12px] font-semibold text-gray-700 shadow-[0_8px_20px_rgba(15,23,42,0.08)] transition hover:border-emerald-200 hover:bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    aria-expanded={languageMenuOpen}
+                    aria-haspopup="listbox"
+                    aria-label="Marketplace language switch"
+                  >
+                    <Globe className="h-3.5 w-3.5 text-emerald-600" />
+                    <span>{GD_MARKET_LOCALE_LABELS[locale]}</span>
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 text-gray-400 transition-transform ${
+                        languageMenuOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  <div
+                    className={`gd-solid-window absolute left-0 top-full z-50 mt-2 min-w-[148px] rounded-2xl border border-emerald-100 bg-white p-1.5 shadow-[0_18px_42px_rgba(15,23,42,0.18)] transition-all duration-150 ${
+                      languageMenuOpen
+                        ? "visible translate-y-0 opacity-100"
+                        : "pointer-events-none invisible -translate-y-1 opacity-0"
+                    }`}
+                    role="listbox"
+                    aria-label="Marketplace language switch"
+                    data-gd-i18n-skip="1"
+                  >
+                    {GD_MARKET_LOCALES.map((lang) => {
+                      const isActive = lang === locale;
+                      return (
+                        <button
+                          key={lang}
+                          type="button"
+                          onClick={() => {
+                            setLocale(lang);
+                            setLanguageMenuOpen(false);
+                          }}
+                          className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[12px] font-semibold transition ${
+                            isActive
+                              ? "bg-emerald-50 text-emerald-700"
+                              : "text-gray-600 hover:bg-emerald-50/70 hover:text-emerald-700"
+                          }`}
+                          role="option"
+                          aria-selected={isActive}
+                        >
+                          <span>{GD_MARKET_LOCALE_LABELS[lang]}</span>
+                          <Check
+                            className={`h-4 w-4 text-emerald-600 ${isActive ? "opacity-100" : "opacity-0"}`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex snap-x snap-mandatory flex-nowrap items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  {GD_FEATURED_FILTERS.map((filter) => (
+                    <button
+                      key={filter}
+                      type="button"
+                      onClick={() => handleFeaturedFilterClick(filter)}
+                      aria-pressed={activeFeaturedFilter === filter}
+                      className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold leading-none transition ${
+                        activeFeaturedFilter === filter
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-[0_6px_18px_rgba(16,185,129,0.18)]"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/40 hover:text-emerald-700"
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <span>{filter}</span>
+                        <span
+                          className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
+                            activeFeaturedFilter === filter
+                              ? "bg-emerald-200 text-emerald-800"
+                              : "bg-gray-100 text-gray-500"
+                          }`}
+                        >
+                          {featuredFilterCounts[filter] ?? 0}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2216,7 +2933,12 @@ export default function MarketPlacePage() {
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setMinPrice((prev) => String(Math.max(0, Number(prev) - 100)))}
+                        onClick={() => {
+                          setIsPriceRangeCustomized(true);
+                          setMinPrice((prev) =>
+                            String(Math.max(0, (Number(prev) || 0) - 100))
+                          );
+                        }}
                         className="flex h-6 w-6 items-center justify-center rounded text-xs font-semibold text-gray-500 transition hover:bg-gray-200"
                       >
                         -
@@ -2225,12 +2947,18 @@ export default function MarketPlacePage() {
                         type="number"
                         inputMode="numeric"
                         value={minPrice}
-                        onChange={(event) => setMinPrice(event.target.value)}
+                        onChange={(event) => {
+                          setIsPriceRangeCustomized(true);
+                          setMinPrice(event.target.value);
+                        }}
                         className="w-16 bg-transparent text-center text-[11px] font-semibold text-gray-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <button
                         type="button"
-                        onClick={() => setMinPrice((prev) => String(Number(prev) + 100))}
+                        onClick={() => {
+                          setIsPriceRangeCustomized(true);
+                          setMinPrice((prev) => String((Number(prev) || 0) + 100));
+                        }}
                         className="flex h-6 w-6 items-center justify-center rounded text-xs font-semibold text-gray-500 transition hover:bg-gray-200"
                       >
                         +
@@ -2245,7 +2973,12 @@ export default function MarketPlacePage() {
                     <div className="flex items-center gap-1">
                       <button
                         type="button"
-                        onClick={() => setMaxPrice((prev) => String(Math.max(0, Number(prev) - 100)))}
+                        onClick={() => {
+                          setIsPriceRangeCustomized(true);
+                          setMaxPrice((prev) =>
+                            String(Math.max(0, (Number(prev) || 0) - 100))
+                          );
+                        }}
                         className="flex h-6 w-6 items-center justify-center rounded text-xs font-semibold text-gray-500 transition hover:bg-gray-200"
                       >
                         -
@@ -2254,12 +2987,18 @@ export default function MarketPlacePage() {
                         type="number"
                         inputMode="numeric"
                         value={maxPrice}
-                        onChange={(event) => setMaxPrice(event.target.value)}
+                        onChange={(event) => {
+                          setIsPriceRangeCustomized(true);
+                          setMaxPrice(event.target.value);
+                        }}
                         className="w-16 bg-transparent text-center text-[11px] font-semibold text-gray-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                       />
                       <button
                         type="button"
-                        onClick={() => setMaxPrice((prev) => String(Number(prev) + 100))}
+                        onClick={() => {
+                          setIsPriceRangeCustomized(true);
+                          setMaxPrice((prev) => String((Number(prev) || 0) + 100));
+                        }}
                         className="flex h-6 w-6 items-center justify-center rounded text-xs font-semibold text-gray-500 transition hover:bg-gray-200"
                       >
                         +
@@ -2534,16 +3273,25 @@ export default function MarketPlacePage() {
 
         {/* ------- SPOTLIGHT SECTIONS ------- */}
         {spotlightSections.map((section) => {
+          const isPetSection = section.variant === "pet";
           const isFarmStoreSection =
-            section.variant === "fresh" || section.variant === "seed";
+            section.variant === "fresh" || section.variant === "seed" || isPetSection;
           const isSeedSection = section.variant === "seed";
-          const SpotlightIcon = isSeedSection ? Sprout : Leaf;
+          const SpotlightIcon = isSeedSection ? Sprout : isPetSection ? PawPrint : Leaf;
           const accentClass = isSeedSection
             ? "border-amber-200 bg-amber-50 text-amber-700"
+            : isPetSection
+            ? "border-cyan-200 bg-cyan-50 text-cyan-700"
             : "border-emerald-200 bg-emerald-50 text-emerald-700";
           const primaryActionClass = isSeedSection
             ? "bg-amber-600 hover:bg-amber-700"
+            : isPetSection
+            ? "bg-cyan-600 hover:bg-cyan-700"
             : "bg-emerald-600 hover:bg-emerald-700";
+          const sectionCount =
+            "count" in section && typeof section.count === "number"
+              ? section.count
+              : section.items.length;
 
           return (
             <section
@@ -2562,7 +3310,11 @@ export default function MarketPlacePage() {
                       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] ${accentClass}`}
                     >
                       <SpotlightIcon className="h-3.5 w-3.5" />
-                      {isSeedSection ? "Seed & grain depot" : "Fresh produce aisle"}
+                      {isSeedSection
+                        ? "Seed & grain depot"
+                        : isPetSection
+                        ? "Pets & livestock aisle"
+                        : "Fresh produce aisle"}
                     </span>
                   )}
                   <div>
@@ -2577,7 +3329,7 @@ export default function MarketPlacePage() {
                       : "border-gray-200 bg-white text-gray-500"
                   }`}
                 >
-                  {section.items.length} items
+                  {sectionCount} items
                 </span>
               </div>
 
@@ -2658,18 +3410,26 @@ export default function MarketPlacePage() {
                               <span
                                 className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${accentClass}`}
                               >
-                                {isSeedSection ? "Certified" : "Seasonal"}
+                                {isSeedSection ? "Certified" : isPetSection ? "Verified" : "Seasonal"}
                               </span>
                             </div>
 
                             <div className="grid grid-cols-2 gap-2 rounded-xl border border-gray-200 bg-emerald-50/45 p-2">
                               <div className="space-y-1 rounded-lg border border-gray-200 bg-white px-3 py-2">
                                 <p className="text-[10px] uppercase tracking-[0.08em] text-gray-400">
-                                  {isSeedSection ? "Pack price" : "Market price"}
+                                  {isSeedSection
+                                    ? "Pack price"
+                                    : isPetSection
+                                    ? "Listing price"
+                                    : "Market price"}
                                 </p>
                                 <p
                                   className={`truncate text-xs font-semibold ${
-                                    isSeedSection ? "text-amber-700" : "text-emerald-700"
+                                    isSeedSection
+                                      ? "text-amber-700"
+                                      : isPetSection
+                                      ? "text-cyan-700"
+                                      : "text-emerald-700"
                                   }`}
                                 >
                                   {price}
@@ -2722,29 +3482,28 @@ export default function MarketPlacePage() {
                               </button>
                             </div>
 
-                            <div className="mt-2 grid grid-cols-2 gap-2.5">
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleViewDetails(item.id);
-                                }}
-                                className="rounded-lg border border-gray-200 bg-white py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
-                              >
-                                Details
-                              </button>
-                              {isSeller ? (
+                            {isPetSection && !isSeller ? (
+                              <div className="mt-2 grid grid-cols-3 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleSaveRecommendation(item.id);
+                                  }}
+                                  className="rounded-lg border border-cyan-200 bg-cyan-50 py-1.5 text-xs font-semibold text-cyan-700 transition hover:bg-cyan-100"
+                                >
+                                  Save
+                                </button>
                                 <button
                                   type="button"
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     handleViewDetails(item.id);
                                   }}
-                                  className={`rounded-lg py-1.5 text-xs font-semibold text-white transition ${primaryActionClass}`}
+                                  className="rounded-lg border border-gray-200 bg-white py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
                                 >
-                                  View listing
+                                  Details
                                 </button>
-                              ) : (
                                 <button
                                   type="button"
                                   onClick={(event) => {
@@ -2756,8 +3515,45 @@ export default function MarketPlacePage() {
                                 >
                                   Add to Cart
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            ) : (
+                              <div className="mt-2 grid grid-cols-2 gap-2.5">
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleViewDetails(item.id);
+                                  }}
+                                  className="rounded-lg border border-gray-200 bg-white py-1.5 text-xs font-semibold text-gray-700 transition hover:bg-gray-50"
+                                >
+                                  Details
+                                </button>
+                                {isSeller ? (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleViewDetails(item.id);
+                                    }}
+                                    className={`rounded-lg py-1.5 text-xs font-semibold text-white transition ${primaryActionClass}`}
+                                  >
+                                    View listing
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleAddToCart(item as MarketplaceItem);
+                                    }}
+                                    disabled={item.stock_quantity <= 0}
+                                    className={`rounded-lg py-1.5 text-xs font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-gray-200 disabled:text-gray-400 ${primaryActionClass}`}
+                                  >
+                                    Add to Cart
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </article>
                       );
@@ -3013,6 +3809,115 @@ export default function MarketPlacePage() {
             </div>
           )}
         </section>
+
+        {/* ------- PETS & LIVESTOCK ------- */}
+        <section id="marketplace-pets" className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className="text-lg font-bold text-gray-900">Pets & Livestock</h2>
+              <p className="text-xs text-gray-500 sm:text-sm">
+                Explore animal listings including chickens, goats, cows, and more.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+              <PawPrint className="h-3.5 w-3.5" />
+              {petListingsAll.length} listings
+            </span>
+          </div>
+
+          {petListingsAll.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+              No pet or livestock listings yet. Sellers can post animals from the product modal using the Pets category.
+            </div>
+          ) : petListings.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-white p-8 text-center text-sm text-gray-500">
+              No pet listings match your current smart filter settings.
+            </div>
+          ) : (
+            <div className="-mx-4 overflow-x-auto px-4 pb-2">
+              <div className="flex min-w-full gap-4">
+                {petListings.map((item) => {
+                  const title = item.title ?? "Pet Listing";
+                  const price =
+                    typeof item.price_dzd === "number"
+                      ? `${item.price_dzd.toLocaleString()} DZD`
+                      : "Price on request";
+                  const sellerName = GD_sellerDisplayName(item.seller_profile);
+                  const tag = item.plant_type ?? item.category ?? "Pet";
+
+                  return (
+                    <article
+                      key={`pet-${item.id}`}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => handleViewDetails(item.id)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleViewDetails(item.id);
+                        }
+                      }}
+                      className="group flex min-w-[220px] cursor-pointer flex-col gap-3 overflow-hidden rounded-xl border border-gray-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-1 hover:shadow-md sm:min-w-[260px]"
+                    >
+                      <div className="relative h-36 overflow-hidden rounded-lg border border-gray-100 bg-gray-50">
+                        <img
+                          src={
+                            item.image_url ??
+                            "https://images.unsplash.com/photo-1516467508483-a7212febe31a?auto=format&fit=crop&w=900&q=80"
+                          }
+                          alt={title}
+                          className="h-full w-full object-cover transition group-hover:scale-[1.03]"
+                          loading="lazy"
+                        />
+                        <span className="absolute left-2 top-2 rounded-full border border-white/70 bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-gray-700">
+                          {tag}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        <h3 className="line-clamp-1 text-sm font-semibold text-gray-900">{title}</h3>
+                        <p className="line-clamp-2 text-xs text-gray-500">
+                          {item.description?.trim() || "Animal listing shared by a verified marketplace seller."}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-emerald-700">{price}</span>
+                        <span className="text-gray-400">{GD_formatWilayaLabel(item.wilaya)}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 border-t border-gray-100 pt-2">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            router.push(`/market-place/profile/${item.seller_id}`);
+                          }}
+                          className="inline-flex min-w-0 items-center gap-2 text-[11px] font-semibold text-emerald-700 transition hover:text-emerald-800"
+                        >
+                          <span className="flex h-6 w-6 items-center justify-center overflow-hidden rounded-full border border-emerald-100 bg-emerald-50 text-[10px] uppercase">
+                            {item.seller_profile?.avatar_url ? (
+                              <img
+                                src={item.seller_profile.avatar_url}
+                                alt={sellerName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              GD_sellerInitials(item.seller_profile)
+                            )}
+                          </span>
+                          <span className="truncate">{sellerName}</span>
+                        </button>
+                        <span className="text-[10px] text-gray-400">Seller profile</span>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* ------- EXPLORE CATEGORIES (circular icons) ------- */}
         <section id="marketplace-categories" className="space-y-4 sm:space-y-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -3434,7 +4339,7 @@ export default function MarketPlacePage() {
               onClick={() => setActiveKnowledgeArticle(null)}
             />
 
-            <div className="relative flex h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl border border-emerald-100 bg-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-3xl">
+            <div className="gd-solid-window relative flex h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl border border-emerald-100 bg-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-3xl">
               <div className="relative h-52 sm:h-60">
                 <img
                   src={activeKnowledgeArticle.image}
@@ -3597,7 +4502,9 @@ export default function MarketPlacePage() {
           <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-[1.2fr_1fr_1fr_1fr]">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full bg-green-50 px-4 py-2 text-sm font-bold text-green-700">
-                <Sprout className="h-4 w-4" />
+                <span className="relative h-5 w-5 overflow-hidden rounded-md border border-green-200/70 bg-white">
+                  <Image src="/logo.png" alt="GreenDuty logo" fill sizes="20px" className="object-cover" />
+                </span>
                 GreenDuty
               </div>
               <p className="text-sm text-gray-500">
@@ -3650,13 +4557,13 @@ export default function MarketPlacePage() {
 
       {toast && (
         <div
-          className="gd-marketplace-toast fixed z-40 rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-medium text-green-700 shadow-lg"
+          className="gd-marketplace-toast fixed z-[60] rounded-full border border-green-200 bg-white px-4 py-2 text-xs font-medium text-green-700 shadow-lg"
           style={{
             right: "max(env(safe-area-inset-right), 24px)",
             bottom: "calc(env(safe-area-inset-bottom) + 96px)",
           }}
         >
-          {toast}
+          {translateMarketplaceText(toast)}
         </div>
       )}
 
@@ -3676,7 +4583,7 @@ export default function MarketPlacePage() {
 
       {productModalOpen && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:px-4 sm:py-6">
-          <div className="gd-product-modal-panel flex h-[96dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl border border-gray-200 bg-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
+          <div className="gd-product-modal-panel gd-solid-window flex h-[96dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-3xl border border-gray-200 bg-white shadow-2xl sm:h-auto sm:max-h-[90vh] sm:rounded-2xl">
             <div className="flex items-center justify-between border-b border-gray-200 px-4 py-4 sm:px-6 sm:py-5">
               <div className="space-y-1">
                 <div className="text-xs font-semibold uppercase tracking-wider text-green-600">
@@ -3712,25 +4619,24 @@ export default function MarketPlacePage() {
                         />
                       ) : (
                         <div className="flex h-36 items-center justify-center text-xs text-gray-400">
-                          Product image preview
+                          {isPetListingMode ? "Pet image preview" : "Product image preview"}
                         </div>
                       )}
                     </div>
                     <div className="mt-4 space-y-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-green-100 px-2 py-1 text-[10px] font-semibold uppercase text-green-700">
-                          {productForm.category || "Category"}
+                          {previewCategoryLabel}
                         </span>
                         <span className="rounded-full bg-gray-100 px-2 py-1 text-[10px] font-semibold uppercase text-gray-500">
-                          {productForm.plantType || "Type"}
+                          {previewTypeLabel}
                         </span>
                       </div>
                       <div className="text-lg font-bold text-gray-900">
-                        {productForm.title || "Product title"}
+                        {previewTitle}
                       </div>
                       <div className="text-xs text-gray-500 line-clamp-3">
-                        {productForm.description ||
-                          "A short product description will appear here."}
+                        {previewDescription}
                       </div>
                     </div>
                     <div className="mt-4 flex items-center justify-between">
@@ -3756,13 +4662,34 @@ export default function MarketPlacePage() {
                           Color: {productForm.color.trim()}
                         </span>
                       )}
-                      {productForm.size.trim() && (
+                      {!isPetListingMode && productForm.size.trim() && (
                         <span className="rounded-full border border-gray-200 bg-white px-2 py-1">
                           Size: {productForm.size.trim()}
                         </span>
                       )}
+                      {isPetListingMode && productForm.petWeightKg.trim() && (
+                        <span className="rounded-full border border-gray-200 bg-white px-2 py-1">
+                          Weight: {productForm.petWeightKg.trim()} kg
+                        </span>
+                      )}
+                      {isPetListingMode && productForm.petAge.trim() && (
+                        <span className="rounded-full border border-gray-200 bg-white px-2 py-1">
+                          Age: {productForm.petAge.trim()}
+                        </span>
+                      )}
+                      {isPetListingMode && (
+                        <span className="rounded-full border border-gray-200 bg-white px-2 py-1">
+                          Quantity: {productForm.petQuantity || "1"}
+                        </span>
+                      )}
                       <span className="rounded-full border border-gray-200 bg-white px-2 py-1">
-                        Stock: {productForm.stock || "0"}
+                        {isPetListingMode
+                          ? `Gender: ${
+                              GD_PET_GENDER_OPTIONS.find(
+                                (option) => option.value === productForm.petGender
+                              )?.label ?? "Both (Female & Male)"
+                            }`
+                          : `Stock: ${productForm.stock || "0"}`}
                       </span>
                     </div>
                   </div>
@@ -3776,8 +4703,8 @@ export default function MarketPlacePage() {
                   {!isSeller && (
                     <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
                       {profile?.role === "seller" || profile?.role === "admin"
-                        ? "Switch to seller mode to publish products."
-                        : "You need to be an approved seller to publish products."}
+                        ? "Switch to seller mode to publish listings."
+                        : "You need to be an approved seller to publish listings."}
                       {profile?.role === "seller" || profile?.role === "admin" ? (
                         <button
                           type="button"
@@ -3799,7 +4726,7 @@ export default function MarketPlacePage() {
 
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-700">
-                      Product Name *
+                      {isPetListingMode ? "Product Name (Optional)" : "Product Name *"}
                     </label>
                     <input
                       value={productForm.title}
@@ -3809,14 +4736,18 @@ export default function MarketPlacePage() {
                           title: event.target.value,
                         }))
                       }
-                      placeholder="Organic Tomato Seeds"
+                      placeholder={
+                        isPetListingMode
+                          ? "Healthy goats from local farm"
+                          : "Organic Tomato Seeds"
+                      }
                       className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
                     />
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-700">
-                      Description *
+                      {isPetListingMode ? "Description (Optional)" : "Description *"}
                     </label>
                     <textarea
                       value={productForm.description}
@@ -3827,136 +4758,360 @@ export default function MarketPlacePage() {
                         }))
                       }
                       rows={3}
-                      placeholder="Describe the product, growing conditions, and quality."
+                      placeholder={
+                        isPetListingMode
+                          ? "Describe the animal condition, health status, and care notes."
+                          : "Describe the product, growing conditions, and quality."
+                      }
                       className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
                     />
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-700">
-                        Category *
-                      </label>
+                  {!isPetListingMode ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Category *
+                        </label>
                       <Select.Root
                         value={productForm.category}
                         onValueChange={(value) =>
                           setProductForm((prev) => ({
                             ...prev,
                             category: value,
+                            plantType:
+                              GD_isPetCategory(value)
+                                ? prev.animalType || "Chickens"
+                                : prev.plantType || "Vegetables",
                           }))
                         }
                       >
-                        <Select.Trigger className="flex h-11 w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-700 transition hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100">
-                          <Sprout className="h-4 w-4 text-gray-400" />
-                          <Select.Value placeholder="Category" />
-                          <Select.Icon className="ml-auto text-gray-400">
-                            <ChevronDown className="h-4 w-4" />
-                          </Select.Icon>
-                        </Select.Trigger>
-                        <Select.Portal>
-                          <Select.Content
-                            position="popper"
-                            sideOffset={8}
-                            className="z-50 min-w-[200px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-lg"
-                          >
-                            <Select.Viewport className="max-h-52 overflow-y-auto p-1">
-                              {GD_PRODUCT_CATEGORIES.map((category) => (
-                                <Select.Item
-                                  key={category}
-                                  value={category}
-                                  className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 outline-none data-[highlighted]:bg-green-50 data-[highlighted]:text-green-700 data-[state=checked]:bg-green-50"
-                                >
-                                  <Select.ItemText>{category}</Select.ItemText>
-                                  <Select.ItemIndicator>
-                                    <Check className="h-4 w-4 text-green-600" />
-                                  </Select.ItemIndicator>
-                                </Select.Item>
-                              ))}
-                            </Select.Viewport>
-                          </Select.Content>
-                        </Select.Portal>
-                      </Select.Root>
+                          <Select.Trigger className="flex h-11 w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-700 transition hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100">
+                            <Sprout className="h-4 w-4 text-gray-400" />
+                            <Select.Value placeholder="Category" />
+                            <Select.Icon className="ml-auto text-gray-400">
+                              <ChevronDown className="h-4 w-4" />
+                            </Select.Icon>
+                          </Select.Trigger>
+                          <Select.Portal>
+                            <Select.Content
+                              position="popper"
+                              sideOffset={8}
+                              className="z-50 min-w-[200px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-lg"
+                            >
+                              <Select.Viewport className="max-h-52 overflow-y-auto p-1">
+                                {GD_PRODUCT_CATEGORIES.map((category) => (
+                                  <Select.Item
+                                    key={category}
+                                    value={category}
+                                    className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 outline-none data-[highlighted]:bg-green-50 data-[highlighted]:text-green-700 data-[state=checked]:bg-green-50"
+                                  >
+                                    <Select.ItemText>{category}</Select.ItemText>
+                                    <Select.ItemIndicator>
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    </Select.ItemIndicator>
+                                  </Select.Item>
+                                ))}
+                              </Select.Viewport>
+                            </Select.Content>
+                          </Select.Portal>
+                        </Select.Root>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Type *
+                        </label>
+                        <Select.Root
+                          value={productForm.plantType}
+                          onValueChange={(value) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              plantType: value,
+                            }))
+                          }
+                        >
+                          <Select.Trigger className="flex h-11 w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-700 transition hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100">
+                            <Leaf className="h-4 w-4 text-gray-400" />
+                            <Select.Value placeholder="Type" />
+                            <Select.Icon className="ml-auto text-gray-400">
+                              <ChevronDown className="h-4 w-4" />
+                            </Select.Icon>
+                          </Select.Trigger>
+                          <Select.Portal>
+                            <Select.Content
+                              position="popper"
+                              sideOffset={8}
+                              className="z-50 min-w-[200px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-lg"
+                            >
+                              <Select.Viewport className="max-h-52 overflow-y-auto p-1">
+                                {GD_PRODUCT_TYPES.map((item) => (
+                                  <Select.Item
+                                    key={item}
+                                    value={item}
+                                    className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 outline-none data-[highlighted]:bg-green-50 data-[highlighted]:text-green-700 data-[state=checked]:bg-green-50"
+                                  >
+                                    <Select.ItemText>{item}</Select.ItemText>
+                                    <Select.ItemIndicator>
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    </Select.ItemIndicator>
+                                  </Select.Item>
+                                ))}
+                              </Select.Viewport>
+                            </Select.Content>
+                          </Select.Portal>
+                        </Select.Root>
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-700">
-                        Type *
-                      </label>
-                      <Select.Root
-                        value={productForm.plantType}
-                        onValueChange={(value) =>
-                          setProductForm((prev) => ({
-                            ...prev,
-                            plantType: value,
-                          }))
-                        }
-                      >
-                        <Select.Trigger className="flex h-11 w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-700 transition hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100">
-                          <Leaf className="h-4 w-4 text-gray-400" />
-                          <Select.Value placeholder="Type" />
-                          <Select.Icon className="ml-auto text-gray-400">
-                            <ChevronDown className="h-4 w-4" />
-                          </Select.Icon>
-                        </Select.Trigger>
-                        <Select.Portal>
-                          <Select.Content
-                            position="popper"
-                            sideOffset={8}
-                            className="z-50 min-w-[200px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-lg"
-                          >
-                            <Select.Viewport className="max-h-52 overflow-y-auto p-1">
-                              {GD_PRODUCT_TYPES.map((item) => (
-                                <Select.Item
-                                  key={item}
-                                  value={item}
-                                  className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 outline-none data-[highlighted]:bg-green-50 data-[highlighted]:text-green-700 data-[state=checked]:bg-green-50"
-                                >
-                                  <Select.ItemText>{item}</Select.ItemText>
-                                  <Select.ItemIndicator>
-                                    <Check className="h-4 w-4 text-green-600" />
-                                  </Select.ItemIndicator>
-                                </Select.Item>
-                              ))}
-                            </Select.Viewport>
-                          </Select.Content>
-                        </Select.Portal>
-                      </Select.Root>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Category *
+                        </label>
+                        <Select.Root
+                          value={productForm.category}
+                          onValueChange={(value) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              category: value,
+                              plantType:
+                                GD_isPetCategory(value)
+                                  ? prev.animalType || "Chickens"
+                                  : prev.plantType || "Vegetables",
+                            }))
+                          }
+                        >
+                          <Select.Trigger className="flex h-11 w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-700 transition hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100">
+                            <Sprout className="h-4 w-4 text-gray-400" />
+                            <Select.Value placeholder="Category" />
+                            <Select.Icon className="ml-auto text-gray-400">
+                              <ChevronDown className="h-4 w-4" />
+                            </Select.Icon>
+                          </Select.Trigger>
+                          <Select.Portal>
+                            <Select.Content
+                              position="popper"
+                              sideOffset={8}
+                              className="z-50 min-w-[200px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-lg"
+                            >
+                              <Select.Viewport className="max-h-52 overflow-y-auto p-1">
+                                {GD_PRODUCT_CATEGORIES.map((item) => (
+                                  <Select.Item
+                                    key={item}
+                                    value={item}
+                                    className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 outline-none data-[highlighted]:bg-green-50 data-[highlighted]:text-green-700 data-[state=checked]:bg-green-50"
+                                  >
+                                    <Select.ItemText>{item}</Select.ItemText>
+                                    <Select.ItemIndicator>
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    </Select.ItemIndicator>
+                                  </Select.Item>
+                                ))}
+                              </Select.Viewport>
+                            </Select.Content>
+                          </Select.Portal>
+                        </Select.Root>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Type of Animal *
+                        </label>
+                        <Select.Root
+                          value={productForm.animalType}
+                          onValueChange={(value) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              animalType: value,
+                              plantType: value,
+                            }))
+                          }
+                        >
+                          <Select.Trigger className="flex h-11 w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-700 transition hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100">
+                            <PawPrint className="h-4 w-4 text-gray-400" />
+                            <Select.Value placeholder="Animal type" />
+                            <Select.Icon className="ml-auto text-gray-400">
+                              <ChevronDown className="h-4 w-4" />
+                            </Select.Icon>
+                          </Select.Trigger>
+                          <Select.Portal>
+                            <Select.Content
+                              position="popper"
+                              sideOffset={8}
+                              className="z-50 min-w-[200px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-lg"
+                            >
+                              <Select.Viewport className="max-h-52 overflow-y-auto p-1">
+                                {GD_PET_TYPES.map((item) => (
+                                  <Select.Item
+                                    key={item}
+                                    value={item}
+                                    className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 outline-none data-[highlighted]:bg-green-50 data-[highlighted]:text-green-700 data-[state=checked]:bg-green-50"
+                                  >
+                                    <Select.ItemText>{item}</Select.ItemText>
+                                    <Select.ItemIndicator>
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    </Select.ItemIndicator>
+                                  </Select.Item>
+                                ))}
+                              </Select.Viewport>
+                            </Select.Content>
+                          </Select.Portal>
+                        </Select.Root>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-700">
-                        Color
-                      </label>
-                      <input
-                        value={productForm.color}
-                        onChange={(event) =>
-                          setProductForm((prev) => ({
-                            ...prev,
-                            color: event.target.value,
-                          }))
-                        }
-                        placeholder="Optional"
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
-                      />
+                  {!isPetListingMode ? (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Color
+                        </label>
+                        <input
+                          value={productForm.color}
+                          onChange={(event) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              color: event.target.value,
+                            }))
+                          }
+                          placeholder="Optional"
+                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Size
+                        </label>
+                        <input
+                          value={productForm.size}
+                          onChange={(event) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              size: event.target.value,
+                            }))
+                          }
+                          placeholder="Optional"
+                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-700">
-                        Size
-                      </label>
-                      <input
-                        value={productForm.size}
-                        onChange={(event) =>
-                          setProductForm((prev) => ({
-                            ...prev,
-                            size: event.target.value,
-                          }))
-                        }
-                        placeholder="Optional"
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
-                      />
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Gender *
+                        </label>
+                        <Select.Root
+                          value={productForm.petGender}
+                          onValueChange={(value) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              petGender: value,
+                            }))
+                          }
+                        >
+                          <Select.Trigger className="flex h-11 w-full items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 text-sm text-gray-700 transition hover:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100">
+                            <Users className="h-4 w-4 text-gray-400" />
+                            <Select.Value placeholder="Gender" />
+                            <Select.Icon className="ml-auto text-gray-400">
+                              <ChevronDown className="h-4 w-4" />
+                            </Select.Icon>
+                          </Select.Trigger>
+                          <Select.Portal>
+                            <Select.Content
+                              position="popper"
+                              sideOffset={8}
+                              className="z-50 min-w-[200px] max-w-[90vw] overflow-hidden rounded-xl border border-gray-200 bg-white p-1 text-sm text-gray-700 shadow-lg"
+                            >
+                              <Select.Viewport className="max-h-52 overflow-y-auto p-1">
+                                {GD_PET_GENDER_OPTIONS.map((item) => (
+                                  <Select.Item
+                                    key={item.value}
+                                    value={item.value}
+                                    className="relative flex cursor-pointer select-none items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-[12px] text-gray-600 outline-none data-[highlighted]:bg-green-50 data-[highlighted]:text-green-700 data-[state=checked]:bg-green-50"
+                                  >
+                                    <Select.ItemText>{item.label}</Select.ItemText>
+                                    <Select.ItemIndicator>
+                                      <Check className="h-4 w-4 text-green-600" />
+                                    </Select.ItemIndicator>
+                                  </Select.Item>
+                                ))}
+                              </Select.Viewport>
+                            </Select.Content>
+                          </Select.Portal>
+                        </Select.Root>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Weight (kg) *
+                        </label>
+                        <input
+                          value={productForm.petWeightKg}
+                          onChange={(event) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              petWeightKg: event.target.value,
+                            }))
+                          }
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          placeholder="25"
+                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Age *
+                        </label>
+                        <input
+                          value={productForm.petAge}
+                          onChange={(event) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              petAge: event.target.value,
+                            }))
+                          }
+                          placeholder="8 months"
+                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          How many animals? *
+                        </label>
+                        <input
+                          value={productForm.petQuantity}
+                          onChange={(event) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              petQuantity: event.target.value,
+                            }))
+                          }
+                          type="number"
+                          min="1"
+                          step="1"
+                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Color
+                        </label>
+                        <input
+                          value={productForm.color}
+                          onChange={(event) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              color: event.target.value,
+                            }))
+                          }
+                          placeholder="Optional"
+                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+                        />
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="grid gap-4 md:grid-cols-2">
                     <div className="space-y-2">
@@ -4011,23 +5166,26 @@ export default function MarketPlacePage() {
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-700">
-                        Stock Quantity
-                      </label>
-                      <input
-                        value={productForm.stock}
-                        onChange={(event) =>
-                          setProductForm((prev) => ({
-                            ...prev,
-                            stock: event.target.value,
-                          }))
-                        }
-                        type="number"
-                        className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
-                      />
-                    </div>
-                    <div className="space-y-2">
+                    {!isPetListingMode && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-gray-700">
+                          Stock Quantity
+                        </label>
+                        <input
+                          value={productForm.stock}
+                          onChange={(event) =>
+                            setProductForm((prev) => ({
+                              ...prev,
+                              stock: event.target.value,
+                            }))
+                          }
+                          type="number"
+                          min="0"
+                          className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-400 focus:outline-none focus:ring-2 focus:ring-green-100"
+                        />
+                      </div>
+                    )}
+                    <div className={`space-y-2 ${isPetListingMode ? "md:col-span-2" : ""}`}>
                       <label className="text-xs font-semibold text-gray-700">
                         Delivery Coverage
                       </label>
@@ -4102,12 +5260,12 @@ export default function MarketPlacePage() {
 
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-gray-700">
-                      Product Image
+                      {isPetListingMode ? "Pet Image" : "Product Image"}
                     </label>
                     <div className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 p-4">
                       <label className="flex cursor-pointer items-center gap-3 text-xs text-gray-600">
                         <ImagePlus className="h-4 w-4 text-green-500" />
-                        Upload product image
+                        {isPetListingMode ? "Upload pet image" : "Upload product image"}
                         <input
                           type="file"
                           accept="image/*"

@@ -11,6 +11,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
+import { GD_getMarketplaceProductDetailsHref } from "@/lib/marketplace/routes";
 
 type MarketplaceSellerProfile = {
   id: string;
@@ -368,7 +369,9 @@ function MarketplaceSearchPage() {
                   <div className="flex flex-wrap gap-2 pt-2">
                     <button
                       type="button"
-                      onClick={() => router.push(`/market-place/product/${item.id}`)}
+                      onClick={() =>
+                        router.push(GD_getMarketplaceProductDetailsHref(item.id))
+                      }
                       className="inline-flex flex-1 items-center justify-center gap-2 rounded-full border border-emerald-200/40 bg-emerald-200/10 px-3 py-2 text-xs font-semibold text-emerald-100 transition hover:bg-emerald-200/20"
                     >
                       View details

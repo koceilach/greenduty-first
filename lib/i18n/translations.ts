@@ -333,6 +333,11 @@ const en: Record<string, string> = {
   "landing.help.form.result.error":
     "Something went wrong while sending the report.",
   "landing.help.form.result.network": "Network error. Please try again.",
+  "landing.notice.title": "Quick notice",
+  "landing.notice.message":
+    "Some bugs may still appear. Please report them in the Help Us section.",
+  "landing.notice.cta": "Open Help Us",
+  "landing.notice.close": "Close",
   "landing.footer.bulletin.title": "GreenDuty Bulletin",
   "landing.footer.bulletin.subtitle": "Weekly updates on verified planting missions",
   "landing.footer.newsletter.title":
@@ -707,6 +712,11 @@ const frOverrides: Record<string, string> = {
     "Un probleme est survenu pendant l'envoi du rapport.",
   "landing.help.form.result.network":
     "Erreur reseau. Veuillez reessayer.",
+  "landing.notice.title": "Info rapide",
+  "landing.notice.message":
+    "Quelques bugs peuvent encore apparaitre. Signalez-les dans la section Aidez-nous.",
+  "landing.notice.cta": "Ouvrir Aidez-nous",
+  "landing.notice.close": "Fermer",
   "landing.footer.bulletin.title": "Bulletin GreenDuty",
   "landing.footer.bulletin.subtitle":
     "Mises a jour hebdomadaires des missions de plantation verifiees",
@@ -1114,6 +1124,11 @@ const arOverrides: Record<string, string> = {
     "حدث خطا اثناء ارسال التقرير.",
   "landing.help.form.result.network":
     "خطا في الشبكة. حاول مرة اخرى.",
+  "landing.notice.title": "تنبيه سريع",
+  "landing.notice.message":
+    "قد تظهر بعض الاخطاء. يرجى الابلاغ عنها في قسم ساعدنا.",
+  "landing.notice.cta": "فتح قسم ساعدنا",
+  "landing.notice.close": "اغلاق",
   "landing.footer.bulletin.title": "نشرة GreenDuty",
   "landing.footer.bulletin.subtitle": "تحديثات اسبوعية حول مهام الغرس الموثقة",
   "landing.footer.newsletter.title":

@@ -14,9 +14,25 @@ export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const [mounted, setMounted] = React.useState(false);
+  const [isRtl, setIsRtl] = React.useState(false);
 
   React.useEffect(() => {
     setMounted(true);
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const syncDir = () => setIsRtl(root.dir === "rtl");
+    syncDir();
+
+    const observer = new MutationObserver(syncDir);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["dir"],
+    });
+
+    return () => observer.disconnect();
   }, []);
 
   if (!mounted) return null;
@@ -38,7 +54,9 @@ export function ThemeToggle() {
   }
 
   const positionClass =
-    "left-2 top-1/2 -translate-y-1/2 md:left-auto md:right-4 md:top-24 md:translate-y-0";
+    isRtl
+      ? "left-2 top-1/2 -translate-y-1/2 md:left-4 md:right-auto md:top-24 md:translate-y-0"
+      : "left-2 top-1/2 -translate-y-1/2 md:left-auto md:right-4 md:top-24 md:translate-y-0";
 
   return (
     <div className={`pointer-events-auto fixed z-40 flex flex-col gap-1 rounded-2xl p-1 text-xs backdrop-blur-xl md:flex-row md:items-center md:rounded-full ${positionClass} ${shellClass}`}>

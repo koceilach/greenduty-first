@@ -14,6 +14,11 @@ import {
 } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 import { GD_findOrCreateMarketplaceDirectConversation } from "@/lib/marketplace/messages/direct-conversation";
+import {
+  GD_getMarketplaceDetailsSnapshot,
+  GD_saveMarketplaceDetailsSnapshot,
+} from "@/lib/marketplace/details-cache";
+import { GD_decodeMarketplaceProductId } from "@/lib/marketplace/routes";
 
 type ProductRecord = {
   id: string;
@@ -79,6 +84,8 @@ const GD_PLACEHOLDER_COPY =
 const GD_PAGE_CARD =
   "rounded-[32px] border border-white/10 bg-white/5 shadow-[0_18px_55px_rgba(0,0,0,0.45)] backdrop-blur-xl";
 
+export const dynamic = "force-dynamic";
+
 export default function ProductDetailsPage() {
   const { supabase, user } = useMarketplaceAuth();
   const params = useParams<{ id: string | string[] }>();
@@ -86,7 +93,8 @@ export default function ProductDetailsPage() {
   const productId = useMemo(() => {
     const raw = params?.id;
     if (!raw) return null;
-    return Array.isArray(raw) ? raw[0] : raw;
+    const singleId = Array.isArray(raw) ? raw[0] : raw;
+    return GD_decodeMarketplaceProductId(singleId);
   }, [params]);
   const [product, setProduct] = useState<ProductRecord | null>(null);
   const [sourceTable, setSourceTable] = useState<
@@ -103,6 +111,14 @@ export default function ProductDetailsPage() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryLocation, setDeliveryLocation] = useState("");
 
+  useEffect(() => {
+    if (productId) return;
+    setProduct(null);
+    setSourceTable(null);
+    setError("Invalid listing link.");
+    setLoading(false);
+  }, [productId]);
+
   const resolveImageUrl = useCallback(
     (rawUrl: string | null | undefined) => {
       if (!rawUrl) return null;
@@ -115,26 +131,80 @@ export default function ProductDetailsPage() {
   );
 
   useEffect(() => {
-    if (!supabase || !productId) return;
+    if (!productId) return;
     let active = true;
 
-    const fetchFromTable = async (table: string) => {
-      const query =
-        table === "marketplace_items"
-          ? supabase
-              .from(table)
-              .select(
-                "id, seller_id, title, name, description, price_dzd, category, plant_type, urgency, image_url, wilaya, stock_quantity, marketplace_profiles:seller_id ( id, username, store_name, avatar_url, location )"
-              )
-          : supabase.from(table).select("*");
+    const applyCachedSnapshot = () => {
+      const cached = GD_getMarketplaceDetailsSnapshot(productId);
+      if (!cached) return false;
 
-      const { data, error: tableError } = await query.eq("id", productId).maybeSingle();
-      return { data: data as ProductRecord | null, error: tableError };
+      const cachedSellerProfile = GD_normalizeSellerProfile(
+        cached.seller_profile as MarketplaceSellerProfile | null | undefined
+      );
+      const cachedSellerAvatar = resolveImageUrl(
+        cachedSellerProfile?.avatar_url ?? null
+      );
+      const cachedProduct: ProductRecord = {
+        id: cached.id,
+        seller_id: cached.seller_id ?? null,
+        title: cached.title ?? null,
+        name: cached.name ?? null,
+        description: cached.description ?? null,
+        price_dzd:
+          typeof cached.price_dzd === "number" ? cached.price_dzd : null,
+        category: cached.category ?? null,
+        plant_type: cached.plant_type ?? null,
+        urgency: cached.urgency ?? null,
+        image_url: resolveImageUrl(cached.image_url ?? null),
+        wilaya: cached.wilaya ?? null,
+        stock_quantity:
+          typeof cached.stock_quantity === "number"
+            ? cached.stock_quantity
+            : null,
+        seller_profile: cachedSellerProfile
+          ? {
+              ...cachedSellerProfile,
+              avatar_url: cachedSellerAvatar,
+            }
+          : null,
+      };
+
+      if (!active) return true;
+      setProduct(cachedProduct);
+      setSourceTable("marketplace_items");
+      setError(null);
+      setLoading(false);
+      return true;
     };
 
     const fetchProduct = async () => {
       setLoading(true);
       setError(null);
+
+      if (!supabase) {
+        if (applyCachedSnapshot()) return;
+        if (!active) return;
+        setError("Marketplace data is unavailable right now.");
+        setSourceTable(null);
+        setLoading(false);
+        return;
+      }
+
+      const fetchFromTable = async (table: string) => {
+        const query =
+          table === "marketplace_items"
+            ? supabase
+                .from(table)
+                .select(
+                  "id, seller_id, title, name, description, price_dzd, category, plant_type, urgency, image_url, wilaya, stock_quantity, marketplace_profiles:seller_id ( id, username, store_name, avatar_url, location )"
+                )
+            : supabase.from(table).select("*");
+
+        const { data, error: tableError } = await query
+          .eq("id", productId)
+          .maybeSingle();
+        return { data: data as ProductRecord | null, error: tableError };
+      };
 
       const primary = await fetchFromTable("marketplace_items");
       let resolved = primary.data;
@@ -145,12 +215,14 @@ export default function ProductDetailsPage() {
         const fallback = await fetchFromTable("planting_spots");
         resolved = fallback.data;
         resolvedTable = resolved ? "planting_spots" : null;
-        if (!resolved && fallback.error) {
+        if (!resolved && fallback.error && active) {
           setError("Unable to load this listing right now.");
         }
       }
 
       if (!resolved) {
+        if (applyCachedSnapshot()) return;
+        if (!active) return;
         setError((prev) => prev ?? "Product not found.");
         setSourceTable(null);
         setLoading(false);
@@ -169,8 +241,7 @@ export default function ProductDetailsPage() {
             )
           : null;
       const sellerAvatar = resolveImageUrl(sellerProfile?.avatar_url ?? null);
-      if (!active) return;
-      setProduct({
+      const normalizedProduct: ProductRecord = {
         ...resolved,
         image_url,
         seller_profile: sellerProfile
@@ -179,12 +250,37 @@ export default function ProductDetailsPage() {
               avatar_url: sellerAvatar,
             }
           : null,
-      });
+      };
+
+      if (!active) return;
+      setProduct(normalizedProduct);
       setSourceTable(resolvedTable);
       setLoading(false);
+
+      GD_saveMarketplaceDetailsSnapshot({
+        id: normalizedProduct.id,
+        seller_id: normalizedProduct.seller_id ?? null,
+        title: normalizedProduct.title ?? null,
+        name: normalizedProduct.name ?? null,
+        description: normalizedProduct.description ?? null,
+        price_dzd:
+          typeof normalizedProduct.price_dzd === "number"
+            ? normalizedProduct.price_dzd
+            : null,
+        category: normalizedProduct.category ?? null,
+        plant_type: normalizedProduct.plant_type ?? null,
+        urgency: normalizedProduct.urgency ?? null,
+        image_url: normalizedProduct.image_url ?? null,
+        wilaya: normalizedProduct.wilaya ?? null,
+        stock_quantity:
+          typeof normalizedProduct.stock_quantity === "number"
+            ? normalizedProduct.stock_quantity
+            : null,
+        seller_profile: normalizedProduct.seller_profile ?? null,
+      });
     };
 
-    fetchProduct();
+    void fetchProduct();
 
     return () => {
       active = false;

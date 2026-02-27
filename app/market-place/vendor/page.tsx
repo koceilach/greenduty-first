@@ -115,7 +115,7 @@ export default function VendorStudioPage() {
     longitude: "",
   });
 
-  const isSeller = profile?.role === "seller";
+  const isSeller = profile?.role === "seller" || profile?.role === "admin";
 
   const resetForm = useCallback(() => {
     setForm({

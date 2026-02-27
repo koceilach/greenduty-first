@@ -20,6 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
+import { GD_getMarketplaceProductDetailsHref } from "@/lib/marketplace/routes";
 
 type MarketplaceItem = {
   id: string;
@@ -791,7 +792,7 @@ export default function MarketplaceProfilePage() {
                               {item.wilaya ?? "Algeria"}
                             </span>
                             <Link
-                              href={`/market-place/product/${item.id}`}
+                              href={GD_getMarketplaceProductDetailsHref(item.id)}
                               className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-200 transition hover:text-emerald-100"
                             >
                               View listing

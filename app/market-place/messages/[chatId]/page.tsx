@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useMarketplaceAuth } from "@/components/marketplace-auth-provider";
 import { useMarketplaceChat } from "@/lib/marketplace/messages/useMarketplaceChat";
+import { GD_getMarketplaceProductDetailsHref } from "@/lib/marketplace/routes";
 
 type OtherParticipant = {
   id: string;
@@ -435,7 +436,9 @@ export default function MarketplaceChatRoomPage() {
             {conversation?.pinnedProduct && (
               <div className="border-b border-white/10 px-4 py-3">
                 <Link
-                  href={`/market-place/product/${conversation.pinnedProduct.id}`}
+                  href={GD_getMarketplaceProductDetailsHref(
+                    conversation.pinnedProduct.id
+                  )}
                   className="group flex items-center gap-3 rounded-2xl border border-emerald-200/30 bg-emerald-200/10 p-3 transition hover:border-emerald-200/60 hover:bg-emerald-200/15"
                 >
                   <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/10">
