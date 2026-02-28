@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Lenis, { type LenisOptions } from "lenis";
 
 function shouldEnableLenis() {
@@ -40,8 +40,6 @@ export function SmoothScrollProvider({ children }: { children: ReactNode }) {
   const visibilityHandlerRef = useRef<(() => void) | null>(null);
   const touchModeRef = useRef<boolean | null>(null);
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-  const query = searchParams.toString();
 
   useEffect(() => {
     const rootElement = document.documentElement;
@@ -153,7 +151,7 @@ export function SmoothScrollProvider({ children }: { children: ReactNode }) {
     }
 
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [pathname, query]);
+  }, [pathname]);
 
   return <>{children}</>;
 }
