@@ -2,7 +2,7 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { supabaseClient } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/client";
 
 export type GD_System_Profile = {
   id: string;
@@ -30,7 +30,7 @@ const GD_System_AuthContext = createContext<GD_System_AuthContextValue | undefin
 );
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = useMemo(() => supabaseClient, []);
+  const [supabase] = useState(() => createClient());
 
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<GD_System_Profile | null>(null);

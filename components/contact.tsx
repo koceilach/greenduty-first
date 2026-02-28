@@ -147,9 +147,17 @@ export function Contact() {
           transition={{ duration: 0.5, ease: "easeOut" }}
           className="mb-12 text-center"
         >
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-300/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.22em] text-emerald-200 light:text-emerald-700">
-            <Sparkles className="h-3.5 w-3.5" />
+          <span
+            className={`inline-flex items-center gap-2.5 text-[11px] font-semibold text-emerald-200 light:text-emerald-700 ${
+              isArabic ? "flex-row-reverse tracking-normal" : "uppercase tracking-[0.18em]"
+            }`}
+          >
+            <span className="h-px w-7 bg-emerald-300/45 light:bg-emerald-500/35" />
+            <span className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-emerald-300/40 text-emerald-200 light:border-emerald-500/35 light:text-emerald-700">
+              <Sparkles className="h-3 w-3" />
+            </span>
             {t("landing.contact.badge")}
+            <span className="h-px w-7 bg-emerald-300/45 light:bg-emerald-500/35" />
           </span>
           <h2 className="mb-4 mt-5 text-balance text-3xl font-bold text-slate-100 light:text-slate-900 sm:text-4xl md:text-5xl">
             {t("landing.contact.title")}

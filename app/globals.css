@@ -1143,6 +1143,43 @@ html.light {
 
 /* --- Default (dark) already handled by inline Tailwind --- */
 
+/* --- Mobile menu solid surfaces --- */
+@media (max-width: 1023px) {
+  .gd-navbar-mobile-panel {
+    background-color: rgba(7, 12, 20, 0.96) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .gd-navbar-mobile-panel .gd-navbar-mobile-link {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  .gd-navbar-mobile-panel .gd-navbar-mobile-link:hover,
+  .gd-navbar-mobile-panel .gd-navbar-mobile-link:focus-visible {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+  }
+
+  .gd-navbar-mobile-panel .gd-navbar-mobile-qa {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .gd-navbar-mobile-panel .gd-navbar-mobile-qa:hover,
+  .gd-navbar-mobile-panel .gd-navbar-mobile-qa:focus-visible {
+    background-color: rgba(255, 255, 255, 0.14) !important;
+  }
+
+  .gd-navbar-mobile-panel .gd-navbar-lang {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+  }
+
+  .gd-navbar-mobile-panel .gd-navbar-lang:hover,
+  .gd-navbar-mobile-panel .gd-navbar-lang:focus-visible {
+    background-color: rgba(255, 255, 255, 0.14) !important;
+  }
+}
+
 /* --- Green mode --- */
 .green .gd-navbar {
   border-color: rgba(16, 185, 129, 0.15) !important;
@@ -1230,6 +1267,41 @@ html.light {
   background-color: rgba(16, 185, 129, 0.12) !important;
 }
 
+@media (max-width: 1023px) {
+  .green .gd-navbar-mobile-panel {
+    background-color: #072220 !important;
+  }
+
+  .green .gd-navbar-mobile-panel .gd-navbar-mobile-link {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+  }
+
+  .green .gd-navbar-mobile-panel .gd-navbar-mobile-link:hover,
+  .green .gd-navbar-mobile-panel .gd-navbar-mobile-link:focus-visible {
+    background-color: rgba(16, 185, 129, 0.2) !important;
+  }
+
+  .green .gd-navbar-mobile-panel .gd-navbar-mobile-qa {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+  }
+
+  .green .gd-navbar-mobile-panel .gd-navbar-mobile-qa:hover,
+  .green .gd-navbar-mobile-panel .gd-navbar-mobile-qa:focus-visible {
+    background-color: rgba(16, 185, 129, 0.2) !important;
+  }
+
+  .green .gd-navbar-mobile-panel .gd-navbar-lang {
+    background-color: rgba(16, 185, 129, 0.12) !important;
+    border-color: rgba(16, 185, 129, 0.24) !important;
+    color: rgba(255, 255, 255, 0.88) !important;
+  }
+
+  .green .gd-navbar-mobile-panel .gd-navbar-lang:hover,
+  .green .gd-navbar-mobile-panel .gd-navbar-lang:focus-visible {
+    background-color: rgba(16, 185, 129, 0.2) !important;
+  }
+}
+
 /* --- Light mode --- */
 .light .gd-navbar {
   border-color: rgba(15, 23, 42, 0.1) !important;
@@ -1315,6 +1387,44 @@ html.light {
 
 .light .gd-navbar-mobile-qa:hover {
   background-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+@media (max-width: 1023px) {
+  .light .gd-navbar-mobile-panel {
+    background-color: #f8fafc !important;
+  }
+
+  .light .gd-navbar-mobile-panel .gd-navbar-mobile-link {
+    background-color: rgba(15, 23, 42, 0.06) !important;
+    color: rgba(15, 23, 42, 0.75) !important;
+  }
+
+  .light .gd-navbar-mobile-panel .gd-navbar-mobile-link:hover,
+  .light .gd-navbar-mobile-panel .gd-navbar-mobile-link:focus-visible {
+    background-color: rgba(15, 23, 42, 0.1) !important;
+    color: rgba(15, 23, 42, 0.95) !important;
+  }
+
+  .light .gd-navbar-mobile-panel .gd-navbar-mobile-qa {
+    background-color: rgba(15, 23, 42, 0.06) !important;
+  }
+
+  .light .gd-navbar-mobile-panel .gd-navbar-mobile-qa:hover,
+  .light .gd-navbar-mobile-panel .gd-navbar-mobile-qa:focus-visible {
+    background-color: rgba(15, 23, 42, 0.1) !important;
+  }
+
+  .light .gd-navbar-mobile-panel .gd-navbar-lang {
+    background-color: rgba(15, 23, 42, 0.06) !important;
+    border-color: rgba(15, 23, 42, 0.12) !important;
+    color: rgba(15, 23, 42, 0.75) !important;
+  }
+
+  .light .gd-navbar-mobile-panel .gd-navbar-lang:hover,
+  .light .gd-navbar-mobile-panel .gd-navbar-lang:focus-visible {
+    background-color: rgba(15, 23, 42, 0.1) !important;
+    color: rgba(15, 23, 42, 0.95) !important;
+  }
 }
 
 .light .gd-navbar .text-foreground,

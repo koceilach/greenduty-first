@@ -161,6 +161,11 @@ export function PostCard({
   saved,
   onLike,
   onSave,
+  showFollowButton = false,
+  followBusy = false,
+  onFollow,
+  onHide,
+  onDelete,
   initialCommentsOpen = false,
   focusCommentId = null,
   initialSourcesOpen = false,
@@ -170,6 +175,11 @@ export function PostCard({
   saved?: boolean;
   onLike?: (postId: string) => void;
   onSave?: (postId: string) => void;
+  showFollowButton?: boolean;
+  followBusy?: boolean;
+  onFollow?: (creatorUserId: string) => Promise<unknown> | void;
+  onHide?: (postId: string) => void;
+  onDelete?: (postId: string) => void;
   initialCommentsOpen?: boolean;
   focusCommentId?: string | null;
   initialSourcesOpen?: boolean;
@@ -669,6 +679,9 @@ export function PostCard({
       return;
     }
 
+    if (onDelete) {
+      onDelete(post.id);
+    }
     setPostDeleted(true);
     setDeletingPost(false);
   };
@@ -727,6 +740,11 @@ export function PostCard({
   };
 
   const handleHidePost = () => {
+    if (onHide) {
+      onHide(post.id);
+      setMenuOpen(false);
+      return;
+    }
     persistHiddenPostId(post.id);
     setPostHidden(true);
     setMenuOpen(false);
@@ -1091,6 +1109,19 @@ export function PostCard({
             </div>
             <p className="truncate text-xs text-slate-500">{post.creator.handle}</p>
           </div>
+          {showFollowButton && post.creatorUserId && onFollow && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!post.creatorUserId) return;
+                void onFollow(post.creatorUserId);
+              }}
+              disabled={followBusy}
+              className={`inline-flex h-10 shrink-0 items-center rounded-full bg-emerald-500 px-4 text-xs font-semibold text-white disabled:opacity-60 ${touch}`}
+            >
+              {followBusy ? "Following..." : "Follow"}
+            </button>
+          )}
         </div>
 
         <div ref={menuRef} className="relative flex items-center gap-2">

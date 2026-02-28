@@ -262,17 +262,29 @@ export function Navbar() {
               </motion.div>
             </div>
 
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              className="gd-navbar-mobile-btn flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] transition-all hover:bg-white/[0.08] lg:hidden"
-              onClick={() => setIsOpen(!isOpen)}
-            >
-              {isOpen ? (
-                <X className="h-4 w-4 text-gray-900 dark:text-gray-100" />
-              ) : (
-                <Menu className="h-4 w-4 text-gray-900 dark:text-gray-100" />
-              )}
-            </motion.button>
+            <div className="flex items-center gap-2 lg:hidden">
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleCycleLocale}
+                className="gd-navbar-mobile-lang-btn gd-navbar-lang inline-flex h-9 min-w-[3.6rem] shrink-0 items-center justify-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04] px-2.5 text-[11px] font-semibold text-gray-700 transition-all hover:bg-white/[0.08] dark:text-gray-200"
+                aria-label={`Switch language (${currentLocale.label})`}
+              >
+                <Globe className="h-3.5 w-3.5" />
+                {currentLocale.short}
+              </motion.button>
+
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                className="gd-navbar-mobile-btn flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] transition-all hover:bg-white/[0.08]"
+                onClick={() => setIsOpen(!isOpen)}
+              >
+                {isOpen ? (
+                  <X className="h-4 w-4 text-gray-900 dark:text-gray-100" />
+                ) : (
+                  <Menu className="h-4 w-4 text-gray-900 dark:text-gray-100" />
+                )}
+              </motion.button>
+            </div>
           </div>
         </nav>
 
@@ -283,7 +295,7 @@ export function Navbar() {
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="gd-navbar-mobile-border overflow-hidden border-t border-white/[0.06] lg:hidden"
+              className="gd-navbar-mobile-panel gd-navbar-mobile-border overflow-hidden border-t border-white/[0.06] lg:hidden"
             >
               <div className={`space-y-1 px-3 py-3 ${isArabic ? "text-right" : ""}`}>
                 {dynamicLinks.map((link) => (
@@ -291,7 +303,7 @@ export function Navbar() {
                     key={link.labelKey}
                     href={link.href}
                     {...prefetch(link.href)}
-                    className={`gd-navbar-mobile-link flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 transition-all hover:bg-white/[0.06] hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 ${
+                    className={`gd-navbar-mobile-link flex items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium text-gray-600 transition-all hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100 ${
                       isArabic ? "flex-row-reverse" : ""
                     }`}
                     onClick={() => setIsOpen(false)}
@@ -315,7 +327,7 @@ export function Navbar() {
                         key={item.labelKey}
                         href={item.href}
                         {...prefetch(item.href)}
-                        className="gd-navbar-mobile-qa flex flex-1 items-center justify-center rounded-xl bg-white/[0.04] p-2.5 transition-colors hover:bg-white/[0.08]"
+                        className="gd-navbar-mobile-qa flex flex-1 items-center justify-center rounded-xl p-2.5 transition-colors"
                         title={t(item.labelKey)}
                         onClick={() => setIsOpen(false)}
                       >
@@ -325,16 +337,6 @@ export function Navbar() {
                   </div>
                 </div>
 
-                <div className="gd-navbar-mobile-border mt-3 border-t border-white/[0.06] px-1 pt-3">
-                  <button
-                    onClick={handleCycleLocale}
-                    className="gd-navbar-lang flex w-full items-center justify-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.03] py-2 text-xs font-medium text-gray-600 transition-all hover:bg-white/[0.06] dark:text-gray-300"
-                    aria-label={`Switch language (${currentLocale.label})`}
-                  >
-                    <Globe className="h-3.5 w-3.5" />
-                    {currentLocale.label} ({currentLocale.short})
-                  </button>
-                </div>
               </div>
             </motion.div>
           )}

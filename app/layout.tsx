@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from "@/components/auth-provider"
 import { ThemeProvider } from "@/components/theme-provider"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { SmoothScrollProvider } from "@/components/smooth-scroll-provider"
 import { I18nProvider } from "@/lib/i18n/context"
 import './globals.css'
 import 'leaflet/dist/leaflet.css';
@@ -80,10 +81,12 @@ export default function RootLayout({
       </head>
       <body className={`${geist.variable} ${cairo.variable} ${geist.className} font-sans antialiased`}>
         <ThemeProvider>
-          <I18nProvider>
-            <AuthProvider>{children}</AuthProvider>
-          </I18nProvider>
-          <ThemeToggle />
+          <SmoothScrollProvider>
+            <I18nProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </I18nProvider>
+            <ThemeToggle />
+          </SmoothScrollProvider>
         </ThemeProvider>
         <Analytics />
       </body>

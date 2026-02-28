@@ -1,0 +1,386 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
+import { Compass, Flame, Loader2, TrendingUp } from "lucide-react";
+import {
+  deleteFeedItem,
+  getExploreFeed,
+  toggleFollow,
+  toggleLike,
+  toggleReelLike,
+} from "@/app/education/actions/social-engine";
+import type { FeedPageResult, SocialFeedItem } from "@/lib/edu/social-engine-types";
+import { PostCard } from "@/components/edu/social/PostCard";
+
+type ExploreOrder = "trending" | "recent";
+
+type ExploreProps = {
+  initialPage: FeedPageResult;
+  initialOrder?: ExploreOrder;
+};
+
+const keyOf = (item: Pick<SocialFeedItem, "kind" | "id">) => `${item.kind}:${item.id}`;
+
+export function Explore({ initialPage, initialOrder = "trending" }: ExploreProps) {
+  const [order, setOrder] = useState<ExploreOrder>(initialOrder);
+  const [items, setItems] = useState<SocialFeedItem[]>(initialPage.items);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(
+    initialPage.currentUserId
+  );
+  const [followingIds, setFollowingIds] = useState<Set<string>>(
+    new Set(initialPage.followingIds)
+  );
+  const [pendingFollowIds, setPendingFollowIds] = useState<Set<string>>(new Set());
+  const [pendingLikeKeys, setPendingLikeKeys] = useState<Set<string>>(new Set());
+  const [pendingDeleteKeys, setPendingDeleteKeys] = useState<Set<string>>(new Set());
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
+  const [loadingOrder, setLoadingOrder] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(initialPage.hasMore);
+  const [nextPage, setNextPage] = useState<number | null>(initialPage.nextPage);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(null), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
+
+  const addPending = (setter: Dispatch<SetStateAction<Set<string>>>, key: string) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  };
+
+  const removePending = (setter: Dispatch<SetStateAction<Set<string>>>, key: string) => {
+    setter((prev) => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  };
+
+  const loadFirstPage = useCallback(async (nextOrder: ExploreOrder) => {
+    setLoadingOrder(true);
+    try {
+      const page = await getExploreFeed(1, nextOrder);
+      setCurrentUserId(page.currentUserId);
+      setFollowingIds(new Set(page.followingIds));
+      setHasMore(page.hasMore);
+      setNextPage(page.nextPage);
+      setItems(page.items.filter((item) => !hiddenKeys.has(keyOf(item))));
+    } catch {
+      setNotice("Could not refresh explore feed.");
+    } finally {
+      setLoadingOrder(false);
+    }
+  }, [hiddenKeys]);
+
+  const loadMore = useCallback(async () => {
+    if (!nextPage || loadingMore || !hasMore) return;
+    setLoadingMore(true);
+
+    try {
+      const page = await getExploreFeed(nextPage, order);
+      setCurrentUserId((prev) => prev ?? page.currentUserId);
+      setHasMore(page.hasMore);
+      setNextPage(page.nextPage);
+      setItems((prev) => {
+        const existing = new Set(prev.map((item) => keyOf(item)));
+        const incoming = page.items.filter((item) => {
+          const key = keyOf(item);
+          return !existing.has(key) && !hiddenKeys.has(key);
+        });
+        return incoming.length ? [...prev, ...incoming] : prev;
+      });
+    } catch {
+      setNotice("Could not load more posts.");
+      setHasMore(false);
+      setNextPage(null);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [hasMore, hiddenKeys, loadingMore, nextPage, order]);
+
+  useEffect(() => {
+    if (!loadMoreRef.current || !hasMore) return;
+    const node = loadMoreRef.current;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "280px 0px" }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
+
+  const handleOrderChange = useCallback(
+    (nextOrder: ExploreOrder) => {
+      if (nextOrder === order) return;
+      setOrder(nextOrder);
+      void loadFirstPage(nextOrder);
+    },
+    [loadFirstPage, order]
+  );
+
+  const handleToggleFollow = useCallback(
+    async (targetUserId: string) => {
+      if (!targetUserId || !currentUserId || targetUserId === currentUserId) return;
+      if (pendingFollowIds.has(targetUserId)) return;
+
+      const wasFollowing = followingIds.has(targetUserId);
+      addPending(setPendingFollowIds, targetUserId);
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        if (wasFollowing) next.delete(targetUserId);
+        else next.add(targetUserId);
+        return next;
+      });
+
+      const result = await toggleFollow(targetUserId);
+      removePending(setPendingFollowIds, targetUserId);
+
+      if (!result.ok) {
+        setFollowingIds((prev) => {
+          const next = new Set(prev);
+          if (wasFollowing) next.add(targetUserId);
+          else next.delete(targetUserId);
+          return next;
+        });
+        setNotice(result.message ?? "Could not update follow status.");
+        return;
+      }
+
+      setFollowingIds((prev) => {
+        const next = new Set(prev);
+        if (result.following) next.add(targetUserId);
+        else next.delete(targetUserId);
+        return next;
+      });
+    },
+    [currentUserId, followingIds, pendingFollowIds]
+  );
+
+  const handleToggleLike = useCallback(async (item: SocialFeedItem) => {
+    const key = keyOf(item);
+    if (pendingLikeKeys.has(key)) return;
+
+    let snapshot: { likedByMe: boolean; likesCount: number } | null = null;
+    setItems((prev) =>
+      prev.map((current) => {
+        if (current.kind !== item.kind || current.id !== item.id) return current;
+        snapshot = {
+          likedByMe: current.likedByMe,
+          likesCount: current.likesCount,
+        };
+        const nextLiked = !current.likedByMe;
+        return {
+          ...current,
+          likedByMe: nextLiked,
+          likesCount: Math.max(0, current.likesCount + (nextLiked ? 1 : -1)),
+        };
+      })
+    );
+
+    addPending(setPendingLikeKeys, key);
+    const result =
+      item.kind === "post" ? await toggleLike(item.id) : await toggleReelLike(item.id);
+    removePending(setPendingLikeKeys, key);
+
+    if (!result.ok) {
+      if (snapshot) {
+        setItems((prev) =>
+          prev.map((current) =>
+            current.kind === item.kind && current.id === item.id
+              ? {
+                  ...current,
+                  likedByMe: snapshot!.likedByMe,
+                  likesCount: snapshot!.likesCount,
+                }
+              : current
+          )
+        );
+      }
+      setNotice(result.message ?? "Could not update like.");
+      return;
+    }
+
+    setItems((prev) =>
+      prev.map((current) => {
+        if (current.kind !== item.kind || current.id !== item.id) return current;
+        return { ...current, likedByMe: result.liked };
+      })
+    );
+  }, [pendingLikeKeys]);
+
+  const hideItem = useCallback((item: SocialFeedItem) => {
+    const key = keyOf(item);
+    setHiddenKeys((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+    setItems((prev) =>
+      prev.filter((current) => !(current.kind === item.kind && current.id === item.id))
+    );
+  }, []);
+
+  const handleReport = useCallback((_item: SocialFeedItem) => {
+    setNotice("Report received. Thank you.");
+  }, []);
+
+  const handleDelete = useCallback(async (item: SocialFeedItem) => {
+    const key = keyOf(item);
+    if (pendingDeleteKeys.has(key)) return;
+
+    const shouldDelete = window.confirm(
+      "Delete this content permanently? This action cannot be undone."
+    );
+    if (!shouldDelete) return;
+
+    addPending(setPendingDeleteKeys, key);
+    const result = await deleteFeedItem(item.kind, item.id);
+    removePending(setPendingDeleteKeys, key);
+
+    if (!result.ok) {
+      setNotice(result.message ?? "Could not delete item.");
+      return;
+    }
+
+    setItems((prev) =>
+      prev.filter((current) => !(current.kind === item.kind && current.id === item.id))
+    );
+  }, [pendingDeleteKeys]);
+
+  const emptyState = useMemo(
+    () => (
+      <div className="rounded-3xl border border-slate-100/70 bg-white/90 p-8 text-center shadow-sm backdrop-blur-md sm:p-10">
+        <span className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+          <Compass className="h-6 w-6" />
+        </span>
+        <h3 className="mt-4 text-lg font-semibold text-slate-900">No public content yet</h3>
+        <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
+          Explore will populate as creators publish posts and reels.
+        </p>
+      </div>
+    ),
+    []
+  );
+
+  return (
+    <section className="mx-auto w-full max-w-[860px] min-w-0 space-y-6 sm:space-y-7">
+      <header className="rounded-3xl border border-slate-100/70 bg-white/90 p-5 shadow-sm backdrop-blur-md sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Explore
+            </p>
+            <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+              Public Posts And Reels
+            </h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Discover creators globally with trending and latest ranking.
+            </p>
+          </div>
+
+          <div className="inline-flex h-11 items-center gap-1 rounded-full border border-slate-200 bg-white p-1">
+            <button
+              type="button"
+              onClick={() => handleOrderChange("trending")}
+              className={`inline-flex h-9 items-center gap-1 rounded-full px-3 text-xs font-semibold transition ${
+                order === "trending"
+                  ? "bg-emerald-500 text-white"
+                  : "text-slate-600"
+              }`}
+            >
+              <Flame className="h-3.5 w-3.5" />
+              Trending
+            </button>
+            <button
+              type="button"
+              onClick={() => handleOrderChange("recent")}
+              className={`inline-flex h-9 items-center gap-1 rounded-full px-3 text-xs font-semibold transition ${
+                order === "recent" ? "bg-emerald-500 text-white" : "text-slate-600"
+              }`}
+            >
+              <TrendingUp className="h-3.5 w-3.5" />
+              Latest
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {loadingOrder ? (
+        <div className="rounded-2xl border border-slate-100 bg-white/90 px-4 py-5 text-center text-sm text-slate-500 shadow-sm backdrop-blur">
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Refreshing feed...
+          </span>
+        </div>
+      ) : null}
+
+      {items.map((item) => {
+        const followBusy = pendingFollowIds.has(item.userId);
+        const likeBusy = pendingLikeKeys.has(keyOf(item));
+        const deleteBusy = pendingDeleteKeys.has(keyOf(item));
+
+        return (
+          <PostCard
+            key={keyOf(item)}
+            item={item}
+            currentUserId={currentUserId}
+            isFollowing={followingIds.has(item.userId)}
+            followBusy={followBusy}
+            likeBusy={likeBusy}
+            deleteBusy={deleteBusy}
+            onToggleFollow={handleToggleFollow}
+            onToggleLike={handleToggleLike}
+            onHide={hideItem}
+            onReport={handleReport}
+            onDelete={handleDelete}
+          />
+        );
+      })}
+
+      {!items.length && !loadingOrder && emptyState}
+
+      <div ref={loadMoreRef} className="h-px w-full" />
+
+      {loadingMore && (
+        <div className="rounded-2xl border border-slate-100 bg-white/90 px-4 py-3 text-center text-sm text-slate-500 shadow-sm backdrop-blur">
+          <span className="inline-flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading more...
+          </span>
+        </div>
+      )}
+
+      {!hasMore && items.length > 0 && (
+        <p className="text-center text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+          End of explore feed
+        </p>
+      )}
+
+      {notice && (
+        <div className="fixed bottom-24 left-1/2 z-40 -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-lg">
+          {notice}
+        </div>
+      )}
+    </section>
+  );
+}

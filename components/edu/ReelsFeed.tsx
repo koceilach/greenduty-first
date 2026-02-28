@@ -23,10 +23,7 @@ import {
 import { supabase } from "@/lib/supabase/client";
 import { ReelPlayer } from "@/components/edu/ReelPlayer";
 import { trackEduInteraction } from "@/lib/edu/interactions";
-import {
-  getHomeFeed,
-  type HomeFeedReelItem,
-} from "@/app/education/actions/get-home-feed";
+import { fetchEducationFeed } from "@/lib/edu/social-feed";
 
 type ProfileRow = {
   id: string;
@@ -71,21 +68,6 @@ type ReelItem = {
   };
 };
 
-const mapRankedReel = (item: HomeFeedReelItem): ReelItem => ({
-  id: item.id,
-  authorId: item.author.id,
-  videoUrl: item.reel.videoUrl,
-  caption: item.reel.caption,
-  likesCount: item.reel.likesCount,
-  commentsCount: item.reel.commentsCount,
-  createdAt: item.createdAt,
-  author: {
-    username: item.author.username,
-    fullName: item.author.name,
-    avatarUrl: item.author.avatarUrl,
-  },
-});
-
 const touch = "active:scale-[0.90] transition-transform duration-200";
 const REELS_PAGE_SIZE = 10;
 const COMMENT_LIMIT = 120;
@@ -113,8 +95,6 @@ const formatCommentTime = (iso: string) => {
   return date.toLocaleDateString();
 };
 
-const makeFreshSeed = () => `reels-${Date.now()}`;
-
 const extractReelStoragePath = (videoUrl: string): string | null => {
   try {
     const parsed = new URL(videoUrl);
@@ -131,6 +111,7 @@ const extractReelStoragePath = (videoUrl: string): string | null => {
 export function ReelsFeed() {
   const searchParams = useSearchParams();
   const deepLinkedReelId = searchParams.get("reel");
+  const shouldAutoOpenComments = searchParams.get("comments") === "1";
   const [reels, setReels] = useState<ReelItem[]>([]);
   const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -145,7 +126,6 @@ export function ReelsFeed() {
   const [loadingCommentsFor, setLoadingCommentsFor] = useState<string | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
   const [sendingComment, setSendingComment] = useState(false);
-  const [feedSeed, setFeedSeed] = useState<string | undefined>(undefined);
   const [nextOffset, setNextOffset] = useState<number | null>(0);
   const [hasMoreReels, setHasMoreReels] = useState(true);
   const [loadingMoreReels, setLoadingMoreReels] = useState(false);
@@ -162,6 +142,7 @@ export function ReelsFeed() {
   const refreshTimeoutRef = useRef<number | null>(null);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
+  const autoOpenCommentsDoneRef = useRef(false);
 
   const loadViewerContext = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser();
@@ -215,9 +196,8 @@ export function ReelsFeed() {
   }, [hiddenReelIds]);
 
   const fetchReelsPage = useCallback(
-    async (options?: { reset?: boolean; forceSeed?: string; silent?: boolean }) => {
+    async (options?: { reset?: boolean; silent?: boolean }) => {
       const reset = Boolean(options?.reset);
-      const forceSeed = options?.forceSeed;
       const silent = Boolean(options?.silent);
       const offset = reset ? 0 : nextOffset;
       if (offset === null && !reset) return;
@@ -237,15 +217,36 @@ export function ReelsFeed() {
 
       try {
         const viewerId = await loadViewerContext();
-        const ranked = await getHomeFeed({
+        const feed = await fetchEducationFeed({
+          scope: "home",
           limit: REELS_PAGE_SIZE,
           offset: offset ?? 0,
-          seed: forceSeed ?? feedSeed,
+          sort: "recent",
+          kinds: ["reel"],
         });
 
-        const rankedReels = ranked.items
-          .filter((item): item is HomeFeedReelItem => item.kind === "reel")
-          .map(mapRankedReel)
+        setCurrentUserId(feed.currentUserId);
+
+        const rankedReels = feed.items
+          .flatMap((item) => {
+            if (item.kind !== "reel") return [];
+            return [
+              {
+                id: item.id,
+                authorId: item.reel.authorId,
+                videoUrl: item.reel.videoUrl,
+                caption: item.reel.caption,
+                likesCount: item.reel.likesCount,
+                commentsCount: item.reel.commentsCount,
+                createdAt: item.reel.createdAt,
+                author: {
+                  username: item.reel.author.username,
+                  fullName: item.reel.author.fullName,
+                  avatarUrl: item.reel.author.avatarUrl,
+                },
+              } as ReelItem,
+            ];
+          })
           .filter((reel) => !hiddenReelIdsRef.current.has(reel.id));
 
         const reelIds = rankedReels.map((reel) => reel.id);
@@ -276,9 +277,8 @@ export function ReelsFeed() {
           return Array.from(byId.values());
         });
 
-        setFeedSeed(ranked.seed);
-        setNextOffset(ranked.nextOffset);
-        setHasMoreReels(ranked.hasMore);
+        setNextOffset(feed.nextOffset);
+        setHasMoreReels(feed.hasMore);
       } catch (fetchError: any) {
         if (!silent) {
           setError(fetchError?.message ?? "Could not load reels.");
@@ -299,7 +299,7 @@ export function ReelsFeed() {
         setRefreshingFeed(false);
       }
     },
-    [feedSeed, loadViewerContext, nextOffset]
+    [loadViewerContext, nextOffset]
   );
 
   const loadReelComments = useCallback(async (reelId: string) => {
@@ -566,11 +566,10 @@ export function ReelsFeed() {
     async (source: "manual" | "realtime" | "focus") => {
       await fetchReelsPage({
         reset: true,
-        forceSeed: source === "manual" ? makeFreshSeed() : feedSeed,
         silent: source !== "manual",
       });
     },
-    [feedSeed, fetchReelsPage]
+    [fetchReelsPage]
   );
 
   const submitComment = useCallback(async () => {
@@ -830,6 +829,19 @@ export function ReelsFeed() {
       behavior: "smooth",
     });
   }, [deepLinkedReelId, hasMoreReels, loadMoreReels, loadingMoreReels, reels]);
+
+  useEffect(() => {
+    autoOpenCommentsDoneRef.current = false;
+  }, [deepLinkedReelId, shouldAutoOpenComments]);
+
+  useEffect(() => {
+    if (!shouldAutoOpenComments || !deepLinkedReelId) return;
+    if (autoOpenCommentsDoneRef.current) return;
+    if (!reels.some((reel) => reel.id === deepLinkedReelId)) return;
+
+    autoOpenCommentsDoneRef.current = true;
+    openComments(deepLinkedReelId);
+  }, [deepLinkedReelId, openComments, reels, shouldAutoOpenComments]);
 
   const toggleLike = useCallback(
     async (reelId: string) => {
