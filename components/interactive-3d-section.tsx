@@ -136,7 +136,7 @@ export function Interactive3DSection() {
     <section
       ref={sectionRef}
       id="earth-section"
-      className="relative h-[430px] w-full scroll-mt-24 overflow-hidden sm:h-[580px] md:h-[700px] lg:h-[800px]"
+      className="relative h-[430px] w-full scroll-mt-24 overflow-hidden bg-[var(--gd-home-bg-gradient)] sm:h-[580px] md:h-[700px] lg:h-[800px]"
     >
       <div className="relative h-full w-full">
         <div ref={earthLayerRef} className="pointer-events-none absolute inset-0 h-full w-full select-none">
