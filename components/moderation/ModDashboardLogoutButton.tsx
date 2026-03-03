@@ -26,7 +26,7 @@ export default function ModDashboardLogoutButton() {
       type="button"
       onClick={onLogout}
       disabled={pending}
-      className="inline-flex items-center gap-2 rounded-full border border-rose-300 bg-rose-50 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-rose-700 transition hover:border-rose-400 hover:bg-rose-100 disabled:opacity-60"
+      className="inline-flex items-center gap-2 rounded-xl border border-rose-500/15 bg-rose-500/[0.07] px-3.5 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-400 transition-all hover:border-rose-500/25 hover:bg-rose-500/[0.12] hover:shadow-[0_0_16px_-4px_rgba(244,63,94,0.3)] disabled:opacity-60"
     >
       <LogOut className="h-3.5 w-3.5" />
       {pending ? "Logging Out..." : "Logout"}

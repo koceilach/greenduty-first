@@ -6,6 +6,7 @@ export type SellerRequestDecision = "approved" | "denied";
 export type MarketDisputeStatus = "pending" | "reviewing" | "resolved" | "closed";
 
 export type EduReportStatus = "open" | "reviewed" | "dismissed" | "action_taken";
+export type EduReportContentKind = "post" | "reel";
 
 export type UserModerationAction = "ban_user" | "delete_post" | "ban_seller";
 
@@ -60,7 +61,9 @@ export type MarketDisputeRow = {
 
 export type EduPostReportRow = {
   id: string;
-  postId: string;
+  contentKind: EduReportContentKind;
+  postId: string | null;
+  reelId: string | null;
   reporterId: string;
   postAuthorId: string | null;
   reason: string;
@@ -77,6 +80,12 @@ export type EduPostReportRow = {
     title: string;
     body: string | null;
     status: string;
+    createdAt: string;
+  } | null;
+  reel: {
+    id: string;
+    caption: string;
+    videoUrl: string;
     createdAt: string;
   } | null;
   reels: Array<{

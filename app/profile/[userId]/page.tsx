@@ -7,9 +7,22 @@ import { PostCard } from "@/components/edu/PostCard";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase/client";
 import { GD_findOrCreateDirectConversation } from "@/lib/messages/direct-conversation";
-import { CheckCircle2, Clock, Loader2, MapPin, MessageCircle, UserCheck, UserMinus, UserPlus, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Heart,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Play,
+  UserCheck,
+  UserMinus,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import type { EduFeedPost } from "@/lib/edu/feed";
 import { useFriendRequests } from "@/lib/profile/useFriendRequests";
 
@@ -26,9 +39,53 @@ type PublicProfile = {
   coverUrl: string | null;
   role: string;
   postCount: number;
+  reelCount: number;
   followerCount: number;
   followingCount: number;
   isFollowing: boolean;
+};
+
+type PublicProfilePostRow = {
+  id: string;
+  title: string;
+  body: string | null;
+  media_type: string | null;
+  media_urls: string[] | null;
+  created_at: string;
+  edu_categories: { name: string | null } | { name: string | null }[] | null;
+};
+
+type PublicProfileReelRow = {
+  id: string;
+  caption: string | null;
+  video_url: string;
+  likes_count: number | null;
+  comments_count: number | null;
+  created_at: string;
+};
+
+type PublicProfileReel = {
+  id: string;
+  caption: string;
+  videoUrl: string;
+  likesCount: number;
+  commentsCount: number;
+  createdAt: string;
+};
+
+const formatCompactCount = (value: number) => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return String(value);
+};
+
+const formatShortDate = (iso: string) => {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+  }).format(date);
 };
 
 export default function PublicProfilePage() {
@@ -38,6 +95,7 @@ export default function PublicProfilePage() {
 
   const [profile, setProfile] = useState<PublicProfile | null>(null);
   const [posts, setPosts] = useState<EduFeedPost[]>([]);
+  const [reels, setReels] = useState<PublicProfileReel[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [openingChat, setOpeningChat] = useState(false);
@@ -68,7 +126,13 @@ export default function PublicProfilePage() {
         return;
       }
 
-      const [{ data: profileRow }, { count: followerCount }, { count: followingCount }, { data: postRows }] =
+      const [
+        { data: profileRow },
+        { count: followerCount },
+        { count: followingCount },
+        { data: postRows },
+        { data: reelRows },
+      ] =
         await Promise.all([
           supabase
             .from("profiles")
@@ -84,6 +148,11 @@ export default function PublicProfilePage() {
             )
             .eq("user_id", userId)
             .eq("status", "published")
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("edu_reels")
+            .select("id, caption, video_url, likes_count, comments_count, created_at")
+            .eq("author_id", userId)
             .order("created_at", { ascending: false }),
         ]);
 
@@ -113,6 +182,7 @@ export default function PublicProfilePage() {
         coverUrl: profileRow.cover_url ?? null,
         role: profileRow.role ?? "User",
         postCount: postRows?.length ?? 0,
+        reelCount: reelRows?.length ?? 0,
         followerCount: followerCount ?? 0,
         followingCount: followingCount ?? 0,
         isFollowing,
@@ -124,7 +194,7 @@ export default function PublicProfilePage() {
       const roleLabel = profileRow.role?.toLowerCase().includes("expert") ? "Expert" : "User";
       const avatar = displayName.slice(0, 2).toUpperCase();
 
-      const mapped: EduFeedPost[] = (postRows ?? []).map((row) => {
+      const mapped: EduFeedPost[] = ((postRows ?? []) as PublicProfilePostRow[]).map((row) => {
         const catName = firstOf(row.edu_categories as any)?.name ?? "Agronomy";
         return {
           id: row.id,
@@ -150,7 +220,17 @@ export default function PublicProfilePage() {
         };
       });
 
+      const mappedReels: PublicProfileReel[] = ((reelRows ?? []) as PublicProfileReelRow[]).map((row) => ({
+        id: row.id,
+        caption: row.caption ?? "",
+        videoUrl: row.video_url,
+        likesCount: row.likes_count ?? 0,
+        commentsCount: row.comments_count ?? 0,
+        createdAt: row.created_at,
+      }));
+
       setPosts(mapped);
+      setReels(mappedReels);
       setLoading(false);
     };
 
@@ -271,11 +351,15 @@ export default function PublicProfilePage() {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3">
                     <div className="flex gap-4 text-center text-sm">
                       <div>
                         <div className="font-bold">{profile.postCount}</div>
                         <div className="text-xs text-slate-400">Posts</div>
+                      </div>
+                      <div>
+                        <div className="font-bold">{profile.reelCount}</div>
+                        <div className="text-xs text-slate-400">Reels</div>
                       </div>
                       <div>
                         <div className="font-bold">{profile.followerCount}</div>
@@ -401,6 +485,60 @@ export default function PublicProfilePage() {
                 <div className="space-y-6">
                   {posts.map((post) => (
                     <PostCard key={post.id} post={post} />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="mt-8">
+              <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.15em] text-slate-400">Reels</h3>
+              {reels.length === 0 ? (
+                <div className="rounded-3xl border border-slate-200 bg-white p-12 text-center text-slate-400 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                  <p className="text-sm">No reels yet</p>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {reels.map((reel) => (
+                    <Link
+                      key={reel.id}
+                      href={`/education/reels?reel=${reel.id}`}
+                      className="block overflow-hidden rounded-[1.7rem] border border-slate-200 bg-white shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                    >
+                      <div className="grid gap-0 sm:grid-cols-[220px_minmax(0,1fr)]">
+                        <div className="relative h-[300px] bg-black sm:h-full">
+                          <video
+                            src={reel.videoUrl}
+                            muted
+                            loop
+                            playsInline
+                            preload="metadata"
+                            className="h-full w-full object-cover"
+                          />
+                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+                          <div className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-full bg-black/40 text-white">
+                            <Play className="h-3.5 w-3.5 fill-current" />
+                          </div>
+                        </div>
+                        <div className="p-4 sm:p-5">
+                          <p className="line-clamp-4 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+                            {reel.caption || "Untitled reel"}
+                          </p>
+                          <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 dark:bg-slate-800">
+                              <Heart className="h-3.5 w-3.5" />
+                              {formatCompactCount(reel.likesCount)}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 dark:bg-slate-800">
+                              <MessageCircle className="h-3.5 w-3.5" />
+                              {formatCompactCount(reel.commentsCount)}
+                            </span>
+                            <span className="rounded-full bg-slate-100 px-2.5 py-1 dark:bg-slate-800">
+                              {formatShortDate(reel.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n/context";
 
 const LOTTIE_EMBED_URL = "https://lottie.host/embed/d3b88187-ef6a-4d51-82a4-8e65cee1bcb2/eowEuBAxpJ.lottie";
@@ -17,6 +17,7 @@ export function Interactive3DSection() {
   const isArabic = locale === "ar";
   const sectionRef = useRef<HTMLElement | null>(null);
   const earthLayerRef = useRef<HTMLDivElement | null>(null);
+  const [earthLoaded, setEarthLoaded] = useState(false);
 
   useEffect(() => {
     const sectionElement = sectionRef.current;
@@ -132,6 +133,13 @@ export function Interactive3DSection() {
     };
   }, []);
 
+  useEffect(() => {
+    // Some browsers can delay/skip iframe load events for third-party embeds.
+    // Fail open so the earth layer doesn't stay hidden forever.
+    const revealTimeout = window.setTimeout(() => setEarthLoaded(true), 3500);
+    return () => window.clearTimeout(revealTimeout);
+  }, []);
+
   return (
     <section
       ref={sectionRef}
@@ -139,16 +147,34 @@ export function Interactive3DSection() {
       className="relative h-[430px] w-full scroll-mt-24 overflow-hidden bg-[var(--gd-home-bg-gradient)] sm:h-[580px] md:h-[700px] lg:h-[800px]"
     >
       <div className="relative h-full w-full">
-        <div ref={earthLayerRef} className="pointer-events-none absolute inset-0 h-full w-full select-none">
+        <div className="pointer-events-none absolute inset-0 z-[1] bg-[var(--gd-home-bg-gradient)]" />
+
+        <div
+          ref={earthLayerRef}
+          className="pointer-events-none absolute inset-0 z-[2] h-full w-full select-none"
+        >
           <iframe
             title="GreenDuty planet animation"
             src={LOTTIE_EMBED_URL}
-            loading="lazy"
+            loading="eager"
             frameBorder={0}
             allowFullScreen
-            className="h-full w-full border-0 bg-transparent"
+            onLoad={() => setEarthLoaded(true)}
+            onError={() => setEarthLoaded(true)}
+            className={`h-full w-full border-0 bg-transparent transition-opacity duration-500 ${
+              earthLoaded ? "opacity-[0.96]" : "opacity-[0.78]"
+            }`}
+            style={{ backgroundColor: "transparent" }}
           />
         </div>
+
+        <div
+          className={`pointer-events-none absolute inset-0 z-[3] bg-[var(--gd-home-bg-gradient)] transition-opacity duration-500 ${
+            earthLoaded ? "opacity-0" : "opacity-100"
+          }`}
+        />
+
+        <div className="pointer-events-none absolute inset-0 z-[4] bg-[radial-gradient(120%_82%_at_50%_0%,rgba(16,185,129,0.2),transparent_62%),linear-gradient(180deg,rgba(3,14,13,0.26),rgba(6,28,24,0.22))] light:bg-[radial-gradient(120%_82%_at_50%_0%,rgba(16,185,129,0.12),transparent_62%),linear-gradient(180deg,rgba(248,250,252,0.08),rgba(226,232,240,0.14))]" />
 
         <div
           className={`absolute top-4 z-20 w-auto max-w-lg overflow-hidden rounded-[22px] border border-white/20 bg-slate-900/55 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.35)] supports-[backdrop-filter]:bg-white/14 supports-[backdrop-filter]:backdrop-blur-xl light:border-slate-900/10 light:bg-white/90 light:supports-[backdrop-filter]:bg-white/80 sm:top-6 sm:p-5 md:top-1/2 md:w-full md:-translate-y-1/2 md:rounded-[26px] md:p-6 ${

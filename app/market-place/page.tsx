@@ -591,7 +591,8 @@ function GDMarketplaceFeaturesSection() {
 
   useEffect(() => {
     if (!isFeatureModalOpen || typeof window === "undefined") return;
-    const previousOverflow = document.body.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setYieldModalOpen(false);
@@ -599,9 +600,11 @@ function GDMarketplaceFeaturesSection() {
       }
     };
     document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
     window.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [isFeatureModalOpen]);
@@ -730,15 +733,15 @@ function GDMarketplaceFeaturesSection() {
 
       {visualSearchModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-6"
+          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-6"
           onClick={() => setVisualSearchModalOpen(false)}
         >
           <div
-            className="w-full max-h-[92vh] max-w-4xl overflow-y-auto rounded-t-[26px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-teal-50/45 shadow-[0_28px_70px_rgba(15,23,42,0.28)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:rounded-[28px]"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            data-lenis-prevent
+            className="gd-solid-window relative flex h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[26px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-teal-50/45 shadow-[0_28px_70px_rgba(15,23,42,0.28)] sm:h-auto sm:max-h-[90vh] sm:rounded-[28px]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-emerald-100/80 bg-white/90 px-4 py-3 backdrop-blur sm:px-5">
+            <div className="z-10 flex items-center justify-between border-b border-emerald-100/80 bg-white/90 px-4 py-3 backdrop-blur sm:px-5">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
                   Visual Search
@@ -757,7 +760,7 @@ function GDMarketplaceFeaturesSection() {
               </button>
             </div>
 
-            <div className="p-3 sm:p-4">
+            <div className="gd-modal-scroll flex-1 overflow-y-auto p-3 touch-pan-y overscroll-y-contain sm:p-4">
               <VisualSearch
                 sectionId="marketplace-visual-search-modal"
                 className="border-0 bg-transparent shadow-none"
@@ -769,15 +772,15 @@ function GDMarketplaceFeaturesSection() {
 
       {yieldModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-6"
+          className="fixed inset-0 z-50 flex items-end justify-center overflow-y-auto bg-slate-950/55 p-0 backdrop-blur-[2px] sm:items-center sm:px-4 sm:py-6"
           onClick={() => setYieldModalOpen(false)}
         >
           <div
-            className="w-full max-h-[92vh] max-w-4xl overflow-y-auto rounded-t-[26px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-teal-50/45 shadow-[0_28px_70px_rgba(15,23,42,0.28)] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:rounded-[28px]"
-            style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            data-lenis-prevent
+            className="gd-solid-window relative flex h-[94vh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[26px] border border-emerald-100 bg-gradient-to-br from-white via-emerald-50/35 to-teal-50/45 shadow-[0_28px_70px_rgba(15,23,42,0.28)] sm:h-auto sm:max-h-[90vh] sm:rounded-[28px]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-emerald-100/80 bg-white/90 px-4 py-3 backdrop-blur sm:px-5">
+            <div className="z-10 flex items-center justify-between border-b border-emerald-100/80 bg-white/90 px-4 py-3 backdrop-blur sm:px-5">
               <div className="min-w-0">
                 <h3 className="text-sm font-semibold text-slate-900 sm:text-base">
                   Yield Predictor
@@ -796,7 +799,7 @@ function GDMarketplaceFeaturesSection() {
               </button>
             </div>
 
-            <div className="p-3 sm:p-4">
+            <div className="gd-modal-scroll flex-1 overflow-y-auto p-3 touch-pan-y overscroll-y-contain sm:p-4">
               <YieldPredictor
                 sectionId="marketplace-yield-predictor-modal"
                 className="border-0 bg-transparent shadow-none"
@@ -5382,6 +5385,5 @@ export default function MarketPlacePage() {
     </div>
   );
 }
-
 
 

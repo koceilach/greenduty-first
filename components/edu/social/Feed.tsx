@@ -19,6 +19,7 @@ import {
 } from "@/app/education/actions/social-engine";
 import type { FeedPageResult, SocialFeedItem } from "@/lib/edu/social-engine-types";
 import { PostCard } from "@/components/edu/social/PostCard";
+import { supabase } from "@/lib/supabase/client";
 
 type FeedProps = {
   initialPage: FeedPageResult;
@@ -213,9 +214,68 @@ export function Feed({ initialPage }: FeedProps) {
     );
   }, []);
 
-  const handleReport = useCallback((_item: SocialFeedItem) => {
-    setNotice("Report received. Thank you.");
-  }, []);
+  const handleReport = useCallback(
+    async (item: SocialFeedItem) => {
+      if (!currentUserId) {
+        setNotice("Sign in to report content.");
+        return;
+      }
+
+      const reason = window.prompt(
+        `Why are you reporting this ${item.kind}?`,
+        "Inappropriate content"
+      );
+      if (reason === null) return;
+
+      const normalizedReason = reason.trim() || "Reported by user";
+      if (item.kind === "post") {
+        const { error } = await supabase.from("edu_post_reports").insert({
+          post_id: item.id,
+          reporter_id: currentUserId,
+          reason: normalizedReason,
+        });
+        if (error) {
+          const normalized = error.message.toLowerCase();
+          if (
+            normalized.includes("duplicate") ||
+            normalized.includes("already exists") ||
+            normalized.includes("unique")
+          ) {
+            setNotice("You already reported this post.");
+            return;
+          }
+          setNotice(`Report failed: ${error.message}`);
+          return;
+        }
+      } else {
+        const { error } = await supabase.from("edu_reel_reports").insert({
+          reel_id: item.id,
+          reporter_id: currentUserId,
+          reason: normalizedReason,
+        });
+        if (error) {
+          const normalized = error.message.toLowerCase();
+          if (
+            normalized.includes("duplicate") ||
+            normalized.includes("already exists") ||
+            normalized.includes("unique")
+          ) {
+            setNotice("You already reported this reel.");
+            return;
+          }
+          if (normalized.includes("edu_reel_reports") || normalized.includes("does not exist")) {
+            setNotice("Reporting reels is not configured yet.");
+            return;
+          }
+          setNotice(`Report failed: ${error.message}`);
+          return;
+        }
+      }
+
+      setNotice("Report sent.");
+    },
+    [currentUserId]
+  );
 
   const handleDelete = useCallback(async (item: SocialFeedItem) => {
     const key = keyOf(item);

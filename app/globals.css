@@ -1640,6 +1640,9 @@ html.light {
 .gd-modal-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .gd-modal-scroll::-webkit-scrollbar {

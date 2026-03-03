@@ -89,78 +89,119 @@ export default function ModDashboardLoginPage() {
 
   if (checkingSession) {
     return (
-      <main className="min-h-screen bg-[radial-gradient(120%_70%_at_10%_-10%,rgba(15,23,42,0.15),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(14,165,233,0.12),transparent_58%),#eef3f7]">
-        <div className="mx-auto flex min-h-screen max-w-md items-center justify-center px-4">
-          <p className="text-sm text-slate-600">Checking session...</p>
+      <main className="relative min-h-screen overflow-hidden bg-[#060a13]">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-emerald-600/[0.07] blur-[120px]" />
+          <div className="absolute -bottom-40 -right-40 h-[400px] w-[400px] rounded-full bg-cyan-600/[0.05] blur-[100px]" />
+        </div>
+        <div className="relative z-10 mx-auto flex min-h-screen max-w-md items-center justify-center px-4">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-400" />
+            <p className="text-sm text-slate-500">Verifying session...</p>
+          </div>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(120%_70%_at_10%_-10%,rgba(15,23,42,0.15),transparent_55%),radial-gradient(90%_70%_at_100%_0%,rgba(14,165,233,0.12),transparent_58%),#eef3f7]">
-      <div className="mx-auto flex min-h-screen max-w-md items-center px-4 py-8">
-        <section className="w-full rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-lg supports-[backdrop-filter]:bg-white/70 supports-[backdrop-filter]:backdrop-blur-xl">
-          <div className="mb-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Secure Area
-            </p>
-            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Moderator Access</h1>
-            <p className="mt-1 text-sm text-slate-600">
-              Sign in with your email and your custom password from the admin.
-            </p>
+    <main className="relative min-h-screen overflow-hidden bg-[#060a13]">
+      {/* Ambient background orbs */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-emerald-600/[0.07] blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 h-[400px] w-[400px] rounded-full bg-cyan-600/[0.05] blur-[100px]" />
+        <div className="absolute left-1/2 top-1/3 h-[300px] w-[300px] -translate-x-1/2 rounded-full bg-teal-500/[0.04] blur-[80px]" />
+      </div>
+
+      {/* Grid pattern overlay */}
+      <div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAwIDEwIEwgNDAgMTAgTSAxMCAwIEwgMTAgNDAgTSAwIDIwIEwgNDAgMjAgTSAyMCAwIEwgMjAgNDAgTSAwIDMwIEwgNDAgMzAgTSAzMCAwIEwgMzAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjAyKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-60" />
+
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-[440px] items-center px-4 py-8">
+        <section className="w-full">
+          {/* Shield emblem */}
+          <div className="mb-8 flex flex-col items-center">
+            <div className="relative">
+              <div className="absolute inset-0 animate-pulse rounded-full bg-emerald-500/20 blur-xl" />
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-white/[0.08] bg-gradient-to-br from-emerald-600/20 to-teal-600/20 shadow-[0_0_40px_-8px_rgba(16,185,129,0.3)]">
+                <Shield className="h-9 w-9 text-emerald-400" />
+              </div>
+            </div>
+            <h1 className="mt-5 text-center text-2xl font-bold tracking-tight text-white">Moderation Portal</h1>
+            <p className="mt-1.5 text-center text-sm text-slate-500">Authorized personnel only</p>
           </div>
 
-          <form onSubmit={onSubmit} className="space-y-3">
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
-                Email
-              </span>
-              <div className="relative">
-                <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  required
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-                  placeholder="moderator@email.com"
-                />
+          {/* Login card */}
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-7 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.6)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl">
+            <div className="mb-6">
+              <div className="mb-4 flex items-center gap-2">
+                <div className="h-1 w-1 rounded-full bg-emerald-400" />
+                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-emerald-400/70">
+                  Secure Authentication
+                </p>
               </div>
-            </label>
-
-            <label className="block space-y-1">
-              <span className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
-                Password
-              </span>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                  className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-200"
-                  placeholder="Enter your password"
-                />
-              </div>
-            </label>
-
-            {error ? (
-              <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
-                {error}
+              <p className="text-[13px] leading-relaxed text-slate-400">
+                Sign in with your credentials provided by the admin team.
               </p>
-            ) : null}
+            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-900 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
-            >
-              {loading ? "Accessing..." : "Access Dashboard"}
-              <Shield className="h-4 w-4" />
-            </button>
-          </form>
+            <form onSubmit={onSubmit} className="space-y-5">
+              <label className="block space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Email Address
+                </span>
+                <div className="group relative">
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600 transition-colors group-focus-within:text-emerald-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    required
+                    className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.1)] focus:ring-0"
+                    placeholder="moderator@greenduty.com"
+                  />
+                </div>
+              </label>
+
+              <label className="block space-y-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Password
+                </span>
+                <div className="group relative">
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600 transition-colors group-focus-within:text-emerald-400" />
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                    className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.1)] focus:ring-0"
+                    placeholder="Enter your password"
+                  />
+                </div>
+              </label>
+
+              {error ? (
+                <div className="flex items-center gap-2.5 rounded-xl border border-rose-500/15 bg-rose-500/[0.07] px-3.5 py-2.5">
+                  <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-rose-400" />
+                  <p className="text-sm text-rose-400">{error}</p>
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="group relative inline-flex w-full items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 px-4 py-3.5 text-sm font-semibold text-white shadow-[0_0_24px_-6px_rgba(16,185,129,0.5)] transition-all hover:shadow-[0_0_36px_-6px_rgba(16,185,129,0.6)] hover:brightness-110 disabled:opacity-50 disabled:shadow-none"
+              >
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-white/[0.08] to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                {loading ? "Authenticating..." : "Access Dashboard"}
+                <Shield className="h-4 w-4" />
+              </button>
+            </form>
+          </div>
+
+          {/* Footer badge */}
+          <p className="mt-6 text-center text-[11px] text-slate-600">
+            GreenDuty Moderation System &middot; End-to-end encrypted
+          </p>
         </section>
       </div>
     </main>

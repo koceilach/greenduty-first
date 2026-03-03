@@ -1,9 +1,10 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_noStore as noStore } from "next/cache";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type {
+  EduReportContentKind,
   EduPostReportRow,
   EduReportStatus,
   MarketDisputeRow,
@@ -100,8 +101,12 @@ async function requireModeratorActor(
   return { userId: user.id, role };
 }
 
+type ModerationReadClient =
+  | Awaited<ReturnType<typeof createServerSupabaseClient>>
+  | ReturnType<typeof createAdminSupabaseClient>;
+
 async function getProfilesMap(
-  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  supabase: ModerationReadClient,
   ids: string[]
 ) {
   const uniqueIds = Array.from(new Set(ids.filter((id) => isValidUuid(id))));
@@ -138,11 +143,13 @@ async function getProfilesMap(
 
 export async function getDashboardData(): Promise<ModerationDashboardResult> {
   try {
-    const supabase = await createServerSupabaseClient();
-    const actor = await requireModeratorActor(supabase);
+    noStore();
+    const userSupabase = await createServerSupabaseClient();
+    const actor = await requireModeratorActor(userSupabase);
+    const adminSupabase = createAdminSupabaseClient();
 
-    const [sellerRes, disputeRes, eduRes] = await Promise.all([
-      supabase
+    const [sellerRes, disputeRes, eduPostRes, eduReelRes] = await Promise.all([
+      adminSupabase
         .from("seller_requests")
         .select(
           "id, user_id, requested_store_name, requested_bio, status, admin_note, created_at, reviewed_at, reviewed_by"
@@ -150,7 +157,7 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
         .eq("status", "pending")
         .order("created_at", { ascending: false })
         .limit(200),
-      supabase
+      adminSupabase
         .from("market_disputes")
         .select(
           "id, source_dispute_id, buyer_id, seller_id, product_id, reason, description, status, evidence_url, admin_notes, created_at, updated_at"
@@ -158,10 +165,18 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
         .in("status", ["pending", "reviewing"])
         .order("created_at", { ascending: false })
         .limit(200),
-      supabase
+      adminSupabase
         .from("edu_post_reports")
         .select(
           "id, post_id, reporter_id, post_author_id, reason, details, status, action_note, created_at, reviewed_at, reviewed_by"
+        )
+        .in("status", ["open", "reviewed"])
+        .order("created_at", { ascending: false })
+        .limit(200),
+      adminSupabase
+        .from("edu_reel_reports")
+        .select(
+          "id, reel_id, reporter_id, reel_author_id, reason, details, status, action_note, created_at, reviewed_at, reviewed_by"
         )
         .in("status", ["open", "reviewed"])
         .order("created_at", { ascending: false })
@@ -170,7 +185,7 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
 
     if (sellerRes.error) throw new Error(sellerRes.error.message);
     if (disputeRes.error) throw new Error(disputeRes.error.message);
-    if (eduRes.error) throw new Error(eduRes.error.message);
+    if (eduPostRes.error) throw new Error(eduPostRes.error.message);
 
     const sellerRows = (sellerRes.data ?? []) as Array<{
       id: string;
@@ -199,7 +214,7 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
       updated_at: string;
     }>;
 
-    const eduRows = (eduRes.data ?? []) as Array<{
+    const eduPostRows = (eduPostRes.data ?? []) as Array<{
       id: string;
       post_id: string;
       reporter_id: string;
@@ -213,18 +228,54 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
       reviewed_by: string | null;
     }>;
 
+    let eduReelRows: Array<{
+      id: string;
+      reel_id: string;
+      reporter_id: string;
+      reel_author_id: string | null;
+      reason: string;
+      details: string | null;
+      status: string;
+      action_note: string | null;
+      created_at: string;
+      reviewed_at: string | null;
+      reviewed_by: string | null;
+    }> = [];
+
+    if (eduReelRes.error) {
+      const message = eduReelRes.error.message.toLowerCase();
+      if (!message.includes("edu_reel_reports") && !message.includes("does not exist")) {
+        throw new Error(eduReelRes.error.message);
+      }
+    } else {
+      eduReelRows = (eduReelRes.data ?? []) as Array<{
+        id: string;
+        reel_id: string;
+        reporter_id: string;
+        reel_author_id: string | null;
+        reason: string;
+        details: string | null;
+        status: string;
+        action_note: string | null;
+        created_at: string;
+        reviewed_at: string | null;
+        reviewed_by: string | null;
+      }>;
+    }
+
     const profileIds = [
       ...sellerRows.map((row) => row.user_id),
       ...sellerRows.map((row) => row.reviewed_by).filter((id): id is string => Boolean(id)),
       ...disputeRows.flatMap((row) => [row.buyer_id, row.seller_id]),
-      ...eduRows.flatMap((row) => [row.reporter_id, row.post_author_id, row.reviewed_by]),
+      ...eduPostRows.flatMap((row) => [row.reporter_id, row.post_author_id, row.reviewed_by]),
+      ...eduReelRows.flatMap((row) => [row.reporter_id, row.reel_author_id, row.reviewed_by]),
     ].filter((id): id is string => Boolean(id));
 
-    const profilesMap = await getProfilesMap(supabase, profileIds);
+    const profilesMap = await getProfilesMap(adminSupabase, profileIds);
 
     const sellerUserIds = Array.from(new Set(sellerRows.map((row) => row.user_id)));
     const { data: marketplaceProfiles } = sellerUserIds.length
-      ? await supabase
+      ? await adminSupabase
           .from("marketplace_profiles")
           .select("id, role, store_name")
           .in("id", sellerUserIds)
@@ -242,7 +293,7 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
     );
 
     const { data: productRows } = productIds.length
-      ? await supabase
+      ? await adminSupabase
           .from("marketplace_items")
           .select("id, title, image_url, price_dzd")
           .in("id", productIds)
@@ -257,9 +308,9 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
       }>).map((row) => [row.id, row])
     );
 
-    const postIds = Array.from(new Set(eduRows.map((row) => row.post_id).filter(Boolean)));
+    const postIds = Array.from(new Set(eduPostRows.map((row) => row.post_id).filter(Boolean)));
     const { data: postRows } = postIds.length
-      ? await supabase
+      ? await adminSupabase
           .from("edu_posts")
           .select("id, title, body, status, created_at")
           .in("id", postIds)
@@ -275,15 +326,47 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
       }>).map((row) => [row.id, row])
     );
 
+    const reportedReelIds = Array.from(
+      new Set(eduReelRows.map((row) => row.reel_id).filter((id): id is string => Boolean(id)))
+    );
+    const { data: reportedReelRows, error: reportedReelError } = reportedReelIds.length
+      ? await adminSupabase
+          .from("edu_reels")
+          .select("id, author_id, caption, video_url, created_at")
+          .in("id", reportedReelIds)
+      : { data: [], error: null };
+
+    if (reportedReelError) {
+      const message = reportedReelError.message.toLowerCase();
+      if (!message.includes("edu_reels") && !message.includes("does not exist")) {
+        throw new Error(reportedReelError.message);
+      }
+    }
+
+    const reportedReelsMap = new Map(
+      ((reportedReelRows ?? []) as Array<{
+        id: string;
+        author_id: string;
+        caption: string | null;
+        video_url: string;
+        created_at: string;
+      }>).map((row) => [row.id, row])
+    );
+
     const reportAuthorIds = Array.from(
-      new Set(eduRows.map((row) => row.post_author_id).filter((id): id is string => Boolean(id)))
+      new Set(
+        [
+          ...eduPostRows.map((row) => row.post_author_id),
+          ...eduReelRows.map((row) => row.reel_author_id),
+        ].filter((id): id is string => Boolean(id))
+      )
     );
     const reelsByAuthor = new Map<
       string,
       Array<{ id: string; caption: string; videoUrl: string; createdAt: string }>
     >();
     if (reportAuthorIds.length > 0) {
-      const { data: reelRows, error: reelsError } = await supabase
+      const { data: reelRows, error: reelsError } = await adminSupabase
         .from("edu_reels")
         .select("id, author_id, caption, video_url, created_at")
         .in("author_id", reportAuthorIds)
@@ -328,7 +411,7 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
 
     const signedUrls = new Map<string, string>();
     if (evidencePaths.length > 0) {
-      const { data: signed } = await supabase.storage
+      const { data: signed } = await adminSupabase.storage
         .from("dispute-evidence")
         .createSignedUrls(evidencePaths, 60 * 30);
       for (const item of signed ?? []) {
@@ -387,11 +470,13 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
       };
     });
 
-    const eduReports: EduPostReportRow[] = eduRows.map((row) => {
+    const postReports: EduPostReportRow[] = eduPostRows.map((row) => {
       const post = postsMap.get(row.post_id) ?? null;
       return {
         id: row.id,
+        contentKind: "post",
         postId: row.post_id,
+        reelId: null,
         reporterId: row.reporter_id,
         postAuthorId: row.post_author_id,
         reason: row.reason,
@@ -412,9 +497,46 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
               createdAt: post.created_at,
             }
           : null,
+        reel: null,
         reels: row.post_author_id ? reelsByAuthor.get(row.post_author_id) ?? [] : [],
       };
     });
+
+    const reelReports: EduPostReportRow[] = eduReelRows.map((row) => {
+      const reel = reportedReelsMap.get(row.reel_id) ?? null;
+      const resolvedAuthorId = row.reel_author_id ?? reel?.author_id ?? null;
+      return {
+        id: row.id,
+        contentKind: "reel",
+        postId: null,
+        reelId: row.reel_id,
+        reporterId: row.reporter_id,
+        postAuthorId: resolvedAuthorId,
+        reason: row.reason,
+        details: row.details,
+        status: normalizeEduStatus(row.status),
+        actionNote: row.action_note,
+        createdAt: row.created_at,
+        reviewedAt: row.reviewed_at,
+        reviewedBy: row.reviewed_by,
+        reporter: profilesMap.get(row.reporter_id) ?? null,
+        postAuthor: resolvedAuthorId ? profilesMap.get(resolvedAuthorId) ?? null : null,
+        post: null,
+        reel: reel
+          ? {
+              id: reel.id,
+              caption: reel.caption?.trim() || "",
+              videoUrl: reel.video_url,
+              createdAt: reel.created_at,
+            }
+          : null,
+        reels: resolvedAuthorId ? reelsByAuthor.get(resolvedAuthorId) ?? [] : [],
+      };
+    });
+
+    const eduReports: EduPostReportRow[] = [...postReports, ...reelReports].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     const payload: ModerationDashboardPayload = {
       actorId: actor.userId,
@@ -712,7 +834,8 @@ export async function updateMarketDisputeStatus(
 export async function updateEduReportStatus(
   reportId: string,
   status: EduReportStatus,
-  adminNotes: string
+  adminNotes: string,
+  contentKind: EduReportContentKind = "post"
 ): Promise<ModerationActionResult> {
   try {
     if (!isValidUuid(reportId)) {
@@ -722,11 +845,17 @@ export async function updateEduReportStatus(
     if (!["open", "reviewed", "dismissed", "action_taken"].includes(status)) {
       return { ok: false, error: "Invalid report status" };
     }
+    if (contentKind !== "post" && contentKind !== "reel") {
+      return { ok: false, error: "Invalid report content type" };
+    }
 
     const supabase = await createServerSupabaseClient();
     await requireModeratorActor(supabase);
 
-    const { error } = await supabase.rpc("mod_update_edu_post_report", {
+    const rpcName =
+      contentKind === "reel" ? "mod_update_edu_reel_report" : "mod_update_edu_post_report";
+
+    const { error } = await supabase.rpc(rpcName, {
       p_report_id: reportId,
       p_status: status,
       p_admin_notes: adminNotes.trim() || null,

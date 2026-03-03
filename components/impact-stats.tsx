@@ -474,7 +474,7 @@ export function ImpactStats() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.24 }}
-            className="fixed inset-0 z-[180] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xl supports-[backdrop-filter]:bg-slate-950/64 sm:p-6"
+            className="fixed inset-0 z-[180] flex items-end justify-center bg-slate-950/80 p-0 backdrop-blur-xl supports-[backdrop-filter]:bg-slate-950/64 sm:items-center sm:p-6"
             onClick={(event) => {
               if (event.target === event.currentTarget) {
                 setIsReportOpen(false);
@@ -490,7 +490,7 @@ export function ImpactStats() {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 28, scale: 0.985 }}
               transition={{ duration: 0.28, ease: "easeOut" }}
-              className="relative mx-auto flex h-[min(94vh,960px)] w-full max-w-[1120px] flex-col overflow-hidden rounded-[28px] border border-white/18 bg-slate-950/96 shadow-[0_48px_140px_rgba(2,6,23,0.72)] ring-1 ring-emerald-300/20 light:border-slate-300/90 light:bg-white/95 light:ring-emerald-500/18 sm:rounded-[32px]"
+              className="relative mx-auto flex h-[min(100dvh,100svh)] max-h-[min(100dvh,100svh)] w-full max-w-[1120px] flex-col overflow-hidden rounded-t-[24px] border border-white/18 bg-slate-950/96 shadow-[0_48px_140px_rgba(2,6,23,0.72)] ring-1 ring-emerald-300/20 light:border-slate-300/90 light:bg-white/95 light:ring-emerald-500/18 sm:h-[min(94dvh,960px)] sm:max-h-[94dvh] sm:rounded-[32px]"
               onClick={(event) => event.stopPropagation()}
               role="dialog"
               aria-modal="true"
@@ -500,7 +500,7 @@ export function ImpactStats() {
             >
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(140%_90%_at_50%_-10%,rgba(16,185,129,0.26),transparent_56%),radial-gradient(130%_95%_at_0%_100%,rgba(56,189,248,0.16),transparent_64%)] light:bg-[radial-gradient(140%_90%_at_50%_-10%,rgba(16,185,129,0.18),transparent_56%),radial-gradient(130%_95%_at_0%_100%,rgba(14,165,233,0.13),transparent_64%)]" />
 
-              <header className="relative z-20 border-b border-white/10 px-4 pb-3 pt-3 light:border-slate-200 sm:px-7 sm:pb-4 sm:pt-4">
+              <header className="relative z-20 border-b border-white/10 px-4 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] light:border-slate-200 sm:px-7 sm:pb-4 sm:pt-4">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/[0.05] via-transparent to-transparent light:from-emerald-100/60" />
 
                 <div className={`relative flex items-start justify-between gap-4 ${isArabic ? "flex-row-reverse" : ""}`}>
@@ -798,7 +798,7 @@ export function ImpactStats() {
                 </div>
               </div>
 
-              <footer className="relative z-20 border-t border-white/10 px-4 py-2.5 light:border-slate-200 sm:px-7 sm:py-3">
+              <footer className="relative z-20 border-t border-white/10 px-4 pb-[calc(env(safe-area-inset-bottom)+0.625rem)] pt-2.5 light:border-slate-200 sm:px-7 sm:py-3">
                 <p className={`text-xs text-slate-300 light:text-slate-600 ${isArabic ? "text-right" : "text-left"}`}>
                   {t("landing.impact.report.periodLabel")}: {t("landing.impact.report.periodValue")}
                 </p>

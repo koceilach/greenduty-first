@@ -512,6 +512,79 @@ export async function toggleReelLike(reelId: string) {
   return { ok: true, liked: true };
 }
 
+export async function reportFeedItem(
+  kind: FeedKind,
+  id: string,
+  reason: string,
+  details?: string | null
+) {
+  noStore();
+  const { supabase, userId } = await getViewerContext();
+
+  if (!userId) {
+    return { ok: false, message: "Authentication required" };
+  }
+
+  if (!id) {
+    return { ok: false, message: "Missing id" };
+  }
+
+  if (kind !== "post" && kind !== "reel") {
+    return { ok: false, message: "Invalid content type" };
+  }
+
+  const normalizedReason = reason.trim() || "Reported by user";
+  const normalizedDetails = details?.trim() || null;
+
+  if (kind === "post") {
+    const { error } = await supabase.from("edu_post_reports").insert({
+      post_id: id,
+      reporter_id: userId,
+      reason: normalizedReason,
+      details: normalizedDetails,
+    });
+
+    if (error) {
+      const normalized = error.message.toLowerCase();
+      if (
+        normalized.includes("duplicate") ||
+        normalized.includes("already exists") ||
+        normalized.includes("unique")
+      ) {
+        return { ok: false, message: "You already reported this post." };
+      }
+      return { ok: false, message: error.message };
+    }
+  } else {
+    const { error } = await supabase.from("edu_reel_reports").insert({
+      reel_id: id,
+      reporter_id: userId,
+      reason: normalizedReason,
+      details: normalizedDetails,
+    });
+
+    if (error) {
+      const normalized = error.message.toLowerCase();
+      if (
+        normalized.includes("duplicate") ||
+        normalized.includes("already exists") ||
+        normalized.includes("unique")
+      ) {
+        return { ok: false, message: "You already reported this reel." };
+      }
+      if (normalized.includes("edu_reel_reports") || normalized.includes("does not exist")) {
+        return { ok: false, message: "Reporting reels is not configured yet." };
+      }
+      return { ok: false, message: error.message };
+    }
+  }
+
+  revalidatePath("/education");
+  revalidatePath("/education/reels");
+  revalidatePath("/mod-dashboard");
+  return { ok: true, message: "Report sent." };
+}
+
 export async function deleteFeedItem(kind: FeedKind, id: string) {
   noStore();
   const { supabase, userId } = await getViewerContext();
