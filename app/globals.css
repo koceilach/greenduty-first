@@ -2368,8 +2368,8 @@ html.light {
 /* Inputs */
 .light .gd-mp-sub input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .light .gd-mp-sub textarea {
-  background-color: #ffffff;
-  border-color: #d1d5db;
+  background-color: transparent;
+  border-color: transparent;
   color: #111827;
 }
 .light .gd-mp-sub input::placeholder,
@@ -2378,7 +2378,181 @@ html.light {
 }
 .light .gd-mp-sub input:focus,
 .light .gd-mp-sub textarea:focus {
+  border-color: transparent;
+}
+
+/* Webkit autofill background nuke — both themes */
+.gd-mp-sub input:-webkit-autofill,
+.gd-mp-sub input:-webkit-autofill:hover,
+.gd-mp-sub input:-webkit-autofill:focus,
+.gd-mp-sub input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px transparent inset !important;
+  box-shadow: 0 0 0 1000px transparent inset !important;
+  -webkit-text-fill-color: inherit !important;
+  background-color: transparent !important;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ─── Light Mode: Noir Botanica Auth Pages (lower white opacities) ─── */
+
+/* Text: white with sub-40 opacity → dark text equivalents */
+.light .gd-mp-sub .text-white\/35 {
+  color: rgba(17, 24, 39, 0.6);
+}
+.light .gd-mp-sub .text-white\/30 {
+  color: rgba(17, 24, 39, 0.5);
+}
+.light .gd-mp-sub .text-white\/25 {
+  color: rgba(17, 24, 39, 0.45);
+}
+.light .gd-mp-sub .text-white\/20 {
+  color: rgba(17, 24, 39, 0.4);
+}
+.light .gd-mp-sub .text-white\/15 {
+  color: rgba(17, 24, 39, 0.3);
+}
+
+/* Placeholder: white/20 → visible gray */
+.light .gd-mp-sub .placeholder\:text-white\/20::placeholder {
+  color: rgba(17, 24, 39, 0.35);
+}
+
+/* Emerald text: light-mode green swaps */
+.light .gd-mp-sub .text-emerald-400 {
+  color: #059669;
+}
+.light .gd-mp-sub .text-emerald-400\/80 {
+  color: rgba(5, 150, 105, 0.85);
+}
+.light .gd-mp-sub .text-emerald-400\/70 {
+  color: rgba(5, 150, 105, 0.75);
+}
+.light .gd-mp-sub .text-emerald-300 {
+  color: #047857;
+}
+
+/* Rose text: readable on light */
+.light .gd-mp-sub .text-rose-300 {
+  color: #e11d48;
+}
+.light .gd-mp-sub .text-rose-400 {
+  color: #be123c;
+}
+
+/* Bracket-notation backgrounds → visible light surfaces */
+.light .gd-mp-sub .bg-white\/\[0\.04\] {
+  background-color: rgba(255, 255, 255, 0.92);
+}
+.light .gd-mp-sub .bg-white\/\[0\.03\] {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+.light .gd-mp-sub .bg-white\/\[0\.06\] {
+  background-color: #f3f4f6;
+}
+
+/* Emerald badge / focus backgrounds */
+.light .gd-mp-sub .bg-emerald-500\/\[0\.06\] {
+  background-color: #ecfdf5;
+}
+.light .gd-mp-sub .bg-emerald-500\/\[0\.04\] {
+  background-color: #ecfdf5;
+}
+.light .gd-mp-sub .bg-emerald-500\/10 {
+  background-color: #d1fae5;
+}
+
+/* Rose error background */
+.light .gd-mp-sub .bg-rose-500\/\[0\.06\] {
+  background-color: #fff1f2;
+}
+
+/* Bracket-notation borders → visible light borders */
+.light .gd-mp-sub .border-white\/\[0\.07\] {
+  border-color: #d1d5db;
+}
+.light .gd-mp-sub .border-white\/\[0\.08\] {
+  border-color: #d1d5db;
+}
+.light .gd-mp-sub .border-white\/\[0\.06\] {
+  border-color: #e5e7eb;
+}
+
+/* Emerald borders */
+.light .gd-mp-sub .border-emerald-500\/20 {
+  border-color: #a7f3d0;
+}
+.light .gd-mp-sub .border-emerald-500\/40 {
+  border-color: #6ee7b7;
+}
+
+/* Rose error border */
+.light .gd-mp-sub .border-rose-500\/20 {
+  border-color: #fecdd3;
+}
+
+/* Glass card shadow → subtle light shadow */
+.light .gd-mp-sub .shadow-\[0_8px_60px_-12px_rgba\(0\,0\,0\,0\.5\)\] {
+  box-shadow: 0 8px 40px -12px rgba(0, 0, 0, 0.08);
+}
+
+/* CTA glow shadow → softer in light mode */
+.light .gd-mp-sub .shadow-\[0_0_24px_rgba\(52\,211\,153\,0\.25\)\] {
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.15);
+}
+
+/* Hover states */
+.light .gd-mp-sub .hover\:text-emerald-400:hover {
+  color: #059669;
+}
+.light .gd-mp-sub .hover\:text-emerald-300:hover {
+  color: #047857;
+}
+.light .gd-mp-sub .hover\:text-white\/80:hover {
+  color: rgba(17, 24, 39, 0.78);
+}
+.light .gd-mp-sub .hover\:bg-white\/\[0\.06\]:hover {
+  background-color: #f3f4f6;
+}
+.light .gd-mp-sub .hover\:border-emerald-500\/40:hover {
+  border-color: #6ee7b7;
+}
+.light .gd-mp-sub .hover\:bg-emerald-500\/10:hover {
+  background-color: #d1fae5;
+}
+.light .gd-mp-sub .hover\:shadow-\[0_0_32px_rgba\(52\,211\,153\,0\.35\)\]:hover {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+.light .gd-mp-sub .hover\:border-white\/15:hover {
+  border-color: #d1d5db;
+}
+
+/* Focus-within states for input containers */
+.light .gd-mp-sub .focus-within\:border-emerald-500\/40:focus-within {
   border-color: #10b981;
+}
+.light .gd-mp-sub .focus-within\:bg-emerald-500\/\[0\.04\]:focus-within {
+  background-color: #ecfdf5;
+}
+
+/* Gradient glow line → subtler in light */
+.light .gd-mp-sub .via-emerald-400\/40 {
+  --tw-gradient-via: rgba(16, 185, 129, 0.15);
+}
+
+/* Noise texture overlay → nearly invisible on light bg */
+.light .gd-mp-sub .opacity-\[0\.035\] {
+  opacity: 0.012;
+}
+
+/* Ambient orbs: soften dramatically for light mode */
+.light .gd-mp-sub .bg-emerald-600\/20 {
+  background-color: rgba(167, 243, 208, 0.25);
+}
+.light .gd-mp-sub .bg-teal-500\/15 {
+  background-color: rgba(153, 246, 228, 0.18);
+}
+.light .gd-mp-sub .bg-cyan-400\/10 {
+  background-color: rgba(165, 243, 252, 0.12);
 }
 
 /* Marketplace mobile polish across all marketplace pages */

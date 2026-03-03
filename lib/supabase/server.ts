@@ -15,6 +15,15 @@ export async function createServerSupabaseClient(
 ) {
   const cookieStore = await cookies();
   const useSession = options.useSession ?? true;
+  const safeSetCookie = (name: string, value: string, options: Record<string, unknown>) => {
+    try {
+      cookieStore.set({ name, value, ...options });
+    } catch {
+      // Server Components can read cookies but cannot always mutate them.
+      // Supabase may attempt to clear/set session cookies during auth checks.
+      // Ignore mutation failures here and let Server Actions/Route Handlers persist cookies.
+    }
+  };
 
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     ...(options.schema ? { db: { schema: options.schema } } : {}),
@@ -24,10 +33,10 @@ export async function createServerSupabaseClient(
             return cookieStore.get(name)?.value;
           },
           set(name, value, options) {
-            cookieStore.set({ name, value, ...options });
+            safeSetCookie(name, value, options);
           },
           remove(name, options) {
-            cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+            safeSetCookie(name, "", { ...options, maxAge: 0 });
           },
         }
       : {

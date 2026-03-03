@@ -2398,17 +2398,17 @@ export default function MarketPlacePage() {
   return (
     <div className="gd-marketplace-page gd-mp-shell gd-mp-has-bottom-nav relative min-h-screen bg-[#f7f8fa] text-gray-900">
       {/* -- Top accent bar -- */}
-      <div className="h-1 w-full bg-gradient-to-r from-emerald-500 via-emerald-400 to-teal-400" />
+      <div className="h-[3px] w-full bg-gradient-to-r from-emerald-600 via-emerald-400 to-teal-400 shadow-[0_1px_8px_rgba(16,185,129,0.3)]" />
 
       {/* -- Sticky Header / Navbar -- */}
-      <header className="gd-marketplace-header sticky top-0 z-30 border-b border-gray-200 bg-white shadow-sm">
-        <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center gap-4 px-4 py-3 lg:px-8">
+      <header className="gd-marketplace-header sticky top-0 z-30 border-b border-gray-200/50 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_32px_rgba(0,0,0,0.06)] transition-shadow duration-300 supports-[backdrop-filter]:bg-white/60 supports-[backdrop-filter]:backdrop-blur-xl">
+        <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-3.5 sm:gap-4 lg:px-8">
           {/* Brand */}
           <Link href="/market-place" className="flex shrink-0 items-center gap-2.5">
-            <div className="relative h-9 w-9 overflow-hidden rounded-lg border border-emerald-200/70 bg-white shadow-sm">
-              <Image src="/logo.png" alt="GreenDuty logo" fill sizes="36px" className="object-cover" />
+            <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-emerald-200/40 bg-white shadow-md ring-1 ring-emerald-100/40">
+              <Image src="/logo.png" alt="GreenDuty logo" fill sizes="40px" className="object-cover" />
             </div>
-            <span className="hidden text-lg font-bold text-gray-900 sm:block">
+            <span className="hidden bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-lg font-extrabold tracking-tight text-transparent sm:block">
               GreenDuty
             </span>
           </Link>
@@ -2430,22 +2430,22 @@ export default function MarketPlacePage() {
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
               placeholder="Search for any product, seed, or seller..."
-              className="h-10 w-full rounded-full border border-gray-300 bg-gray-50 pl-11 pr-28 text-sm text-gray-800 placeholder:text-gray-400 transition focus:border-emerald-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+              className="h-11 w-full rounded-full border border-gray-200/80 bg-gray-50/80 pl-11 pr-28 text-sm text-gray-800 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] placeholder:text-gray-400 transition-all duration-200 focus:border-emerald-400 focus:bg-white focus:shadow-[0_0_0_3px_rgba(16,185,129,0.12)] focus:outline-none"
             />
             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <button
               type="submit"
               aria-label="Search marketplace"
               title="Search marketplace"
-              className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-600 text-white transition hover:bg-emerald-700"
+              className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm transition-all duration-200 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-md active:scale-95"
             >
               <Search className="h-4 w-4" />
             </button>
           </form>
 
           {/* Location (wilaya) pill */}
-          <div className="hidden items-center gap-1.5 text-xs text-gray-500 lg:flex">
-            <MapPin className="h-3.5 w-3.5 text-emerald-600" />
+          <div className="hidden items-center gap-1.5 rounded-full border border-gray-100/80 bg-gray-50/70 px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm lg:flex">
+            <MapPin className="h-3.5 w-3.5 text-emerald-500" />
             <span>{GD_formatWilayaLabel(selectedWilaya)}</span>
           </div>
 
@@ -2454,14 +2454,14 @@ export default function MarketPlacePage() {
             
             {/* Mode pills — seller pill only visible to approved sellers/admins */}
             {canSwitchModes && (
-              <div className="flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 p-0.5">
+              <div className="flex items-center gap-0.5 rounded-full border border-gray-200/70 bg-gray-50/80 p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]">
                 <button
                   type="button"
                   onClick={() => handleSwitchRole("buyer")}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-200 ${
                     !isSeller
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "text-gray-500 hover:text-gray-800"
+                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md"
+                      : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                   }`}
                   aria-label="Switch to buyer mode"
                   title="Switch to buyer mode"
@@ -2471,10 +2471,10 @@ export default function MarketPlacePage() {
                 <button
                   type="button"
                   onClick={() => handleSwitchRole("seller")}
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-[11px] font-semibold transition ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-200 ${
                     isSeller
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "text-gray-500 hover:text-gray-800"
+                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md"
+                      : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
                   }`}
                   aria-label="Switch to seller mode"
                   title="Switch to seller mode"
@@ -2487,7 +2487,7 @@ export default function MarketPlacePage() {
             {isSeller ? (
               <Link
                 href="/market-place/vendor"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 transition hover:bg-emerald-100 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-3 lg:py-1.5 lg:text-xs lg:font-semibold"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-emerald-200/60 bg-emerald-50/80 text-emerald-700 shadow-sm transition-all duration-200 hover:bg-emerald-100 hover:shadow-md active:scale-95 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-4 lg:py-2 lg:text-xs lg:font-semibold"
                 title="Vendor Studio"
               >
                 <ShoppingBag className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
@@ -2497,7 +2497,7 @@ export default function MarketPlacePage() {
               <>
                 <Link
                   href="/market-place/buyer"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-emerald-300 hover:text-emerald-700 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-3 lg:py-1.5 lg:text-xs lg:font-semibold"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-600 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-700 hover:shadow-md active:scale-95 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-4 lg:py-2 lg:text-xs lg:font-semibold"
                   title="Buyer Dashboard"
                 >
                   <Gauge className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
@@ -2505,7 +2505,7 @@ export default function MarketPlacePage() {
                 </Link>
                 <Link
                   href="/market-place/orders"
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-600 transition hover:border-emerald-300 hover:text-emerald-700 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-3 lg:py-1.5 lg:text-xs lg:font-semibold"
+                  className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-600 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-700 hover:shadow-md active:scale-95 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-4 lg:py-2 lg:text-xs lg:font-semibold"
                   title="My Orders"
                 >
                   <CalendarCheck className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
@@ -2517,7 +2517,7 @@ export default function MarketPlacePage() {
             {profile?.role === "admin" && (
               <Link
                 href="/market-place/admin"
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 transition hover:bg-amber-100 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-3 lg:py-1.5 lg:text-xs lg:font-semibold"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/60 bg-amber-50/80 text-amber-700 shadow-sm transition-all duration-200 hover:bg-amber-100 hover:shadow-md active:scale-95 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-4 lg:py-2 lg:text-xs lg:font-semibold"
                 title="Admin Dashboard"
               >
                 <Shield className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
@@ -2527,14 +2527,14 @@ export default function MarketPlacePage() {
 
             <button
               type="button"
-              className="relative flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-emerald-300 hover:text-emerald-600"
+              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-500 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-600 hover:shadow-md active:scale-95"
             >
               <Bell className="h-4 w-4" />
             </button>
             <button
               type="button"
               onClick={handleProfileClick}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-emerald-300 hover:text-emerald-600"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-500 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-600 hover:shadow-md active:scale-95"
             >
               <User className="h-4 w-4" />
             </button>
@@ -2543,7 +2543,7 @@ export default function MarketPlacePage() {
                 type="button"
                 onClick={handleLogout}
                 disabled={signOutPending}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-200 text-gray-500 transition hover:border-red-300 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-500 shadow-sm transition-all duration-200 hover:border-red-300 hover:bg-red-50/40 hover:text-red-500 hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                 title={signOutPending ? "Signing out..." : "Log out"}
               >
                 <LogOut className="h-4 w-4" />
@@ -2553,7 +2553,7 @@ export default function MarketPlacePage() {
         </div>
 
         {/* Category navbar */}
-        <div className="gd-marketplace-subnav border-t border-gray-100 bg-white/95 backdrop-blur-sm">
+        <div className="gd-marketplace-subnav border-t border-gray-100/50 bg-white/90 supports-[backdrop-filter]:bg-white/50 supports-[backdrop-filter]:backdrop-blur-lg">
           <div className="gd-mp-container mx-auto w-full max-w-7xl px-3 py-2 sm:px-4 lg:px-8">
             <div className="flex items-center gap-2">
               <div data-gd-i18n-skip="1">
@@ -2561,7 +2561,7 @@ export default function MarketPlacePage() {
                   <button
                     type="button"
                     onClick={() => setLanguageMenuOpen((prev) => !prev)}
-                    className="inline-flex h-9 min-w-[98px] items-center gap-1.5 rounded-full border border-emerald-100 bg-white/95 px-2.5 text-[12px] font-semibold text-gray-700 shadow-[0_8px_20px_rgba(15,23,42,0.08)] transition hover:border-emerald-200 hover:bg-emerald-50/40 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    className="inline-flex h-11 min-w-[98px] items-center gap-1.5 rounded-full border border-emerald-100/60 bg-white/90 px-3 text-[12px] font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20 active:scale-[0.97]"
                     aria-expanded={languageMenuOpen}
                     aria-haspopup="listbox"
                     aria-label="Marketplace language switch"
@@ -2576,10 +2576,10 @@ export default function MarketPlacePage() {
                   </button>
 
                   <div
-                    className={`gd-solid-window absolute left-0 top-full z-50 mt-2 min-w-[148px] rounded-2xl border border-emerald-100 bg-white p-1.5 shadow-[0_18px_42px_rgba(15,23,42,0.18)] transition-all duration-150 ${
+                    className={`gd-solid-window absolute left-0 top-full z-50 mt-2 min-w-[160px] rounded-2xl border border-emerald-100/80 bg-white p-1.5 shadow-[0_12px_40px_rgba(15,23,42,0.14)] transition-all duration-200 ease-out ${
                       languageMenuOpen
-                        ? "visible translate-y-0 opacity-100"
-                        : "pointer-events-none invisible -translate-y-1 opacity-0"
+                        ? "visible translate-y-0 scale-100 opacity-100"
+                        : "pointer-events-none invisible -translate-y-2 scale-[0.97] opacity-0"
                     }`}
                     role="listbox"
                     aria-label="Marketplace language switch"
@@ -2595,7 +2595,7 @@ export default function MarketPlacePage() {
                             setLocale(lang);
                             setLanguageMenuOpen(false);
                           }}
-                          className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[12px] font-semibold transition ${
+                          className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[12px] font-semibold transition-colors duration-150 ${
                             isActive
                               ? "bg-emerald-50 text-emerald-700"
                               : "text-gray-600 hover:bg-emerald-50/70 hover:text-emerald-700"
@@ -2622,10 +2622,10 @@ export default function MarketPlacePage() {
                       type="button"
                       onClick={() => handleFeaturedFilterClick(filter)}
                       aria-pressed={activeFeaturedFilter === filter}
-                      className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2 text-sm font-semibold leading-none transition ${
+                      className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2.5 text-sm font-semibold leading-none transition-all duration-200 ${
                         activeFeaturedFilter === filter
-                          ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-[0_6px_18px_rgba(16,185,129,0.18)]"
-                          : "border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/40 hover:text-emerald-700"
+                          ? "border-emerald-300/80 bg-emerald-50 text-emerald-700 shadow-[0_4px_14px_rgba(16,185,129,0.16)]"
+                          : "border-gray-200/70 bg-white/80 text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-700 hover:shadow-sm active:scale-[0.97]"
                       }`}
                     >
                       <span className="inline-flex items-center gap-2">

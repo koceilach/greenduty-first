@@ -658,13 +658,22 @@ export default function AdminDashboardPage() {
             <h1 className="mt-1 text-xl font-semibold sm:text-2xl">Marketplace Control Center</h1>
             <p className="mt-1 text-xs text-white/50">{profile?.email}</p>
           </div>
-          <Link
-            href="/market-place"
-            className="inline-flex items-center gap-2 rounded-full border border-emerald-200/40 bg-emerald-200/10 px-4 py-2 text-xs font-semibold text-emerald-100 transition hover:border-emerald-200/70"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Marketplace
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href="/market-place/admin/disputes"
+              className="inline-flex items-center gap-2 rounded-full border border-amber-200/40 bg-amber-200/10 px-4 py-2 text-xs font-semibold text-amber-100 transition hover:border-amber-200/70"
+            >
+              <ShieldCheck className="h-3.5 w-3.5" />
+              Dispute Center
+            </Link>
+            <Link
+              href="/market-place"
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-200/40 bg-emerald-200/10 px-4 py-2 text-xs font-semibold text-emerald-100 transition hover:border-emerald-200/70"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Marketplace
+            </Link>
+          </div>
         </header>
 
         {/* Tab Nav */}

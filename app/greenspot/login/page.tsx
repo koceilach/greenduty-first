@@ -1,35 +1,12 @@
 "use client";
 
-import { Suspense, useCallback, useMemo, useState, type InputHTMLAttributes, type ReactNode } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Lock, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Leaf, Lock, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { supabaseClient } from "@/lib/supabase/client";
 import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect";
-import { GreenspotAuthLayout } from "@/components/greenspot-auth-layout";
-
-function AuthField({
-  label,
-  icon,
-  ...props
-}: { label: string; icon: ReactNode } & InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <label className="block">
-      <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-emerald-700/70 dark:text-emerald-200/70 green:text-emerald-200/70">
-        {label}
-      </span>
-      <div className="mt-2 flex items-center gap-3 border-b border-emerald-200 pb-2 transition-colors focus-within:border-emerald-500 dark:border-emerald-400/30 green:border-emerald-400/30">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-200 green:bg-emerald-500/10 green:text-emerald-200">
-          {icon}
-        </div>
-        <input
-          {...props}
-          className="w-full bg-transparent py-1 text-sm text-slate-700 placeholder:text-slate-400 outline-none dark:text-white/80 dark:placeholder:text-white/40 green:text-white/80 green:placeholder:text-white/40"
-        />
-      </div>
-    </label>
-  );
-}
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -41,6 +18,13 @@ function GoogleIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/* ── Keyframes injected once ── */
+const animCSS = `
+@keyframes gd-drift{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-20px) scale(1.05)}50%{transform:translate(-20px,15px) scale(.97)}75%{transform:translate(15px,25px) scale(1.03)}}
+@keyframes gd-drift2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-25px,20px) scale(1.04)}66%{transform:translate(20px,-15px) scale(.96)}}
+@keyframes gd-pulse-ring{0%{box-shadow:0 0 0 0 rgba(52,211,153,.25)}70%{box-shadow:0 0 0 10px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+`;
 
 export default function GreenspotLoginPageWrapper() {
   return (
@@ -140,105 +124,206 @@ function GreenspotLoginPage() {
   }, [redirectTarget]);
 
   return (
-    <GreenspotAuthLayout
-      eyebrow="Welcome"
-      title="Sign in"
-      subtitle="Access your GreenSpot missions and reports."
-      footer={
-        <span>
-          New to GreenSpot?{" "}
-          <Link
-            href={`/greenspot/register?redirect=${encodeURIComponent(redirectTarget)}`}
-            className="font-semibold text-emerald-700 dark:text-emerald-200 green:text-emerald-200"
-          >
-            Create an account
+    <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#060e0b]">
+      <style dangerouslySetInnerHTML={{ __html: animCSS }} />
+
+      {/* ══════ Ambient background canvas ══════ */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-emerald-600/20 blur-[120px]" style={{ animation: "gd-drift 18s ease-in-out infinite" }} />
+        <div className="absolute -bottom-40 -right-40 h-[600px] w-[600px] rounded-full bg-teal-500/15 blur-[140px]" style={{ animation: "gd-drift2 22s ease-in-out infinite" }} />
+        <div className="absolute left-1/2 top-1/3 h-[350px] w-[350px] -translate-x-1/2 rounded-full bg-cyan-400/10 blur-[100px]" style={{ animation: "gd-drift 15s ease-in-out infinite reverse" }} />
+        <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
+      </div>
+
+      {/* ══════ Page grid ══════ */}
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
+
+        {/* ── Left: Branding cinematic column ── */}
+        <div className="relative flex flex-col justify-between px-6 pb-8 pt-8 sm:px-10 lg:w-[50%] lg:px-14 lg:py-14">
+          <Link href="/" className="group inline-flex w-fit items-center gap-2 text-[11px] font-medium tracking-wide text-white/40 transition-colors duration-300 hover:text-emerald-400">
+            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-white/10 transition-colors duration-300 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/10">
+              <Image src="/logo.png" alt="GreenDuty" width={28} height={28} className="h-full w-full object-cover" />
+            </span>
+            GreenDuty
           </Link>
-        </span>
-      }
-    >
-      <>
-        <div className="mb-5">
-          <Link
-            href="/"
-            className="inline-flex items-center rounded-full border border-emerald-200/70 bg-emerald-50/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700 transition hover:bg-emerald-100/80 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200 green:border-emerald-400/30 green:bg-emerald-500/10 green:text-emerald-200"
-          >
-            Back to Home
-          </Link>
+
+          <div className="hidden lg:block">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-400">
+              <ShieldCheck className="h-3 w-3" />
+              GreenSpot
+            </div>
+
+            <h2 className="mt-8 text-[clamp(2rem,3.4vw,3.25rem)] font-extralight leading-[1.12] tracking-tight text-white">
+              Missions &amp; reports
+              <br />
+              for a <span className="font-semibold text-emerald-400">healthier</span> city
+            </h2>
+
+            <p className="mt-6 max-w-md text-[14px] leading-[1.7] text-white/35">
+              Access your GreenSpot missions, track green-reported areas, and help
+              build healthier communities through verified action.
+            </p>
+
+            <div className="mt-12 flex flex-col gap-4">
+              {[
+                { icon: Lock, label: "Secure mission access" },
+                { icon: ShieldCheck, label: "Verified green reports" },
+                { icon: Leaf, label: "Community-led action" },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-3.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03]">
+                    <Icon className="h-3.5 w-3.5 text-emerald-400/70" />
+                  </span>
+                  <span className="text-[13px] text-white/40">{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="hidden text-[10px] font-medium uppercase tracking-[0.3em] text-white/15 lg:block">
+            &copy; {new Date().getFullYear()} GreenDuty
+          </div>
         </div>
 
-        <form className="space-y-5" onSubmit={handleLogin}>
-          <AuthField
-            label="Email"
-            icon={<Mail className="h-4 w-4" />}
-            type="email"
-            name="email"
-            autoComplete="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            onInput={(event) => setEmail((event.target as HTMLInputElement).value)}
-          />
-          <AuthField
-            label="Password"
-            icon={<Lock className="h-4 w-4" />}
-            type="password"
-            name="password"
-            autoComplete="current-password"
-            placeholder="Your password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            onInput={(event) => setPassword((event.target as HTMLInputElement).value)}
-          />
+        {/* ── Right: Glass form column ── */}
+        <div className="flex flex-1 items-center justify-center px-5 pb-12 sm:px-8 lg:px-14 lg:py-14">
+          <div className="w-full max-w-[420px]">
 
-          <div className="flex items-center justify-between text-xs text-slate-500 dark:text-white/60 green:text-white/60">
-            <span>Keep your account secure.</span>
-            <Link
-              href="/forgot-password"
-              className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-200 green:text-emerald-200"
-            >
-              Forgot password?
+            <Link href="/" className="group mb-6 inline-flex items-center gap-2 text-[12px] font-medium text-white/35 transition-colors duration-200 hover:text-emerald-400">
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
+              Back to GreenDuty
             </Link>
-          </div>
 
-          {error && (
-            <div className="rounded-2xl border border-rose-200/80 bg-rose-50 px-4 py-3 text-xs text-rose-600 dark:border-rose-500/40 dark:bg-rose-500/10 dark:text-rose-200 green:border-rose-500/40 green:bg-rose-500/10 green:text-rose-200">
-              {error}
+            {/* Glass card */}
+            <div className="relative rounded-2xl border border-white/[0.07] bg-white/[0.04] p-7 shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:rounded-3xl sm:p-10">
+              <div className="pointer-events-none absolute inset-x-0 -top-px mx-auto h-px w-3/4 bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
+
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-emerald-400/80">
+                <Sparkles className="h-3 w-3" />
+                Sign In
+              </div>
+
+              <h1 className="mt-4 text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">
+                Welcome back
+              </h1>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-white/35">
+                Access your GreenSpot missions and reports.
+              </p>
+
+              {/* ── Form ── */}
+              <form className="mt-8 space-y-6" onSubmit={handleLogin}>
+                {/* Email */}
+                <div className="group">
+                  <label className="mb-2 block text-[10px] font-semibold uppercase tracking-widest text-white/30">Email</label>
+                  <div className="relative flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] transition-colors duration-200 focus-within:border-emerald-500/40 focus-within:bg-emerald-500/[0.04]">
+                    <Mail className="ml-3.5 h-4 w-4 shrink-0 text-white/20 transition-colors duration-200 group-focus-within:text-emerald-400" />
+                    <input
+                      type="email"
+                      name="email"
+                      autoComplete="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      onInput={(event) => setEmail((event.target as HTMLInputElement).value)}
+                      className="w-full border-none bg-transparent px-3 py-3 text-[13px] text-white shadow-[0_0_0_1000px_transparent_inset] outline-none placeholder:text-white/20 [-webkit-text-fill-color:inherit]"
+                    />
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div className="group">
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Password</label>
+                    <Link href="/forgot-password" className="text-[10px] font-medium text-white/25 transition-colors hover:text-emerald-400">Forgot?</Link>
+                  </div>
+                  <div className="relative flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] transition-colors duration-200 focus-within:border-emerald-500/40 focus-within:bg-emerald-500/[0.04]">
+                    <Lock className="ml-3.5 h-4 w-4 shrink-0 text-white/20 transition-colors duration-200 group-focus-within:text-emerald-400" />
+                    <input
+                      type="password"
+                      name="password"
+                      autoComplete="current-password"
+                      placeholder="Your password"
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      onInput={(event) => setPassword((event.target as HTMLInputElement).value)}
+                      className="w-full border-none bg-transparent px-3 py-3 text-[13px] text-white shadow-[0_0_0_1000px_transparent_inset] outline-none placeholder:text-white/20 [-webkit-text-fill-color:inherit]"
+                    />
+                  </div>
+                </div>
+
+                {/* Error */}
+                {error && (
+                  <div className="flex gap-2.5 rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3.5 py-2.5 text-[12px] text-rose-300">
+                    <span className="mt-px shrink-0 text-rose-400">!</span>
+                    {error}
+                  </div>
+                )}
+
+                {/* Submit */}
+                <button
+                  type="submit"
+                  disabled={loading || googleLoading}
+                  className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-emerald-500 px-5 py-3.5 text-[13px] font-semibold text-white shadow-[0_0_24px_rgba(52,211,153,0.25)] transition-all duration-300 hover:bg-emerald-400 hover:shadow-[0_0_32px_rgba(52,211,153,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+                >
+                  {loading ? "Signing in\u2026" : "Sign In"}
+                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </button>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-white/[0.06]" />
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-white/20">or</span>
+                  <div className="h-px flex-1 bg-white/[0.06]" />
+                </div>
+
+                {/* Google */}
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  disabled={googleLoading || loading}
+                  className="inline-flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3.5 text-[13px] font-medium text-white/60 transition-all duration-200 hover:border-white/15 hover:bg-white/[0.06] hover:text-white/80 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <GoogleIcon className="h-4 w-4" />
+                  {googleLoading ? "Connecting\u2026" : "Continue with Google"}
+                </button>
+
+                <p className="text-center text-[11px] leading-relaxed text-white/20">
+                  By signing in you agree to support community-led green action.
+                </p>
+              </form>
+
+              {/* Footer */}
+              <p className="mt-8 text-center text-[12px] text-white/30">
+                New to GreenSpot?{" "}
+                <Link
+                  href={`/greenspot/register?redirect=${encodeURIComponent(redirectTarget)}`}
+                  className="font-semibold text-emerald-400/80 transition-colors hover:text-emerald-300"
+                >
+                  Create an account
+                </Link>
+              </p>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading || googleLoading}
-            className="flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-500 via-emerald-500 to-teal-400 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-300/40 transition hover:from-emerald-600 hover:to-teal-500 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loading ? "Signing in..." : "Login"}
-            {!loading && <ArrowRight className="h-4 w-4" />}
-          </button>
-
-          <div className="my-1 flex items-center gap-3">
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent dark:via-emerald-400/30 green:via-emerald-400/30" />
-            <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 dark:text-white/50 green:text-white/50">or</span>
-            <div className="h-px flex-1 bg-gradient-to-r from-transparent via-emerald-300/40 to-transparent dark:via-emerald-400/30 green:via-emerald-400/30" />
+            {/* Trust strip below card */}
+            <div className="mt-6 flex items-center justify-center gap-5">
+              <span className="flex items-center gap-1.5 text-[10px] text-white/20">
+                <Lock className="h-3 w-3" style={{ animation: "gd-pulse-ring 3s infinite" }} />
+                Encrypted
+              </span>
+              <span className="h-3 w-px bg-white/10" />
+              <span className="flex items-center gap-1.5 text-[10px] text-white/20">
+                <ShieldCheck className="h-3 w-3" />
+                Secure
+              </span>
+              <span className="h-3 w-px bg-white/10" />
+              <span className="flex items-center gap-1.5 text-[10px] text-white/20">
+                <Leaf className="h-3 w-3" />
+                Eco-first
+              </span>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={googleLoading || loading}
-            className="flex w-full items-center justify-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-400/10 py-3 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-400/18 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-200 green:border-emerald-400/30 green:bg-emerald-500/10 green:text-emerald-200"
-          >
-            <GoogleIcon className="h-4 w-4" />
-            {googleLoading ? "Connecting..." : "Continue with Google"}
-          </button>
-
-          <p className="mt-4 px-4 text-center text-xs leading-relaxed text-slate-500 dark:text-white/60 green:text-white/60">
-            By signing in you agree to support community-led green action.
-          </p>
-        </form>
-      </>
-    </GreenspotAuthLayout>
+        </div>
+      </div>
+    </div>
   );
 }
-
-
-

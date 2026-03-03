@@ -1,9 +1,10 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowRight, Leaf, Lock, Mail } from "lucide-react";
+import { ArrowLeft, ArrowRight, Leaf, Lock, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { supabaseClient } from "@/lib/supabase/client";
 import { buildOAuthRedirect } from "@/lib/auth/build-oauth-redirect";
 
@@ -17,6 +18,13 @@ function GoogleIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/* ── Keyframes injected once ── */
+const animCSS = `
+@keyframes gd-drift{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(30px,-20px) scale(1.05)}50%{transform:translate(-20px,15px) scale(.97)}75%{transform:translate(15px,25px) scale(1.03)}}
+@keyframes gd-drift2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(-25px,20px) scale(1.04)}66%{transform:translate(20px,-15px) scale(.96)}}
+@keyframes gd-pulse-ring{0%{box-shadow:0 0 0 0 rgba(52,211,153,.25)}70%{box-shadow:0 0 0 10px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
+`;
 
 function LoginPage() {
   const router = useRouter();
@@ -112,109 +120,150 @@ function LoginPage() {
   }, [oauthLoading, redirectTarget, submitting]);
 
   return (
-    <div className="gd-auth-shell relative flex min-h-screen items-center justify-center bg-gradient-to-br from-stone-50 via-emerald-50/35 to-stone-100 px-4 py-10">
-      <div className="absolute left-4 top-4">
-        <Link
-          href="/"
-          className="inline-flex items-center rounded-full border border-stone-300/80 bg-white/85 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-stone-700 shadow-sm transition hover:bg-white"
-        >
-          Back to Home
-        </Link>
+    <div className="gd-mp-sub gd-mp-shell relative min-h-screen overflow-hidden bg-[#060e0b]">
+      <style dangerouslySetInnerHTML={{ __html: animCSS }} />
+
+      {/* ══════ Ambient background canvas ══════ */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-emerald-600/20 blur-[120px]" style={{ animation: "gd-drift 18s ease-in-out infinite" }} />
+        <div className="absolute -bottom-40 -right-40 h-[600px] w-[600px] rounded-full bg-teal-500/15 blur-[140px]" style={{ animation: "gd-drift2 22s ease-in-out infinite" }} />
+        <div className="absolute left-1/2 top-1/3 h-[350px] w-[350px] -translate-x-1/2 rounded-full bg-cyan-400/10 blur-[100px]" style={{ animation: "gd-drift 15s ease-in-out infinite reverse" }} />
+        <div className="absolute inset-0 opacity-[0.035]" style={{ backgroundImage: "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")" }} />
       </div>
 
-      <div className="w-full max-w-sm rounded-2xl border border-white/70 bg-white p-6 shadow-xl shadow-emerald-900/8 sm:p-8">
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-600 text-white">
-            <Leaf className="h-6 w-6" />
+      {/* ══════ Page grid ══════ */}
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col lg:flex-row">
+
+        {/* ── Left: Branding cinematic column ── */}
+        <div className="relative flex flex-col justify-between px-6 pb-8 pt-8 sm:px-10 lg:w-[50%] lg:px-14 lg:py-14">
+          <Link href="/" className="group inline-flex w-fit items-center gap-2 text-[11px] font-medium tracking-wide text-white/40 transition-colors duration-300 hover:text-emerald-400">
+            <span className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-white/10 transition-colors duration-300 group-hover:border-emerald-500/40 group-hover:bg-emerald-500/10">
+              <Image src="/logo.png" alt="GreenDuty" width={28} height={28} className="h-full w-full object-cover" />
+            </span>
+            GreenDuty
+          </Link>
+
+          <div className="hidden lg:block">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/[0.06] px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-400">
+              <ShieldCheck className="h-3 w-3" />
+              Secure Platform
+            </div>
+
+            <h2 className="mt-8 text-[clamp(2rem,3.4vw,3.25rem)] font-extralight leading-[1.12] tracking-tight text-white">
+              Report. Protect.
+              <br />
+              Make it <span className="font-semibold text-emerald-400">green</span>
+            </h2>
+
+            <p className="mt-6 max-w-md text-[14px] leading-[1.7] text-white/35">
+              Document environmental concerns, track reported areas, and help protect
+              our communities through verified reporting.
+            </p>
+
+            <div className="mt-12 flex flex-col gap-4">
+              {[
+                { icon: Lock, label: "Secure reporting system" },
+                { icon: ShieldCheck, label: "Verified community reports" },
+                { icon: Leaf, label: "Environmental protection first" },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-3.5">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.03]">
+                    <Icon className="h-3.5 w-3.5 text-emerald-400/70" />
+                  </span>
+                  <span className="text-[13px] text-white/40">{label}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <h1 className="text-2xl font-semibold text-stone-800">Welcome back</h1>
-          <p className="mt-1 text-sm text-stone-500">Sign in to your GreenDuty account</p>
+
+          <div className="hidden text-[10px] font-medium uppercase tracking-[0.3em] text-white/15 lg:block">
+            &copy; {new Date().getFullYear()} GreenDuty
+          </div>
         </div>
 
-        <form
-          className="mt-6 space-y-3"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void handleLogin();
-          }}
-        >
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-stone-600">Email</label>
-            <div className="relative">
-              <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
-              <input
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-                className="w-full rounded-xl border border-stone-200 bg-white py-2.5 pl-10 pr-3 text-sm text-stone-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-          </div>
+        {/* ── Right: Glass form column ── */}
+        <div className="flex flex-1 items-center justify-center px-5 pb-12 sm:px-8 lg:px-14 lg:py-14">
+          <div className="w-full max-w-[420px]">
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-stone-600">Password</label>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" />
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Enter your password"
-                className="w-full rounded-xl border border-stone-200 bg-white py-2.5 pl-10 pr-3 text-sm text-stone-800 outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
-              />
-            </div>
-          </div>
-
-          <div className="text-right">
-            <Link href="/forgot-password" className="text-xs font-medium text-emerald-700 transition hover:text-emerald-800">
-              Forgot password?
+            <Link href="/" className="group mb-6 inline-flex items-center gap-2 text-[12px] font-medium text-white/35 transition-colors duration-200 hover:text-emerald-400">
+              <ArrowLeft className="h-3.5 w-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
+              Back to GreenDuty
             </Link>
-          </div>
 
-          {errorMessage && (
-            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-              {errorMessage}
+            <div className="relative rounded-2xl border border-white/[0.07] bg-white/[0.04] p-7 shadow-[0_8px_60px_-12px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:rounded-3xl sm:p-10">
+              <div className="pointer-events-none absolute inset-x-0 -top-px mx-auto h-px w-3/4 bg-gradient-to-r from-transparent via-emerald-400/40 to-transparent" />
+
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-emerald-400/80">
+                <Sparkles className="h-3 w-3" />
+                Sign In
+              </div>
+
+              <h1 className="mt-4 text-2xl font-semibold tracking-tight text-white sm:text-[1.65rem]">
+                Welcome back
+              </h1>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-white/35">
+                Sign in to report areas, track progress, and protect the environment.
+              </p>
+
+              <form className="mt-8 space-y-6" onSubmit={(event) => { event.preventDefault(); void handleLogin(); }}>
+                <div className="group">
+                  <label className="mb-2 block text-[10px] font-semibold uppercase tracking-widest text-white/30">Email</label>
+                  <div className="relative flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] transition-colors duration-200 focus-within:border-emerald-500/40 focus-within:bg-emerald-500/[0.04]">
+                    <Mail className="ml-3.5 h-4 w-4 shrink-0 text-white/20 transition-colors duration-200 group-focus-within:text-emerald-400" />
+                    <input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" className="w-full border-none bg-transparent px-3 py-3 text-[13px] text-white shadow-[0_0_0_1000px_transparent_inset] outline-none placeholder:text-white/20 [-webkit-text-fill-color:inherit]" />
+                  </div>
+                </div>
+
+                <div className="group">
+                  <div className="mb-2 flex items-center justify-between">
+                    <label className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Password</label>
+                    <Link href="/forgot-password" className="text-[10px] font-medium text-white/25 transition-colors hover:text-emerald-400">Forgot?</Link>
+                  </div>
+                  <div className="relative flex items-center rounded-xl border border-white/[0.08] bg-white/[0.04] transition-colors duration-200 focus-within:border-emerald-500/40 focus-within:bg-emerald-500/[0.04]">
+                    <Lock className="ml-3.5 h-4 w-4 shrink-0 text-white/20 transition-colors duration-200 group-focus-within:text-emerald-400" />
+                    <input type="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Enter your password" className="w-full border-none bg-transparent px-3 py-3 text-[13px] text-white shadow-[0_0_0_1000px_transparent_inset] outline-none placeholder:text-white/20 [-webkit-text-fill-color:inherit]" />
+                  </div>
+                </div>
+
+                {errorMessage && (
+                  <div className="flex gap-2.5 rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-3.5 py-2.5 text-[12px] text-rose-300">
+                    <span className="mt-px shrink-0 text-rose-400">!</span>
+                    {errorMessage}
+                  </div>
+                )}
+
+                <button type="submit" disabled={!email.trim() || !password.trim() || submitting || oauthLoading} className="group relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-emerald-500 px-5 py-3.5 text-[13px] font-semibold text-white shadow-[0_0_24px_rgba(52,211,153,0.25)] transition-all duration-300 hover:bg-emerald-400 hover:shadow-[0_0_32px_rgba(52,211,153,0.35)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none">
+                  {submitting ? "Signing in\u2026" : "Sign In"}
+                  <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-0.5" />
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <div className="h-px flex-1 bg-white/[0.06]" />
+                  <span className="text-[10px] font-medium uppercase tracking-widest text-white/20">or</span>
+                  <div className="h-px flex-1 bg-white/[0.06]" />
+                </div>
+
+                <button type="button" onClick={() => void handleGoogleLogin()} disabled={oauthLoading || submitting} className="inline-flex w-full items-center justify-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-5 py-3.5 text-[13px] font-medium text-white/60 transition-all duration-200 hover:border-white/15 hover:bg-white/[0.06] hover:text-white/80 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40">
+                  <GoogleIcon className="h-4 w-4" />
+                  {oauthLoading ? "Connecting\u2026" : "Continue with Google"}
+                </button>
+              </form>
+
+              <p className="mt-8 text-center text-[12px] text-white/30">
+                Don&apos;t have an account?{" "}
+                <Link href={`/register?redirect=${encodeURIComponent(redirectTarget)}`} className="font-semibold text-emerald-400/80 transition-colors hover:text-emerald-300">Sign up</Link>
+              </p>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={!email.trim() || !password.trim() || submitting || oauthLoading}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? "Signing in..." : "Sign in"}
-            <ArrowRight className="h-4 w-4" />
-          </button>
-
-          <div className="my-1 flex items-center gap-3">
-            <div className="h-px flex-1 bg-stone-200" />
-            <span className="text-[11px] uppercase tracking-[0.14em] text-stone-400">or</span>
-            <div className="h-px flex-1 bg-stone-200" />
+            <div className="mt-6 flex items-center justify-center gap-5">
+              <span className="flex items-center gap-1.5 text-[10px] text-white/20"><Lock className="h-3 w-3" style={{ animation: "gd-pulse-ring 3s infinite" }} />Encrypted</span>
+              <span className="h-3 w-px bg-white/10" />
+              <span className="flex items-center gap-1.5 text-[10px] text-white/20"><ShieldCheck className="h-3 w-3" />Secure</span>
+              <span className="h-3 w-px bg-white/10" />
+              <span className="flex items-center gap-1.5 text-[10px] text-white/20"><Leaf className="h-3 w-3" />Eco-first</span>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={() => void handleGoogleLogin()}
-            disabled={oauthLoading || submitting}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <GoogleIcon className="h-4 w-4" />
-            {oauthLoading ? "Connecting..." : "Continue with Google"}
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-xs text-stone-500">
-          Don&apos;t have an account?{" "}
-          <Link
-            href={`/register?redirect=${encodeURIComponent(redirectTarget)}`}
-            className="font-semibold text-emerald-700 transition hover:text-emerald-800"
-          >
-            Sign up
-          </Link>
-        </p>
+        </div>
       </div>
     </div>
   );
