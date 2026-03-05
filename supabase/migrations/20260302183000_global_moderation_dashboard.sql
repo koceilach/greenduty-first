@@ -666,7 +666,7 @@ BEGIN
       d.product_id,
       d.reason,
       d.description,
-      CASE lower(coalesce(d.status, 'pending'))
+      CASE lower(coalesce(d.status::text, 'pending'))
         WHEN 'reviewing' THEN 'reviewing'::public.market_dispute_status
         WHEN 'resolved' THEN 'resolved'::public.market_dispute_status
         WHEN 'closed' THEN 'closed'::public.market_dispute_status

@@ -127,9 +127,31 @@ const en: Record<string, string> = {
   "landing.hero.trust.copy":
     "From cleanup missions to local commerce, GreenDuty keeps every action connected, visible, and measurable.",
   "landing.earth.loading": "Loading 3D earth scene",
+  "landing.earth.eyebrow": "Our Planet",
   "landing.earth.title": "One planet. One shared responsibility.",
   "landing.earth.copy":
     "Track, report, and act through one ecosystem that turns local signals into verified environmental progress.",
+  "landing.earth.cta": "Explore Services",
+  "landing.earth.cta2": "See Impact",
+  "landing.earth.badge.forests": "Forests Monitored",
+  "landing.earth.badge.reports": "Reports Filed",
+  "landing.earth.badge.community": "Community Members",
+  "landing.earth.feature.monitor.title": "Monitor",
+  "landing.earth.feature.monitor.desc":
+    "AI-powered satellite monitoring of forests, oceans, and urban ecosystems — all in real time.",
+  "landing.earth.feature.report.title": "Report",
+  "landing.earth.feature.report.desc":
+    "Citizen-powered incident reporting with GPS verification, photo evidence, and community validation.",
+  "landing.earth.feature.impact.title": "Impact",
+  "landing.earth.feature.impact.desc":
+    "Transparent dashboards turning local signals into measurable, verified environmental progress.",
+  "landing.earth.trust": "Trusted by 120K+ eco-warriors worldwide",
+  "landing.earth.quote":
+    "The Earth does not belong to us; we belong to the Earth. Every small action creates ripples of change.",
+  "landing.earth.howItWorks": "How It Works",
+  "landing.earth.madeWith": "Made with love for our planet",
+  "landing.earth.quoteAuthor": "Chief Seattle",
+  "landing.earth.learnMore": "Learn more",
   "landing.services.badge": "GreenDuty modules",
   "landing.services.title": "A connected suite for eco action",
   "landing.services.subtitle":
@@ -499,9 +521,31 @@ const frOverrides: Record<string, string> = {
   "landing.hero.trust.copy":
     "Du nettoyage au commerce local, GreenDuty rend chaque action visible et mesurable.",
   "landing.earth.loading": "Chargement de la scène 3D",
+  "landing.earth.eyebrow": "Notre Planète",
   "landing.earth.title": "Une seule planète. Une responsabilité partagée.",
   "landing.earth.copy":
     "Suivez, signalez et agissez via un écosystème unique pour un progrès environnemental vérifié.",
+  "landing.earth.cta": "Explorer les services",
+  "landing.earth.cta2": "Voir l'impact",
+  "landing.earth.badge.forests": "Forêts surveillées",
+  "landing.earth.badge.reports": "Rapports soumis",
+  "landing.earth.badge.community": "Membres de la communauté",
+  "landing.earth.feature.monitor.title": "Surveiller",
+  "landing.earth.feature.monitor.desc":
+    "Surveillance par satellite assistée par IA des forêts, océans et écosystèmes urbains — en temps réel.",
+  "landing.earth.feature.report.title": "Signaler",
+  "landing.earth.feature.report.desc":
+    "Signalement citoyen avec vérification GPS, preuves photographiques et validation communautaire.",
+  "landing.earth.feature.impact.title": "Impact",
+  "landing.earth.feature.impact.desc":
+    "Tableaux de bord transparents transformant les signaux locaux en progrès environnemental mesurable.",
+  "landing.earth.trust": "Approuvé par plus de 120K éco-guerriers dans le monde",
+  "landing.earth.quote":
+    "La Terre ne nous appartient pas ; c'est nous qui appartenons à la Terre. Chaque geste crée des vagues de changement.",
+  "landing.earth.howItWorks": "Comment ça marche",
+  "landing.earth.madeWith": "Fait avec amour pour notre planète",
+  "landing.earth.quoteAuthor": "Chef Seattle",
+  "landing.earth.learnMore": "En savoir plus",
   "landing.services.badge": "Modules GreenDuty",
   "landing.services.title": "Une suite connectee pour l'action eco",
   "landing.services.subtitle":
@@ -924,9 +968,31 @@ const arOverrides: Record<string, string> = {
   "landing.hero.trust.copy":
     "من حملات التنظيف الى التجارة المحلية، تجعل GreenDuty كل خطوة مرئية وقابلة للقياس.",
   "landing.earth.loading": "جار تحميل المشهد ثلاثي الابعاد",
+  "landing.earth.eyebrow": "كوكبنا",
   "landing.earth.title": "كوكب واحد. مسؤولية مشتركة.",
   "landing.earth.copy":
     "تابع وبلغ وتحرك عبر نظام واحد يحول الاشارات المحلية الى تقدم بيئي موثق.",
+  "landing.earth.cta": "استكشف الخدمات",
+  "landing.earth.cta2": "شاهد التأثير",
+  "landing.earth.badge.forests": "غابات مراقبة",
+  "landing.earth.badge.reports": "بلاغات مقدمة",
+  "landing.earth.badge.community": "أعضاء المجتمع",
+  "landing.earth.feature.monitor.title": "المراقبة",
+  "landing.earth.feature.monitor.desc":
+    "مراقبة بالأقمار الصناعية مدعومة بالذكاء الاصطناعي للغابات والمحيطات والأنظمة البيئية الحضرية — في الوقت الفعلي.",
+  "landing.earth.feature.report.title": "الإبلاغ",
+  "landing.earth.feature.report.desc":
+    "إبلاغ مدني بالحوادث مع التحقق عبر GPS وإثبات بالصور ومصادقة مجتمعية.",
+  "landing.earth.feature.impact.title": "التأثير",
+  "landing.earth.feature.impact.desc":
+    "لوحات بيانات شفافة تحول الإشارات المحلية إلى تقدم بيئي قابل للقياس وموثق.",
+  "landing.earth.trust": "موثوق من قبل أكثر من 120 ألف محارب بيئي حول العالم",
+  "landing.earth.quote":
+    "الأرض لا تنتمي إلينا؛ نحن ننتمي إلى الأرض. كل عمل صغير يصنع موجات من التغيير.",
+  "landing.earth.howItWorks": "كيف يعمل",
+  "landing.earth.madeWith": "صُنع بحب لكوكبنا",
+  "landing.earth.quoteAuthor": "الزعيم سياتل",
+  "landing.earth.learnMore": "اعرف المزيد",
   "landing.services.badge": "وحدات GreenDuty",
   "landing.services.title": "منظومة مترابطة للعمل البيئي",
   "landing.services.subtitle":

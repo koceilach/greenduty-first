@@ -55,8 +55,33 @@ const normalizeSellerRequestStatus = (
 ): "pending" | "approved" | "denied" => {
   const status = String(value ?? "pending").toLowerCase();
   if (status === "approved") return "approved";
+  if (status === "rejected") return "denied";
   if (status === "denied") return "denied";
   return "pending";
+};
+
+const isMissingTableError = (message: string | null | undefined, tableName: string) => {
+  const value = String(message ?? "").toLowerCase();
+  const table = tableName.toLowerCase();
+  return (
+    value.includes(table) &&
+    (value.includes("does not exist") ||
+      value.includes("could not find the table") ||
+      value.includes("schema cache") ||
+      value.includes("relation"))
+  );
+};
+
+const isMissingFunctionError = (message: string | null | undefined, functionName: string) => {
+  const value = String(message ?? "").toLowerCase();
+  const fn = functionName.toLowerCase();
+  return (
+    value.includes(fn) &&
+    (value.includes("does not exist") ||
+      value.includes("could not find the function") ||
+      value.includes("schema cache") ||
+      value.includes("function"))
+  );
 };
 
 const toDisplayName = (row?: {
@@ -141,6 +166,27 @@ async function getProfilesMap(
   return map;
 }
 
+async function getPlatformRoleForUser(
+  supabase: ModerationReadClient,
+  userId: string
+): Promise<PlatformRole> {
+  if (!isValidUuid(userId)) {
+    return "user";
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return "user";
+  }
+
+  return normalizeRole(data.role);
+}
+
 export async function getDashboardData(): Promise<ModerationDashboardResult> {
   try {
     noStore();
@@ -148,11 +194,26 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
     const actor = await requireModeratorActor(userSupabase);
     const adminSupabase = createAdminSupabaseClient();
 
-    const [sellerRes, disputeRes, eduPostRes, eduReelRes] = await Promise.all([
+    const [
+      sellerUnifiedRes,
+      sellerLegacyRes,
+      disputeUnifiedRes,
+      disputeLegacyRes,
+      eduPostRes,
+      eduReelRes,
+    ] = await Promise.all([
       adminSupabase
         .from("seller_requests")
         .select(
-          "id, user_id, requested_store_name, requested_bio, status, admin_note, created_at, reviewed_at, reviewed_by"
+          "id, user_id, requested_store_name, requested_bio, status, admin_note, created_at, reviewed_at, reviewed_by, source_application_id"
+        )
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      adminSupabase
+        .from("marketplace_seller_applications")
+        .select(
+          "id, user_id, store_name, bio, status, rejection_reason, created_at, reviewed_at, reviewed_by"
         )
         .eq("status", "pending")
         .order("created_at", { ascending: false })
@@ -161,6 +222,14 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
         .from("market_disputes")
         .select(
           "id, source_dispute_id, buyer_id, seller_id, product_id, reason, description, status, evidence_url, admin_notes, created_at, updated_at"
+        )
+        .in("status", ["pending", "reviewing"])
+        .order("created_at", { ascending: false })
+        .limit(200),
+      adminSupabase
+        .from("disputes")
+        .select(
+          "id, buyer_id, seller_id, product_id, reason, description, status, evidence_url, admin_notes, created_at, updated_at"
         )
         .in("status", ["pending", "reviewing"])
         .order("created_at", { ascending: false })
@@ -183,11 +252,33 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
         .limit(200),
     ]);
 
-    if (sellerRes.error) throw new Error(sellerRes.error.message);
-    if (disputeRes.error) throw new Error(disputeRes.error.message);
+    if (
+      sellerUnifiedRes.error &&
+      !isMissingTableError(sellerUnifiedRes.error.message, "seller_requests")
+    ) {
+      throw new Error(sellerUnifiedRes.error.message);
+    }
+    if (
+      sellerLegacyRes.error &&
+      !isMissingTableError(sellerLegacyRes.error.message, "marketplace_seller_applications")
+    ) {
+      throw new Error(sellerLegacyRes.error.message);
+    }
+    if (
+      disputeUnifiedRes.error &&
+      !isMissingTableError(disputeUnifiedRes.error.message, "market_disputes")
+    ) {
+      throw new Error(disputeUnifiedRes.error.message);
+    }
+    if (
+      disputeLegacyRes.error &&
+      !isMissingTableError(disputeLegacyRes.error.message, "disputes")
+    ) {
+      throw new Error(disputeLegacyRes.error.message);
+    }
     if (eduPostRes.error) throw new Error(eduPostRes.error.message);
 
-    const sellerRows = (sellerRes.data ?? []) as Array<{
+    const sellerUnifiedRows = (sellerUnifiedRes.data ?? []) as Array<{
       id: string;
       user_id: string;
       requested_store_name: string | null;
@@ -197,9 +288,71 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
       created_at: string;
       reviewed_at: string | null;
       reviewed_by: string | null;
+      source_application_id: string | null;
     }>;
 
-    const disputeRows = (disputeRes.data ?? []) as Array<{
+    const sellerLegacyRows = (sellerLegacyRes.data ?? []) as Array<{
+      id: string;
+      user_id: string;
+      store_name: string | null;
+      bio: string | null;
+      status: string;
+      rejection_reason: string | null;
+      created_at: string;
+      reviewed_at: string | null;
+      reviewed_by: string | null;
+    }>;
+
+    const sellerRows: Array<{
+      id: string;
+      user_id: string;
+      requested_store_name: string | null;
+      requested_bio: string | null;
+      status: string;
+      admin_note: string | null;
+      created_at: string;
+      reviewed_at: string | null;
+      reviewed_by: string | null;
+      source_application_id: string | null;
+    }> = [];
+    const seenSellerSources = new Set<string>();
+
+    for (const row of sellerUnifiedRows) {
+      const key = row.source_application_id
+        ? `source:${row.source_application_id}`
+        : `request:${row.id}`;
+      if (seenSellerSources.has(key)) {
+        continue;
+      }
+      seenSellerSources.add(key);
+      sellerRows.push(row);
+    }
+
+    for (const row of sellerLegacyRows) {
+      const key = `source:${row.id}`;
+      if (seenSellerSources.has(key)) {
+        continue;
+      }
+      seenSellerSources.add(key);
+      sellerRows.push({
+        id: row.id,
+        user_id: row.user_id,
+        requested_store_name: row.store_name,
+        requested_bio: row.bio,
+        status: row.status,
+        admin_note: row.rejection_reason,
+        created_at: row.created_at,
+        reviewed_at: row.reviewed_at,
+        reviewed_by: row.reviewed_by,
+        source_application_id: row.id,
+      });
+    }
+
+    sellerRows.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    const disputeUnifiedRows = (disputeUnifiedRes.data ?? []) as Array<{
       id: string;
       source_dispute_id: string | null;
       buyer_id: string;
@@ -213,6 +366,71 @@ export async function getDashboardData(): Promise<ModerationDashboardResult> {
       created_at: string;
       updated_at: string;
     }>;
+
+    const disputeLegacyRows = (disputeLegacyRes.data ?? []) as Array<{
+      id: string;
+      buyer_id: string;
+      seller_id: string;
+      product_id: string | null;
+      reason: string;
+      description: string;
+      status: string;
+      evidence_url: string | null;
+      admin_notes: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
+
+    const disputeRows: Array<{
+      id: string;
+      source_dispute_id: string | null;
+      buyer_id: string;
+      seller_id: string;
+      product_id: string | null;
+      reason: string;
+      description: string;
+      status: string;
+      evidence_url: string | null;
+      admin_notes: string | null;
+      created_at: string;
+      updated_at: string;
+    }> = [];
+    const seenDisputeSources = new Set<string>();
+
+    for (const row of disputeUnifiedRows) {
+      const key = row.source_dispute_id ? `source:${row.source_dispute_id}` : `market:${row.id}`;
+      if (seenDisputeSources.has(key)) {
+        continue;
+      }
+      seenDisputeSources.add(key);
+      disputeRows.push(row);
+    }
+
+    for (const row of disputeLegacyRows) {
+      const key = `source:${row.id}`;
+      if (seenDisputeSources.has(key)) {
+        continue;
+      }
+      seenDisputeSources.add(key);
+      disputeRows.push({
+        id: row.id,
+        source_dispute_id: row.id,
+        buyer_id: row.buyer_id,
+        seller_id: row.seller_id,
+        product_id: row.product_id,
+        reason: row.reason,
+        description: row.description,
+        status: row.status,
+        evidence_url: row.evidence_url,
+        admin_notes: row.admin_notes,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      });
+    }
+
+    disputeRows.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
 
     const eduPostRows = (eduPostRes.data ?? []) as Array<{
       id: string;
@@ -574,7 +792,7 @@ export async function handleSellerRequest(
     }
 
     const supabase = await createServerSupabaseClient();
-    await requireModeratorActor(supabase);
+    const actor = await requireModeratorActor(supabase);
 
     const { error } = await supabase.rpc("mod_handle_seller_request", {
       p_request_id: requestId,
@@ -582,8 +800,93 @@ export async function handleSellerRequest(
       p_admin_note: null,
     });
 
-    if (error) {
+    if (!error) {
+      revalidatePath("/mod-dashboard");
+      revalidatePath("/market-place/admin");
+      revalidatePath("/market-place/seller-onboarding");
+
+      return { ok: true, error: null };
+    }
+
+    const rpcErrorText = error.message.toLowerCase();
+    const canFallback =
+      isMissingFunctionError(error.message, "mod_handle_seller_request") ||
+      rpcErrorText.includes("seller request not found");
+    if (!canFallback) {
       return { ok: false, error: error.message };
+    }
+
+    const adminSupabase = createAdminSupabaseClient();
+
+    const { data: legacyApplication, error: legacyReadError } = await adminSupabase
+      .from("marketplace_seller_applications")
+      .select("id, user_id, store_name, bio, rejection_reason")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (legacyReadError) {
+      if (isMissingTableError(legacyReadError.message, "marketplace_seller_applications")) {
+        return { ok: false, error: "Seller request not found" };
+      }
+      return { ok: false, error: legacyReadError.message };
+    }
+
+    if (!legacyApplication) {
+      return { ok: false, error: "Seller request not found" };
+    }
+
+    const targetRole = await getPlatformRoleForUser(adminSupabase, legacyApplication.user_id);
+    if (targetRole === "admin") {
+      throw new Error("Unauthorized: Cannot take action against an Admin");
+    }
+
+    const nextLegacyStatus = status === "approved" ? "approved" : "rejected";
+    const nextRejectionReason =
+      status === "denied"
+        ? legacyApplication.rejection_reason?.trim() || "Denied by moderation team."
+        : null;
+
+    const { error: legacyUpdateError } = await adminSupabase
+      .from("marketplace_seller_applications")
+      .update({
+        status: nextLegacyStatus,
+        rejection_reason: nextRejectionReason,
+        reviewed_by: actor.userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .eq("id", legacyApplication.id);
+
+    if (legacyUpdateError) {
+      return { ok: false, error: legacyUpdateError.message };
+    }
+
+    if (status === "approved") {
+      const { error: profileUpdateError } = await adminSupabase
+        .from("marketplace_profiles")
+        .update({
+          role: "seller",
+          store_name: legacyApplication.store_name,
+          bio: legacyApplication.bio,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", legacyApplication.user_id);
+
+      if (profileUpdateError) {
+        return { ok: false, error: profileUpdateError.message };
+      }
+    }
+
+    const { error: syncRequestError } = await adminSupabase
+      .from("seller_requests")
+      .update({
+        status,
+        admin_note: nextRejectionReason,
+        reviewed_by: actor.userId,
+        reviewed_at: new Date().toISOString(),
+      })
+      .or(`source_application_id.eq.${legacyApplication.id},id.eq.${requestId}`);
+    if (syncRequestError && !isMissingTableError(syncRequestError.message, "seller_requests")) {
+      return { ok: false, error: syncRequestError.message };
     }
 
     revalidatePath("/mod-dashboard");
@@ -815,8 +1118,149 @@ export async function updateMarketDisputeStatus(
       p_admin_notes: adminNotes.trim() || null,
     });
 
-    if (error) {
+    if (!error) {
+      revalidatePath("/mod-dashboard");
+      revalidatePath("/market-place/admin/disputes");
+
+      return { ok: true, error: null };
+    }
+
+    const rpcErrorText = error.message.toLowerCase();
+    const canFallback =
+      isMissingFunctionError(error.message, "mod_update_market_dispute") ||
+      rpcErrorText.includes("market dispute not found");
+    if (!canFallback) {
       return { ok: false, error: error.message };
+    }
+
+    const adminSupabase = createAdminSupabaseClient();
+    const nextNotes = adminNotes.trim() || null;
+    const nextTimestamp = new Date().toISOString();
+
+    let unifiedDispute:
+      | {
+          id: string;
+          source_dispute_id: string | null;
+          buyer_id: string;
+          seller_id: string;
+        }
+      | null = null;
+    let hasMarketDisputesTable = true;
+
+    const { data: marketById, error: marketByIdError } = await adminSupabase
+      .from("market_disputes")
+      .select("id, source_dispute_id, buyer_id, seller_id")
+      .eq("id", disputeId)
+      .maybeSingle();
+    if (marketByIdError) {
+      if (!isMissingTableError(marketByIdError.message, "market_disputes")) {
+        return { ok: false, error: marketByIdError.message };
+      }
+      hasMarketDisputesTable = false;
+    } else {
+      unifiedDispute = marketById;
+    }
+
+    if (!unifiedDispute && hasMarketDisputesTable) {
+      const { data: marketBySource, error: marketBySourceError } = await adminSupabase
+        .from("market_disputes")
+        .select("id, source_dispute_id, buyer_id, seller_id")
+        .eq("source_dispute_id", disputeId)
+        .maybeSingle();
+      if (marketBySourceError) {
+        if (!isMissingTableError(marketBySourceError.message, "market_disputes")) {
+          return { ok: false, error: marketBySourceError.message };
+        }
+        hasMarketDisputesTable = false;
+      } else {
+        unifiedDispute = marketBySource;
+      }
+    }
+
+    if (unifiedDispute) {
+      const buyerRole = await getPlatformRoleForUser(adminSupabase, unifiedDispute.buyer_id);
+      const sellerRole = await getPlatformRoleForUser(adminSupabase, unifiedDispute.seller_id);
+      if (buyerRole === "admin" || sellerRole === "admin") {
+        throw new Error("Unauthorized: Cannot take action against an Admin");
+      }
+
+      const { error: updateUnifiedError } = await adminSupabase
+        .from("market_disputes")
+        .update({
+          status,
+          admin_notes: nextNotes,
+          updated_at: nextTimestamp,
+        })
+        .eq("id", unifiedDispute.id);
+      if (updateUnifiedError) {
+        return { ok: false, error: updateUnifiedError.message };
+      }
+
+      if (unifiedDispute.source_dispute_id) {
+        const { error: syncLegacyError } = await adminSupabase
+          .from("disputes")
+          .update({
+            status,
+            admin_notes: nextNotes,
+            updated_at: nextTimestamp,
+          })
+          .eq("id", unifiedDispute.source_dispute_id);
+        if (syncLegacyError && !isMissingTableError(syncLegacyError.message, "disputes")) {
+          return { ok: false, error: syncLegacyError.message };
+        }
+      }
+
+      revalidatePath("/mod-dashboard");
+      revalidatePath("/market-place/admin/disputes");
+
+      return { ok: true, error: null };
+    }
+
+    const { data: legacyDispute, error: legacyDisputeError } = await adminSupabase
+      .from("disputes")
+      .select("id, buyer_id, seller_id")
+      .eq("id", disputeId)
+      .maybeSingle();
+    if (legacyDisputeError) {
+      if (isMissingTableError(legacyDisputeError.message, "disputes")) {
+        return { ok: false, error: "Market dispute not found" };
+      }
+      return { ok: false, error: legacyDisputeError.message };
+    }
+    if (!legacyDispute) {
+      return { ok: false, error: "Market dispute not found" };
+    }
+
+    const buyerRole = await getPlatformRoleForUser(adminSupabase, legacyDispute.buyer_id);
+    const sellerRole = await getPlatformRoleForUser(adminSupabase, legacyDispute.seller_id);
+    if (buyerRole === "admin" || sellerRole === "admin") {
+      throw new Error("Unauthorized: Cannot take action against an Admin");
+    }
+
+    const { error: updateLegacyError } = await adminSupabase
+      .from("disputes")
+      .update({
+        status,
+        admin_notes: nextNotes,
+        updated_at: nextTimestamp,
+      })
+      .eq("id", legacyDispute.id);
+    if (updateLegacyError) {
+      return { ok: false, error: updateLegacyError.message };
+    }
+
+    if (hasMarketDisputesTable) {
+      const { error: syncUnifiedError } = await adminSupabase
+        .from("market_disputes")
+        .update({
+          status,
+          admin_notes: nextNotes,
+          updated_at: nextTimestamp,
+        })
+        .eq("source_dispute_id", legacyDispute.id);
+      if (syncUnifiedError && !isMissingTableError(syncUnifiedError.message, "market_disputes")) {
+        return { ok: false, error: syncUnifiedError.message };
+      }
     }
 
     revalidatePath("/mod-dashboard");
