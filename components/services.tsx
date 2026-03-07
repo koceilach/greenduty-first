@@ -50,7 +50,7 @@ const serviceConfigs: ServiceConfig[] = [
     icon: TreePine,
     active: true,
     buttonTextKey: "landing.services.greenspot.button",
-    href: "/greenspot",
+    href: "/greenspot/login",
     categoryKey: "landing.services.greenspot.category",
   },
   {

@@ -22,6 +22,34 @@ type StructuredAiReply = {
   designPrompt: string;
 };
 
+type GeminiInlineData = {
+  mimeType?: string;
+  data?: string;
+};
+
+type GeminiResponsePart = {
+  text?: string;
+  inlineData?: GeminiInlineData;
+};
+
+type GeminiGenerateResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: GeminiResponsePart[];
+    };
+  }>;
+  error?: {
+    message?: string;
+  };
+};
+
+type GeminiUserPart = { text: string } | { inlineData: { mimeType: string; data: string } };
+
+type GeminiContent = {
+  role: "user" | "model";
+  parts: GeminiUserPart[];
+};
+
 const PLANT_SCOPE_KEYWORDS = [
   "tree",
   "trees",
@@ -61,31 +89,17 @@ const SYSTEM_PROMPT = [
   "Output valid JSON matching the requested schema.",
 ].join(" ");
 
-const REPLY_SCHEMA = {
-  name: "greenspot_ai_reply",
-  strict: true,
-  schema: {
-    type: "object",
-    additionalProperties: false,
-    properties: {
-      inScope: { type: "boolean" },
-      reply: { type: "string" },
-      summary: { type: "string" },
-      suggestedPlants: {
-        type: "array",
-        items: { type: "string" },
-      },
-      designPrompt: { type: "string" },
-    },
-    required: ["inScope", "reply", "summary", "suggestedPlants", "designPrompt"],
-  },
-} as const;
+const IMAGE_SYSTEM_PROMPT =
+  "You generate realistic ecological landscaping concept images from concise prompts.";
 
 const MAX_REQUEST_BYTES = 4 * 1024 * 1024;
 const MAX_PROMPT_CHARS = 1400;
 const MAX_IMAGE_DATA_URL_CHARS = 3_000_000;
 const MAX_HISTORY_ITEMS = 8;
 const MAX_HISTORY_TEXT_CHARS = 600;
+
+const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL ?? "gemini-1.5-flash";
+const IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL ?? "gemini-2.0-flash-exp-image-generation";
 
 const isSchemaMismatch = (message: string) =>
   /function .* does not exist|relation .* does not exist|schema cache|column .* does not exist/i.test(
@@ -97,11 +111,32 @@ const isInScopePrompt = (prompt: string) => {
   return PLANT_SCOPE_KEYWORDS.some((keyword) => lower.includes(keyword));
 };
 
-const getErrorMessage = (value: unknown) => {
-  if (!value || typeof value !== "object") return null;
-  const maybeError = value as { error?: { message?: unknown } };
-  if (typeof maybeError.error?.message === "string") return maybeError.error.message;
-  return null;
+const getGeminiApiKey = () =>
+  process.env.GEMINI_API_KEY ??
+  process.env.GOOGLE_API_KEY ??
+  process.env.GOOGLE_VISION_API_KEY ??
+  null;
+
+const cleanModelText = (text: string) => {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```")) {
+    cleaned = cleaned.replace(/^```[a-zA-Z]*\s*/g, "").replace(/```$/g, "").trim();
+  }
+  const jsonStart = cleaned.indexOf("{");
+  const jsonEnd = cleaned.lastIndexOf("}");
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    cleaned = cleaned.slice(jsonStart, jsonEnd + 1);
+  }
+  return cleaned.trim();
+};
+
+const parseImageDataUrl = (dataUrl: string) => {
+  const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=]+)$/);
+  if (!match) return null;
+  return {
+    mimeType: match[1],
+    base64: match[2],
+  };
 };
 
 const parseStructuredReply = (rawContent: unknown): StructuredAiReply | null => {
@@ -154,51 +189,93 @@ const buildFallbackReply = (inScope: boolean): StructuredAiReply => {
     reply:
       "I can help with plant selection, soil prep, watering plans, and tree/flower layouts for this area.",
     summary: "Planting strategy focused on resilient trees, layered shrubs, and seasonal flowering.",
-    suggestedPlants: [
-      "Olive Tree",
-      "Jacaranda",
-      "Lavender",
-      "Rosemary",
-      "Lantana",
-    ],
+    suggestedPlants: ["Olive Tree", "Jacaranda", "Lavender", "Rosemary", "Lantana"],
     designPrompt:
       "A practical community garden with shade trees, flowering borders, and low-water aromatic plants.",
   };
 };
 
-const generateDesignImage = async (apiKey: string, prompt: string): Promise<string | null> => {
-  const imageRes = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+const getFirstCandidateText = (value: GeminiGenerateResponse) => {
+  const parts = value.candidates?.[0]?.content?.parts;
+  if (!parts || parts.length === 0) return "";
+  return parts
+    .map((part) => (typeof part.text === "string" ? part.text : ""))
+    .join("\n")
+    .trim();
+};
+
+const callGemini = async ({
+  apiKey,
+  model,
+  systemInstruction,
+  contents,
+  generationConfig,
+}: {
+  apiKey: string;
+  model: string;
+  systemInstruction: string;
+  contents: GeminiContent[];
+  generationConfig?: Record<string, unknown>;
+}) => {
+  const body: Record<string, unknown> = {
+    systemInstruction: {
+      parts: [{ text: systemInstruction }],
     },
-    body: JSON.stringify({
-      model: "gpt-image-1",
-      prompt,
-      size: "1024x1024",
-      quality: "low",
-    }),
+    contents,
+  };
+  if (generationConfig) {
+    body.generationConfig = generationConfig;
+  }
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }
+  );
+
+  const data = (await response.json().catch(() => null)) as GeminiGenerateResponse | null;
+  if (!response.ok) {
+    return {
+      ok: false as const,
+      status: response.status >= 400 && response.status < 600 ? response.status : 502,
+      error: data?.error?.message ?? "Gemini request failed.",
+    };
+  }
+
+  return { ok: true as const, data: data ?? {} };
+};
+
+const generateDesignImage = async (apiKey: string, prompt: string): Promise<string | null> => {
+  const result = await callGemini({
+    apiKey,
+    model: IMAGE_MODEL,
+    systemInstruction: IMAGE_SYSTEM_PROMPT,
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+    generationConfig: {
+      responseModalities: ["TEXT", "IMAGE"],
+    },
   });
 
-  const imageData = (await imageRes.json().catch(() => null)) as
-    | {
-        data?: Array<{ b64_json?: string; url?: string }>;
-      }
-    | null;
+  if (!result.ok) return null;
 
-  if (!imageRes.ok) {
-    return null;
+  const parts = result.data.candidates?.[0]?.content?.parts ?? [];
+  for (const part of parts) {
+    const data = part.inlineData?.data;
+    if (typeof data === "string" && data.length > 0) {
+      const mimeType =
+        typeof part.inlineData?.mimeType === "string" && part.inlineData.mimeType.length > 0
+          ? part.inlineData.mimeType
+          : "image/png";
+      return `data:${mimeType};base64,${data}`;
+    }
   }
 
-  const first = imageData?.data?.[0];
-  if (typeof first?.b64_json === "string" && first.b64_json.length > 0) {
-    return `data:image/png;base64,${first.b64_json}`;
-  }
-  if (typeof first?.url === "string" && first.url.length > 0) {
-    return first.url;
-  }
-  return null;
+  const text = getFirstCandidateText(result.data);
+  const urlMatch = text.match(/https?:\/\/\S+/);
+  return urlMatch ? urlMatch[0] : null;
 };
 
 export async function POST(request: Request) {
@@ -215,17 +292,14 @@ export async function POST(request: Request) {
   const contentLengthHeader = request.headers.get("content-length");
   const contentLength = contentLengthHeader ? Number(contentLengthHeader) : 0;
   if (Number.isFinite(contentLength) && contentLength > MAX_REQUEST_BYTES) {
-    return NextResponse.json(
-      { error: "Request payload is too large." },
-      { status: 413 }
-    );
+    return NextResponse.json({ error: "Request payload is too large." }, { status: 413 });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getGeminiApiKey();
   if (!apiKey) {
     return NextResponse.json(
       {
-        error: "Missing OPENAI_API_KEY on server. Add it to .env.local and restart.",
+        error: "Missing GEMINI_API_KEY (or GOOGLE_API_KEY) on server. Add it to .env.local and restart.",
       },
       { status: 500 }
     );
@@ -238,7 +312,6 @@ export async function POST(request: Request) {
 
   const prompt = body.prompt?.trim() ?? "";
   const imageDataUrl = body.imageDataUrl?.trim() ?? "";
-  const hasImage = imageDataUrl.startsWith("data:image/");
 
   if (prompt.length > MAX_PROMPT_CHARS) {
     return NextResponse.json(
@@ -247,12 +320,18 @@ export async function POST(request: Request) {
     );
   }
 
-  if (hasImage && imageDataUrl.length > MAX_IMAGE_DATA_URL_CHARS) {
+  if (imageDataUrl.length > MAX_IMAGE_DATA_URL_CHARS) {
     return NextResponse.json(
       { error: "Image payload is too large. Please upload a smaller image." },
       { status: 413 }
     );
   }
+
+  const imagePayload = imageDataUrl ? parseImageDataUrl(imageDataUrl) : null;
+  if (imageDataUrl && !imagePayload) {
+    return NextResponse.json({ error: "Invalid image format." }, { status: 400 });
+  }
+  const hasImage = Boolean(imagePayload);
 
   if (!prompt && !hasImage) {
     return NextResponse.json({ error: "Provide text or an image." }, { status: 400 });
@@ -291,10 +370,7 @@ export async function POST(request: Request) {
   });
 
   if (quotaResult.error && !isSchemaMismatch(quotaResult.error.message)) {
-    return NextResponse.json(
-      { error: quotaResult.error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: quotaResult.error.message }, { status: 500 });
   }
 
   if (!quotaResult.error && quotaResult.data) {
@@ -317,58 +393,47 @@ export async function POST(request: Request) {
     }
   }
 
-  const messages = [
-    { role: "system", content: SYSTEM_PROMPT },
+  const userParts: GeminiUserPart[] = [{ text: scopedPrompt }];
+  if (imagePayload) {
+    userParts.push({
+      inlineData: {
+        mimeType: imagePayload.mimeType,
+        data: imagePayload.base64,
+      },
+    });
+  }
+
+  const contents: GeminiContent[] = [
     ...history.map((item) => ({
-      role: item.role,
-      content: item.text,
+      role: item.role === "assistant" ? ("model" as const) : ("user" as const),
+      parts: [{ text: item.text }],
     })),
     {
       role: "user",
-      content: hasImage
-        ? [
-            { type: "text", text: scopedPrompt },
-            { type: "image_url", image_url: { url: imageDataUrl } },
-          ]
-        : scopedPrompt,
+      parts: userParts,
     },
   ];
 
-  const aiRes = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4.1-mini",
+  const aiResult = await callGemini({
+    apiKey,
+    model: TEXT_MODEL,
+    systemInstruction: SYSTEM_PROMPT,
+    contents,
+    generationConfig: {
       temperature: 0.35,
-      messages,
-      response_format: {
-        type: "json_schema",
-        json_schema: REPLY_SCHEMA,
-      },
-    }),
+      responseMimeType: "application/json",
+    },
   });
 
-  const aiData = (await aiRes.json().catch(() => null)) as
-    | {
-        choices?: Array<{ message?: { content?: string } }>;
-        error?: { message?: string };
-      }
-    | null;
-
-  if (!aiRes.ok) {
-    const fallbackStatus = aiRes.status >= 400 && aiRes.status < 600 ? aiRes.status : 502;
+  if (!aiResult.ok) {
     return NextResponse.json(
-      {
-        error: getErrorMessage(aiData) ?? "OpenAI chat request failed.",
-      },
-      { status: fallbackStatus }
+      { error: aiResult.error ?? "Gemini chat request failed." },
+      { status: aiResult.status }
     );
   }
 
-  const modelReply = parseStructuredReply(aiData?.choices?.[0]?.message?.content) ?? fallback;
+  const rawText = cleanModelText(getFirstCandidateText(aiResult.data));
+  const modelReply = parseStructuredReply(rawText) ?? fallback;
   const inScopeFinal = modelReply.inScope && inScopeByKeyword;
   const safeReply = inScopeFinal ? modelReply : buildFallbackReply(false);
 

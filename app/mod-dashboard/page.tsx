@@ -29,7 +29,7 @@ export default async function ModerationDashboardPage() {
   const result = await getDashboardData();
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#060a13] text-slate-200">
+    <main className="gd-mod-shell relative min-h-screen overflow-hidden bg-[#060a13] text-slate-200 light:bg-[#f4f8f5] light:text-slate-800 green:bg-[#071811] green:text-emerald-50">
       {/* Ambient background orbs */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-40 -top-40 h-[600px] w-[600px] rounded-full bg-emerald-600/[0.06] blur-[140px]" />
@@ -42,23 +42,23 @@ export default async function ModerationDashboardPage() {
 
       <div className="relative z-10 mx-auto w-full max-w-[1520px] px-4 py-8 sm:px-6 lg:px-8">
         {/* Top navigation bar */}
-        <header className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-3.5 ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-xl">
+        <header className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] px-5 py-3.5 ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-xl light:border-slate-300/80 light:bg-white/88 light:ring-slate-200/90 green:border-emerald-300/20 green:bg-emerald-950/35 green:ring-emerald-200/10">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600/80 to-teal-600/80 shadow-[0_0_20px_-4px_rgba(16,185,129,0.4)]">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600/80 to-teal-600/80 shadow-[0_0_20px_-4px_rgba(16,185,129,0.4)] light:shadow-[0_10px_24px_-12px_rgba(5,150,105,0.5)]">
               <ShieldCheck className="h-4.5 w-4.5 text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold tracking-tight text-white">GreenDuty</p>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-400/70">Moderation Hub</p>
+              <p className="text-sm font-bold tracking-tight text-white light:text-slate-900">GreenDuty</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-400/70 light:text-emerald-700/75">Moderation Hub</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-2 sm:flex">
               <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.6)]" />
-              <span className="text-[11px] font-medium text-slate-400">System Online</span>
+              <span className="text-[11px] font-medium text-slate-400 light:text-slate-600">System Online</span>
             </div>
-            <div className="hidden h-4 w-px bg-white/[0.08] sm:block" />
+            <div className="hidden h-4 w-px bg-white/[0.08] sm:block light:bg-slate-300/80" />
             <ModDashboardLogoutButton />
           </div>
         </header>

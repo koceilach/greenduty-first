@@ -89,7 +89,7 @@ export default function ModDashboardLoginPage() {
 
   if (checkingSession) {
     return (
-      <main className="relative min-h-screen overflow-hidden bg-[#060a13]">
+      <main className="gd-mod-shell relative min-h-screen overflow-hidden bg-[#060a13] light:bg-[#f4f8f5] green:bg-[#071811]">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-emerald-600/[0.07] blur-[120px]" />
           <div className="absolute -bottom-40 -right-40 h-[400px] w-[400px] rounded-full bg-cyan-600/[0.05] blur-[100px]" />
@@ -97,7 +97,7 @@ export default function ModDashboardLoginPage() {
         <div className="relative z-10 mx-auto flex min-h-screen max-w-md items-center justify-center px-4">
           <div className="flex flex-col items-center gap-4">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-emerald-500/30 border-t-emerald-400" />
-            <p className="text-sm text-slate-500">Verifying session...</p>
+            <p className="text-sm text-slate-500 light:text-slate-600 green:text-emerald-100/70">Verifying session...</p>
           </div>
         </div>
       </main>
@@ -105,7 +105,7 @@ export default function ModDashboardLoginPage() {
   }
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#060a13]">
+    <main className="gd-mod-shell relative min-h-screen overflow-hidden bg-[#060a13] light:bg-[#f4f8f5] green:bg-[#071811]">
       {/* Ambient background orbs */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-32 -top-32 h-[500px] w-[500px] rounded-full bg-emerald-600/[0.07] blur-[120px]" />
@@ -122,16 +122,16 @@ export default function ModDashboardLoginPage() {
           <div className="mb-8 flex flex-col items-center">
             <div className="relative">
               <div className="absolute inset-0 animate-pulse rounded-full bg-emerald-500/20 blur-xl" />
-              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-white/[0.08] bg-gradient-to-br from-emerald-600/20 to-teal-600/20 shadow-[0_0_40px_-8px_rgba(16,185,129,0.3)]">
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl border border-white/[0.08] bg-gradient-to-br from-emerald-600/20 to-teal-600/20 shadow-[0_0_40px_-8px_rgba(16,185,129,0.3)] light:border-emerald-300/45 light:from-emerald-100 light:to-teal-100 green:border-emerald-300/25">
                 <Shield className="h-9 w-9 text-emerald-400" />
               </div>
             </div>
-            <h1 className="mt-5 text-center text-2xl font-bold tracking-tight text-white">Moderation Portal</h1>
-            <p className="mt-1.5 text-center text-sm text-slate-500">Authorized personnel only</p>
+            <h1 className="mt-5 text-center text-2xl font-bold tracking-tight text-white light:text-slate-900">Moderation Portal</h1>
+            <p className="mt-1.5 text-center text-sm text-slate-500 light:text-slate-600 green:text-emerald-100/70">Authorized personnel only</p>
           </div>
 
           {/* Login card */}
-          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-7 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.6)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl">
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-7 shadow-[0_24px_80px_-20px_rgba(0,0,0,0.6)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl light:border-slate-300/80 light:bg-white/92 light:shadow-[0_18px_45px_-18px_rgba(15,23,42,0.3)] light:ring-slate-200/90 green:border-emerald-300/20 green:bg-emerald-950/35 green:ring-emerald-200/10">
             <div className="mb-6">
               <div className="mb-4 flex items-center gap-2">
                 <div className="h-1 w-1 rounded-full bg-emerald-400" />
@@ -139,7 +139,7 @@ export default function ModDashboardLoginPage() {
                   Secure Authentication
                 </p>
               </div>
-              <p className="text-[13px] leading-relaxed text-slate-400">
+              <p className="text-[13px] leading-relaxed text-slate-400 light:text-slate-600 green:text-emerald-100/70">
                 Sign in with your credentials provided by the admin team.
               </p>
             </div>
@@ -150,13 +150,13 @@ export default function ModDashboardLoginPage() {
                   Email Address
                 </span>
                 <div className="group relative">
-                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600 transition-colors group-focus-within:text-emerald-400" />
+                  <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600 transition-colors group-focus-within:text-emerald-400 light:text-slate-500" />
                   <input
                     type="email"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
-                    className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.1)] focus:ring-0"
+                    className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.1)] focus:ring-0 light:border-slate-300/80 light:bg-white light:text-slate-900 light:placeholder:text-slate-500 green:border-emerald-200/20 green:bg-emerald-950/20 green:text-emerald-50 green:placeholder:text-emerald-100/45"
                     placeholder="moderator@greenduty.com"
                   />
                 </div>
@@ -167,13 +167,13 @@ export default function ModDashboardLoginPage() {
                   Password
                 </span>
                 <div className="group relative">
-                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600 transition-colors group-focus-within:text-emerald-400" />
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-600 transition-colors group-focus-within:text-emerald-400 light:text-slate-500" />
                   <input
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     required
-                    className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.1)] focus:ring-0"
+                    className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] py-3 pl-10 pr-4 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:bg-white/[0.05] focus:shadow-[0_0_0_3px_rgba(16,185,129,0.1)] focus:ring-0 light:border-slate-300/80 light:bg-white light:text-slate-900 light:placeholder:text-slate-500 green:border-emerald-200/20 green:bg-emerald-950/20 green:text-emerald-50 green:placeholder:text-emerald-100/45"
                     placeholder="Enter your password"
                   />
                 </div>
@@ -199,7 +199,7 @@ export default function ModDashboardLoginPage() {
           </div>
 
           {/* Footer badge */}
-          <p className="mt-6 text-center text-[11px] text-slate-600">
+          <p className="mt-6 text-center text-[11px] text-slate-600 light:text-slate-600 green:text-emerald-100/55">
             GreenDuty Moderation System &middot; End-to-end encrypted
           </p>
         </section>
@@ -207,4 +207,3 @@ export default function ModDashboardLoginPage() {
     </main>
   );
 }
-

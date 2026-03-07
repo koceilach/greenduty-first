@@ -155,12 +155,12 @@ export default function GlobalModerationDashboard({
 
   if (!initialData) {
     return (
-      <section className="rounded-3xl border border-rose-500/20 bg-white/[0.03] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] supports-[backdrop-filter]:backdrop-blur-2xl">
+      <section className="rounded-3xl border border-rose-500/20 bg-white/[0.03] p-6 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] supports-[backdrop-filter]:backdrop-blur-2xl light:border-rose-300/70 light:bg-rose-50/85 light:shadow-[0_16px_30px_-18px_rgba(15,23,42,0.35)] green:border-rose-400/25 green:bg-rose-500/10">
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 text-rose-400" />
           <div>
-            <h2 className="text-base font-semibold text-white">Unable to load moderation data</h2>
-            <p className="text-sm text-slate-400">{initialError ?? "Unknown error."}</p>
+            <h2 className="text-base font-semibold text-white light:text-rose-900 green:text-rose-100">Unable to load moderation data</h2>
+            <p className="text-sm text-slate-400 light:text-rose-700 green:text-rose-200/80">{initialError ?? "Unknown error."}</p>
           </div>
         </div>
       </section>
@@ -170,9 +170,9 @@ export default function GlobalModerationDashboard({
   const busy = (key: string) => isPending && pendingKey === key;
 
   return (
-    <div className="grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
+    <div className="gd-mod-root grid gap-8 xl:grid-cols-[280px_minmax(0,1fr)]">
       <aside className="xl:sticky xl:top-6 xl:h-fit">
-        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl">
+        <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl light:border-slate-300/80 light:bg-white/92 light:shadow-[0_16px_32px_-18px_rgba(15,23,42,0.28)] light:ring-slate-200/90 green:border-emerald-300/20 green:bg-emerald-950/35 green:ring-emerald-200/10">
           {/* Sidebar header */}
           <div className="mb-6 flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.06] bg-gradient-to-br from-emerald-600/20 to-teal-600/20">
@@ -208,8 +208,8 @@ export default function GlobalModerationDashboard({
                 className={cn(
                   "flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-[13px] font-medium transition-all",
                   active
-                    ? "bg-gradient-to-r from-emerald-600/90 to-teal-600/90 text-white shadow-[0_8px_24px_-6px_rgba(16,185,129,0.35)]"
-                    : "text-slate-400 hover:bg-white/[0.05] hover:text-white"
+                    ? "bg-gradient-to-r from-emerald-600/90 to-teal-600/90 text-white shadow-[0_8px_24px_-6px_rgba(16,185,129,0.35)] light:shadow-[0_10px_24px_-14px_rgba(5,150,105,0.55)]"
+                    : "text-slate-400 hover:bg-white/[0.05] hover:text-white light:text-slate-600 light:hover:bg-emerald-50 light:hover:text-slate-900 green:text-emerald-100/70 green:hover:bg-emerald-500/12"
                 )}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
@@ -219,7 +219,7 @@ export default function GlobalModerationDashboard({
                     "min-w-[20px] rounded-md px-1.5 py-0.5 text-center text-[10px] font-bold",
                     active
                       ? "bg-white/20 text-white"
-                      : "bg-white/[0.06] text-slate-500"
+                      : "bg-white/[0.06] text-slate-500 light:bg-emerald-100 light:text-emerald-700 green:bg-emerald-500/15 green:text-emerald-100"
                   )}>
                     {count}
                   </span>
@@ -242,7 +242,7 @@ export default function GlobalModerationDashboard({
         </div>
       </aside>
 
-      <section className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl sm:p-6">
+      <section className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl sm:p-6 light:border-slate-300/80 light:bg-white/92 light:shadow-[0_16px_32px_-18px_rgba(15,23,42,0.26)] light:ring-slate-200/90 green:border-emerald-300/20 green:bg-emerald-950/35 green:ring-emerald-200/10">
         {notice ? (
           <div
             className={cn(
@@ -259,7 +259,7 @@ export default function GlobalModerationDashboard({
 
         {activeTab === "overview" ? (
           <div className="space-y-6">
-            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-emerald-950/50 via-[#0c1a2e] to-[#0a1628] p-6 ring-1 ring-inset ring-white/[0.04]">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-gradient-to-br from-emerald-950/50 via-[#0c1a2e] to-[#0a1628] p-6 ring-1 ring-inset ring-white/[0.04] light:border-emerald-300/45 light:from-emerald-100 light:via-white light:to-cyan-50 light:ring-emerald-200/40 green:from-emerald-950/70 green:via-[#07201a] green:to-[#092218]">
               {/* Decorative corner glow */}
               <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-emerald-500/[0.08] blur-[60px]" />
               <div className="pointer-events-none absolute -bottom-8 -left-8 h-32 w-32 rounded-full bg-teal-500/[0.06] blur-[40px]" />
@@ -285,7 +285,7 @@ export default function GlobalModerationDashboard({
             </div>
 
             {initialData.actorRole === "admin" ? (
-              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5">
+              <div className="rounded-2xl border border-white/[0.06] bg-white/[0.025] p-5 light:border-slate-300/75 light:bg-white/95 green:border-emerald-300/20 green:bg-emerald-950/30">
                 <div className="mb-5 flex items-center gap-3">
                   <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10">
                     <Shield className="h-4.5 w-4.5 text-amber-400" />
@@ -303,14 +303,14 @@ export default function GlobalModerationDashboard({
                     value={staffEmail}
                     onChange={(event) => setStaffEmail(event.target.value)}
                     placeholder="staff@email.com"
-                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition-all focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/20"
+                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition-all focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/20 light:border-slate-300/80 light:bg-white light:text-slate-900 light:placeholder:text-slate-500 green:border-emerald-200/20 green:bg-emerald-950/20 green:text-emerald-50 green:placeholder:text-emerald-100/45"
                   />
                   <input
                     type="password"
                     value={staffPassword}
                     onChange={(event) => setStaffPassword(event.target.value)}
                     placeholder="New custom password"
-                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition-all focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/20"
+                    className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition-all focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/20 light:border-slate-300/80 light:bg-white light:text-slate-900 light:placeholder:text-slate-500 green:border-emerald-200/20 green:bg-emerald-950/20 green:text-emerald-50 green:placeholder:text-emerald-100/45"
                   />
                   <button
                     type="button"
@@ -495,7 +495,7 @@ export default function GlobalModerationDashboard({
                                 setDisputeNotes(row.adminNotes ?? "");
                                 setSelectedDispute(row);
                               }}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3.5 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-white/[0.15] hover:bg-white/[0.05] hover:text-white"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3.5 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-white/[0.15] hover:bg-white/[0.05] hover:text-white light:border-slate-300/80 light:text-slate-700 light:hover:border-emerald-400/50 light:hover:bg-emerald-50 light:hover:text-slate-900 green:border-emerald-200/20 green:text-emerald-100/80 green:hover:border-emerald-300/35 green:hover:bg-emerald-500/12"
                             >
                               <Eye className="h-3.5 w-3.5" />
                               Open
@@ -574,7 +574,7 @@ export default function GlobalModerationDashboard({
                                 setEduBanDays(1);
                                 setSelectedReport(row);
                               }}
-                              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3.5 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-white/[0.15] hover:bg-white/[0.05] hover:text-white"
+                              className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.08] px-3.5 py-1.5 text-xs font-semibold text-slate-300 transition hover:border-white/[0.15] hover:bg-white/[0.05] hover:text-white light:border-slate-300/80 light:text-slate-700 light:hover:border-emerald-400/50 light:hover:bg-emerald-50 light:hover:text-slate-900 green:border-emerald-200/20 green:text-emerald-100/80 green:hover:border-emerald-300/35 green:hover:bg-emerald-500/12"
                             >
                               <Eye className="h-3.5 w-3.5" />
                               Open
@@ -592,7 +592,7 @@ export default function GlobalModerationDashboard({
       </section>
 
       <Dialog open={Boolean(selectedDispute)} onOpenChange={(open) => !open && setSelectedDispute(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0a1222]/97 p-0 shadow-[0_32px_100px_-20px_rgba(0,0,0,0.7)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl">
+        <DialogContent className="gd-mod-dialog max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0a1222]/97 p-0 shadow-[0_32px_100px_-20px_rgba(0,0,0,0.7)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl light:border-slate-300/80 light:bg-white/95 light:shadow-[0_18px_40px_-22px_rgba(15,23,42,0.35)] light:ring-slate-200/90 green:border-emerald-300/20 green:bg-[#0a2019]/96 green:ring-emerald-200/10">
           {selectedDispute ? (
             <div className="space-y-5 p-6">
               <DialogHeader>
@@ -634,7 +634,7 @@ export default function GlobalModerationDashboard({
                 value={disputeNotes}
                 onChange={(event) => setDisputeNotes(event.target.value)}
                 rows={3}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:ring-2 focus:ring-emerald-500/15"
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:ring-2 focus:ring-emerald-500/15 light:border-slate-300/80 light:bg-white light:text-slate-900 light:placeholder:text-slate-500 green:border-emerald-200/20 green:bg-emerald-950/20 green:text-emerald-50 green:placeholder:text-emerald-100/45"
                 placeholder="Internal notes"
               />
 
@@ -718,7 +718,7 @@ export default function GlobalModerationDashboard({
       </Dialog>
 
       <Dialog open={Boolean(selectedReport)} onOpenChange={(open) => !open && setSelectedReport(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0a1222]/97 p-0 shadow-[0_32px_100px_-20px_rgba(0,0,0,0.7)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl">
+        <DialogContent className="gd-mod-dialog max-h-[90vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0a1222]/97 p-0 shadow-[0_32px_100px_-20px_rgba(0,0,0,0.7)] ring-1 ring-inset ring-white/[0.04] supports-[backdrop-filter]:backdrop-blur-2xl light:border-slate-300/80 light:bg-white/95 light:shadow-[0_18px_40px_-22px_rgba(15,23,42,0.35)] light:ring-slate-200/90 green:border-emerald-300/20 green:bg-[#0a2019]/96 green:ring-emerald-200/10">
           {selectedReport ? (
             <div className="space-y-5 p-6">
               <DialogHeader>
@@ -814,7 +814,7 @@ export default function GlobalModerationDashboard({
                 value={reportNotes}
                 onChange={(event) => setReportNotes(event.target.value)}
                 rows={3}
-                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:ring-2 focus:ring-emerald-500/15"
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none transition-all focus:border-emerald-500/30 focus:ring-2 focus:ring-emerald-500/15 light:border-slate-300/80 light:bg-white light:text-slate-900 light:placeholder:text-slate-500 green:border-emerald-200/20 green:bg-emerald-950/20 green:text-emerald-50 green:placeholder:text-emerald-100/45"
                 placeholder="Internal notes"
               />
 
@@ -826,7 +826,7 @@ export default function GlobalModerationDashboard({
                   value={String(eduBanDays)}
                   onChange={(event) => setEduBanDays(Number(event.target.value))}
                   disabled={selectedReport.postAuthor?.role === "admin"}
-                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm font-medium text-white outline-none transition-all focus:border-emerald-500/30 focus:ring-2 focus:ring-emerald-500/15 disabled:opacity-60"
+                  className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm font-medium text-white outline-none transition-all focus:border-emerald-500/30 focus:ring-2 focus:ring-emerald-500/15 disabled:opacity-60 light:border-slate-300/80 light:bg-white light:text-slate-900 green:border-emerald-200/20 green:bg-emerald-950/20 green:text-emerald-50"
                 >
                   {[1, 2, 3, 4, 5, 6, 7].map((day) => (
                     <option key={day} value={day}>
@@ -970,7 +970,7 @@ function Stat({ label, value, color }: { label: string; value: number; color: "e
   };
   const c = colorMap[color];
   return (
-    <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-4 transition-all hover:border-white/[0.1] hover:bg-white/[0.04]">
+    <div className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.025] px-4 py-4 transition-all hover:border-white/[0.1] hover:bg-white/[0.04] light:border-slate-300/80 light:bg-white light:hover:border-emerald-300/65 light:hover:bg-emerald-50/70 green:border-emerald-200/20 green:bg-emerald-950/28 green:hover:border-emerald-300/35 green:hover:bg-emerald-500/10">
       <div className={cn("pointer-events-none absolute left-0 top-0 h-full w-1 bg-gradient-to-b to-transparent", c.bar)} />
       <div className="flex items-center gap-2">
         <div className={cn("h-1.5 w-1.5 rounded-full", c.dot)} />
@@ -983,7 +983,7 @@ function Stat({ label, value, color }: { label: string; value: number; color: "e
 
 function Info({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3.5">
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.025] p-3.5 light:border-slate-300/80 light:bg-white green:border-emerald-200/20 green:bg-emerald-950/28">
       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-600">{label}</p>
       <p className="mt-1.5 text-sm font-semibold text-white">{value}</p>
     </div>
@@ -1014,7 +1014,7 @@ function ActionButton({
         "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-semibold transition disabled:opacity-60",
         tone === "danger"
           ? "border-rose-500/20 bg-rose-500/10 text-rose-400 hover:bg-rose-500/15"
-          : "border-white/[0.08] bg-white/[0.05] text-slate-300 hover:bg-white/[0.08] hover:text-white"
+          : "border-white/[0.08] bg-white/[0.05] text-slate-300 hover:bg-white/[0.08] hover:text-white light:border-slate-300/80 light:bg-white light:text-slate-700 light:hover:border-emerald-400/45 light:hover:bg-emerald-50 light:hover:text-slate-900 green:border-emerald-200/20 green:bg-emerald-950/25 green:text-emerald-100/80 green:hover:border-emerald-300/35 green:hover:bg-emerald-500/12"
       )}
     >
       {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : Icon ? <Icon className="h-3.5 w-3.5" /> : <CheckCircle2 className="h-3.5 w-3.5" />}

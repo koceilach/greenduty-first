@@ -31,8 +31,8 @@ import {
   Shield,
   ImagePlus,
   NotebookPen,
+  Menu,
   PieChart,
-  Play,
   Plus,
   PawPrint,
   Search,
@@ -1110,8 +1110,11 @@ export default function MarketPlacePage() {
   const [marketError, setMarketError] = useState<string | null>(null);
   const marketLoadRequestRef = useRef(0);
   const languageMenuRef = useRef<HTMLDivElement | null>(null);
+  const desktopMoreMenuRef = useRef<HTMLDivElement | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
+  const [desktopMoreMenuOpen, setDesktopMoreMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeKnowledgeArticle, setActiveKnowledgeArticle] =
     useState<GDKnowledgeArticle | null>(null);
   const [signOutPending, setSignOutPending] = useState(false);
@@ -1203,9 +1206,14 @@ export default function MarketPlacePage() {
   useEffect(() => {
     const handlePointerOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target;
-      if (!languageMenuRef.current || !(target instanceof Node)) return;
-      if (!languageMenuRef.current.contains(target)) {
+      if (!(target instanceof Node)) return;
+
+      if (languageMenuRef.current && !languageMenuRef.current.contains(target)) {
         setLanguageMenuOpen(false);
+      }
+
+      if (desktopMoreMenuRef.current && !desktopMoreMenuRef.current.contains(target)) {
+        setDesktopMoreMenuOpen(false);
       }
     };
 
@@ -1214,6 +1222,35 @@ export default function MarketPlacePage() {
     return () => {
       document.removeEventListener("mousedown", handlePointerOutside);
       document.removeEventListener("touchstart", handlePointerOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setDesktopMoreMenuOpen(false);
+      setMobileMenuOpen(false);
+      setLanguageMenuOpen(false);
+    };
+
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
@@ -2397,6 +2434,8 @@ export default function MarketPlacePage() {
   const heroSellers =
     heroStats.find((stat) => stat.label === "Verified Sellers")?.value ?? "250+";
   const heroLocation = GD_formatWilayaLabel(selectedWilaya);
+  const sellerToolsHref = isSeller ? "/market-place/vendor" : "/market-place/seller-onboarding";
+  const sellerToolsLabel = isSeller ? "Vendor Studio" : "Seller Onboarding";
 
   return (
     <div className="gd-marketplace-page gd-mp-shell gd-mp-has-bottom-nav relative min-h-screen bg-[#f7f8fa] text-gray-900">
@@ -2404,19 +2443,36 @@ export default function MarketPlacePage() {
       <div className="h-[3px] w-full bg-gradient-to-r from-emerald-600 via-emerald-400 to-teal-400 shadow-[0_1px_8px_rgba(16,185,129,0.3)]" />
 
       {/* -- Sticky Header / Navbar -- */}
-      <header className="gd-marketplace-header sticky top-0 z-30 border-b border-gray-200/50 bg-white/90 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_32px_rgba(0,0,0,0.06)] transition-shadow duration-300 supports-[backdrop-filter]:bg-white/60 supports-[backdrop-filter]:backdrop-blur-xl">
-        <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center gap-3 px-4 py-3.5 sm:gap-4 lg:px-8">
-          {/* Brand */}
+      <header
+        className={`gd-marketplace-header sticky top-0 ${
+          mobileMenuOpen ? "z-50" : "z-30"
+        } border-b border-gray-200 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_10px_30px_rgba(15,23,42,0.06)]`}
+      >
+        <div className="gd-mp-container mx-auto flex w-full max-w-7xl items-center justify-between gap-2 px-4 py-2.5 lg:px-8">
           <Link href="/market-place" className="flex shrink-0 items-center gap-2.5">
-            <div className="relative h-10 w-10 overflow-hidden rounded-xl border border-emerald-200/40 bg-white shadow-md ring-1 ring-emerald-100/40">
+            <div className="relative h-9 w-9 overflow-hidden rounded-xl border border-emerald-200/50 bg-white shadow-md ring-1 ring-emerald-100/50">
               <Image src="/logo.png" alt="GreenDuty logo" fill sizes="40px" className="object-cover" />
             </div>
-            <span className="hidden bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-lg font-extrabold tracking-tight text-transparent sm:block">
-              GreenDuty
-            </span>
+            <div className="leading-tight">
+              <span className="hidden bg-gradient-to-r from-emerald-700 to-teal-600 bg-clip-text text-[15px] font-extrabold tracking-tight text-transparent sm:block sm:text-base">
+                GreenDuty
+              </span>
+              <span className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400 sm:block">
+                Marketplace
+              </span>
+            </div>
           </Link>
 
-          {/* Search bar */}
+          <nav className="hidden lg:flex lg:items-center lg:justify-center lg:gap-1.5">
+            <Link
+              href="/market-place"
+              className="inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50/80"
+            >
+              <Home className="h-4 w-4" />
+              Marketplace
+            </Link>
+          </nav>
+
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -2427,136 +2483,454 @@ export default function MarketPlacePage() {
               }
               loadMarketplaceItems();
             }}
-            className="relative mx-4 hidden flex-1 md:flex"
+            className="relative hidden w-full max-w-[440px] flex-1 lg:block"
           >
             <input
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
-              placeholder="Search for any product, seed, or seller..."
-              className="h-11 w-full rounded-full border border-gray-200/80 bg-gray-50/80 pl-11 pr-28 text-sm text-gray-800 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] placeholder:text-gray-400 transition-all duration-200 focus:border-emerald-400 focus:bg-white focus:shadow-[0_0_0_3px_rgba(16,185,129,0.12)] focus:outline-none"
+              placeholder="Search products, seeds, or sellers"
+              className="h-9 w-full rounded-full border border-gray-200/80 bg-white pl-10 pr-12 text-sm text-gray-800 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] placeholder:text-gray-400 transition focus:border-emerald-400 focus:outline-none"
             />
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
             <button
               type="submit"
               aria-label="Search marketplace"
-              title="Search marketplace"
-              className="absolute right-1.5 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm transition-all duration-200 hover:from-emerald-600 hover:to-emerald-700 hover:shadow-md active:scale-95"
+              className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm"
             >
-              <Search className="h-4 w-4" />
+              <Search className="h-3.5 w-3.5" />
             </button>
           </form>
 
-          {/* Location (wilaya) pill */}
-          <div className="hidden items-center gap-1.5 rounded-full border border-gray-100/80 bg-gray-50/70 px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm lg:flex">
-            <MapPin className="h-3.5 w-3.5 text-emerald-500" />
-            <span>{GD_formatWilayaLabel(selectedWilaya)}</span>
-          </div>
-
-          {/* Right actions */}
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
-            
-            {/* Mode pills — seller pill only visible to approved sellers/admins */}
+          <div className="ml-auto flex items-center gap-1.5">
             {canSwitchModes && (
-              <div className="flex items-center gap-0.5 rounded-full border border-gray-200/70 bg-gray-50/80 p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)]">
+              <div className="hidden items-center gap-1 rounded-full border border-gray-200 bg-white p-1 lg:flex">
                 <button
                   type="button"
-                  onClick={() => handleSwitchRole("buyer")}
-                  className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-200 ${
+                  onClick={() => void handleSwitchRole("buyer")}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition ${
                     !isSeller
-                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md"
-                      : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm"
+                      : "text-gray-600 hover:bg-emerald-50/70 hover:text-emerald-700"
                   }`}
                   aria-label="Switch to buyer mode"
                   title="Switch to buyer mode"
                 >
                   <ShoppingCart className="h-3.5 w-3.5" />
+                  Buyer
                 </button>
                 <button
                   type="button"
-                  onClick={() => handleSwitchRole("seller")}
-                  className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-200 ${
+                  onClick={() => void handleSwitchRole("seller")}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1.5 text-[11px] font-semibold transition ${
                     isSeller
-                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-md"
-                      : "text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm"
+                      : "text-gray-600 hover:bg-emerald-50/70 hover:text-emerald-700"
                   }`}
                   aria-label="Switch to seller mode"
                   title="Switch to seller mode"
                 >
                   <ShoppingBag className="h-3.5 w-3.5" />
+                  Seller
                 </button>
               </div>
             )}
 
-            {isSeller ? (
-              <Link
-                href="/market-place/vendor"
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-emerald-200/60 bg-emerald-50/80 text-emerald-700 shadow-sm transition-all duration-200 hover:bg-emerald-100 hover:shadow-md active:scale-95 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-4 lg:py-2 lg:text-xs lg:font-semibold"
-                title="Vendor Studio"
-              >
-                <ShoppingBag className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
-                <span className="hidden lg:inline">Vendor Studio</span>
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/market-place/buyer"
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-600 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-700 hover:shadow-md active:scale-95 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-4 lg:py-2 lg:text-xs lg:font-semibold"
-                  title="Buyer Dashboard"
-                >
-                  <Gauge className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
-                  <span className="hidden lg:inline">Dashboard</span>
-                </Link>
-                <Link
-                  href="/market-place/orders"
-                  className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-600 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-700 hover:shadow-md active:scale-95 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-4 lg:py-2 lg:text-xs lg:font-semibold"
-                  title="My Orders"
-                >
-                  <CalendarCheck className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
-                  <span className="hidden lg:inline">Orders</span>
-                </Link>
-              </>
-            )}
-
-            {profile?.role === "admin" && (
-              <Link
-                href="/market-place/admin"
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-amber-200/60 bg-amber-50/80 text-amber-700 shadow-sm transition-all duration-200 hover:bg-amber-100 hover:shadow-md active:scale-95 lg:h-auto lg:w-auto lg:gap-1.5 lg:rounded-full lg:px-4 lg:py-2 lg:text-xs lg:font-semibold"
-                title="Admin Dashboard"
-              >
-                <Shield className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
-                <span className="hidden lg:inline">Admin</span>
-              </Link>
-            )}
-
             <button
               type="button"
-              className="relative flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-500 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-600 hover:shadow-md active:scale-95"
+              onClick={() => {
+                setMobileMenuOpen((prev) => !prev);
+                setDesktopMoreMenuOpen(false);
+              }}
+              className="gd-solid-window inline-flex h-9 w-9 items-center justify-center rounded-full border border-gray-300/90 bg-white text-gray-700 shadow-[0_8px_18px_rgba(15,23,42,0.12)] transition hover:border-emerald-300 hover:text-emerald-700 lg:hidden"
+              aria-label={mobileMenuOpen ? "Close marketplace menu" : "Open marketplace menu"}
+              aria-expanded={mobileMenuOpen}
+              aria-controls="marketplace-mobile-menu"
             >
-              <Bell className="h-4 w-4" />
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
-            <button
-              type="button"
-              onClick={handleProfileClick}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-500 shadow-sm transition-all duration-200 hover:border-emerald-300 hover:bg-emerald-50/40 hover:text-emerald-600 hover:shadow-md active:scale-95"
-            >
-              <User className="h-4 w-4" />
-            </button>
-            {user && (
+
+            <div ref={desktopMoreMenuRef} className="relative hidden lg:block">
               <button
                 type="button"
-                onClick={handleLogout}
-                disabled={signOutPending}
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-gray-200/70 bg-white/80 text-gray-500 shadow-sm transition-all duration-200 hover:border-red-300 hover:bg-red-50/40 hover:text-red-500 hover:shadow-md active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                title={signOutPending ? "Signing out..." : "Log out"}
+                onClick={() => setDesktopMoreMenuOpen((prev) => !prev)}
+                className="gd-solid-window inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-2 py-1 text-sm font-semibold text-gray-700 shadow-[0_8px_20px_rgba(15,23,42,0.1)] transition hover:bg-gray-50"
+                aria-expanded={desktopMoreMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Open account and tools menu"
               >
-                <LogOut className="h-4 w-4" />
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-sm">
+                  <User className="h-4 w-4" />
+                </span>
+                <span>More</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-500 transition-transform ${
+                    desktopMoreMenuOpen ? "rotate-180" : ""
+                  }`}
+                />
               </button>
-            )}
+
+              <div
+                className={`gd-marketplace-menu-panel gd-solid-window absolute right-0 top-full z-50 mt-2 w-[320px] rounded-2xl border border-gray-200 bg-white p-3 shadow-[0_20px_50px_rgba(15,23,42,0.18)] transition-all duration-200 ${
+                  desktopMoreMenuOpen
+                    ? "visible translate-y-0 opacity-100"
+                    : "pointer-events-none invisible -translate-y-2 opacity-0"
+                }`}
+                role="menu"
+                aria-label="Marketplace secondary menu"
+              >
+                <div className="space-y-1">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">
+                    Main
+                  </p>
+                  <Link
+                    href="/market-place"
+                    onClick={() => setDesktopMoreMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-gray-700 transition hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <Home className="h-4 w-4" />
+                    Marketplace
+                  </Link>
+                  <Link
+                    href="/market-place/forum"
+                    onClick={() => setDesktopMoreMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-gray-700 transition hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Forum
+                  </Link>
+                </div>
+
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">
+                    My Account
+                  </p>
+                  <div className="mt-1 space-y-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDesktopMoreMenuOpen(false);
+                        handleProfileClick();
+                      }}
+                      className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm text-gray-700 transition hover:bg-emerald-50/80 hover:text-emerald-700"
+                    >
+                      <User className="h-4 w-4" />
+                      User Profile
+                    </button>
+                    <Link
+                      href="/market-place/buyer"
+                      onClick={() => setDesktopMoreMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-gray-700 transition hover:bg-emerald-50/80 hover:text-emerald-700"
+                    >
+                      <Gauge className="h-4 w-4" />
+                      Buyer Dashboard
+                    </Link>
+                    <Link
+                      href="/market-place/orders"
+                      onClick={() => setDesktopMoreMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-gray-700 transition hover:bg-emerald-50/80 hover:text-emerald-700"
+                    >
+                      <CalendarCheck className="h-4 w-4" />
+                      Orders
+                    </Link>
+                    <Link
+                      href={sellerToolsHref}
+                      onClick={() => setDesktopMoreMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-gray-700 transition hover:bg-emerald-50/80 hover:text-emerald-700"
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      {sellerToolsLabel}
+                    </Link>
+                    <Link
+                      href="/profile/edit"
+                      onClick={() => setDesktopMoreMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-gray-700 transition hover:bg-emerald-50/80 hover:text-emerald-700"
+                    >
+                      <Gauge className="h-4 w-4" />
+                      Settings
+                    </Link>
+                  </div>
+
+                </div>
+
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  <p className="px-2 text-[10px] font-bold uppercase tracking-[0.16em] text-gray-400">
+                    Moderation
+                  </p>
+                  <div className="mt-1 space-y-1">
+                    <Link
+                      href="/mod-dashboard"
+                      onClick={() => setDesktopMoreMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-gray-700 transition hover:bg-emerald-50/80 hover:text-emerald-700"
+                    >
+                      <Shield className="h-4 w-4" />
+                      Mod Dashboard
+                    </Link>
+                    {profile?.role === "admin" && (
+                      <Link
+                        href="/market-place/admin"
+                        onClick={() => setDesktopMoreMenuOpen(false)}
+                        className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-amber-700 transition hover:bg-amber-50"
+                      >
+                        <Shield className="h-4 w-4" />
+                        Admin Dashboard
+                      </Link>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-3 border-t border-gray-200 pt-3">
+                  {user ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDesktopMoreMenuOpen(false);
+                        handleLogout();
+                      }}
+                      disabled={signOutPending}
+                      className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      {signOutPending ? "Signing out..." : "Log out"}
+                    </button>
+                  ) : (
+                    <Link
+                      href="/market-place/login"
+                      onClick={() => setDesktopMoreMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50/80"
+                    >
+                      <Lock className="h-4 w-4" />
+                      Sign in
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
+        <div className="gd-mp-container mx-auto w-full max-w-7xl px-4 pb-2 lg:hidden">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              const query = searchValue.trim();
+              if (query) {
+                router.push(`/market-place/search?q=${encodeURIComponent(query)}`);
+                return;
+              }
+              loadMarketplaceItems();
+            }}
+            className="relative"
+          >
+            <input
+              value={searchValue}
+              onChange={(event) => setSearchValue(event.target.value)}
+              placeholder="Search products, seeds, or sellers"
+              className="h-9 w-full rounded-full border border-gray-200/80 bg-white pl-10 pr-12 text-sm text-gray-800 shadow-[inset_0_1px_2px_rgba(0,0,0,0.04)] placeholder:text-gray-400 transition focus:border-emerald-400 focus:outline-none"
+            />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <button
+              type="submit"
+              aria-label="Search marketplace"
+              className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm"
+            >
+              <Search className="h-3.5 w-3.5" />
+            </button>
+          </form>
+        </div>
+
+        <div
+          id="marketplace-mobile-menu"
+          className={`gd-marketplace-mobile-menu gd-solid-window relative z-50 border-x border-b border-gray-200 bg-white shadow-[0_22px_42px_rgba(15,23,42,0.16)] transition-[max-height,opacity] duration-300 ease-out lg:hidden ${
+            mobileMenuOpen
+              ? "max-h-[calc(100dvh-110px)] overflow-y-auto overscroll-contain rounded-b-3xl opacity-100"
+              : "max-h-0 overflow-hidden opacity-0"
+          }`}
+        >
+          <div className="gd-mp-container mx-auto w-full max-w-7xl px-4 py-4">
+            <div className="grid gap-3">
+              <div className="gd-solid-window rounded-2xl border border-gray-200 bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Main</p>
+                <div className="mt-2 space-y-1">
+                  <Link
+                    href="/market-place"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <Home className="h-4 w-4" />
+                    Marketplace
+                  </Link>
+                  <Link
+                    href="/market-place/forum"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    Forum
+                  </Link>
+                </div>
+              </div>
+
+              <div className="gd-solid-window rounded-2xl border border-gray-200 bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">My Account</p>
+                <div className="mt-2 space-y-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      handleProfileClick();
+                    }}
+                    className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-sm font-medium text-gray-700 hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <User className="h-4 w-4" />
+                    User Profile
+                  </button>
+                  <Link
+                    href="/market-place/buyer"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <Gauge className="h-4 w-4" />
+                    Buyer Dashboard
+                  </Link>
+                  <Link
+                    href="/market-place/orders"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <CalendarCheck className="h-4 w-4" />
+                    Orders
+                  </Link>
+                  <Link
+                    href={sellerToolsHref}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <ShoppingBag className="h-4 w-4" />
+                    Seller Tools
+                  </Link>
+                  <Link
+                    href="/profile/edit"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <Gauge className="h-4 w-4" />
+                    Settings
+                  </Link>
+                </div>
+              </div>
+
+              <div className="gd-solid-window rounded-2xl border border-gray-200 bg-white p-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Moderation</p>
+                <div className="mt-2 space-y-1">
+                  <Link
+                    href="/mod-dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-gray-700 hover:bg-emerald-50/80 hover:text-emerald-700"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Mod Dashboard
+                  </Link>
+                  {profile?.role === "admin" && (
+                    <Link
+                      href="/market-place/admin"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50"
+                    >
+                      <Shield className="h-4 w-4" />
+                      Admin Dashboard
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="gd-solid-window mt-3 rounded-2xl border border-gray-200 bg-white p-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-gray-400">Language</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {GD_MARKET_LOCALES.map((lang) => {
+                  const isActive = lang === locale;
+                  return (
+                    <button
+                      key={`mobile-lang-${lang}`}
+                      type="button"
+                      onClick={() => setLocale(lang)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        isActive
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:text-emerald-700"
+                      }`}
+                    >
+                      {GD_MARKET_LOCALE_LABELS[lang]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {canSwitchModes && (
+              <div className="gd-solid-window mt-3 flex items-center gap-2 rounded-2xl border border-gray-200 bg-white p-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleSwitchRole("buyer");
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold ${
+                    !isSeller
+                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm"
+                      : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  <ShoppingCart className="h-3.5 w-3.5" />
+                  Buyer Mode
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleSwitchRole("seller");
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold ${
+                    isSeller
+                      ? "bg-gradient-to-br from-emerald-500 to-emerald-600 text-white shadow-sm"
+                      : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                  Seller Mode
+                </button>
+              </div>
+            )}
+
+            <div className="mt-3">
+              {user ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                  disabled={signOutPending}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <LogOut className="h-4 w-4" />
+                  {signOutPending ? "Signing out..." : "Log out"}
+                </button>
+              ) : (
+                <Link
+                  href="/market-place/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700"
+                >
+                  <Lock className="h-4 w-4" />
+                  Sign in
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
         {/* Category navbar */}
-        <div className="gd-marketplace-subnav border-t border-gray-100/50 bg-white/90 supports-[backdrop-filter]:bg-white/50 supports-[backdrop-filter]:backdrop-blur-lg">
+        <div className="gd-marketplace-subnav hidden border-t border-gray-100 bg-white md:block">
           <div className="gd-mp-container mx-auto w-full max-w-7xl px-3 py-2 sm:px-4 lg:px-8">
             <div className="flex items-center gap-2">
               <div data-gd-i18n-skip="1">
@@ -2564,7 +2938,7 @@ export default function MarketPlacePage() {
                   <button
                     type="button"
                     onClick={() => setLanguageMenuOpen((prev) => !prev)}
-                    className="inline-flex h-11 min-w-[98px] items-center gap-1.5 rounded-full border border-emerald-100/60 bg-white/90 px-3 text-[12px] font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20 active:scale-[0.97]"
+                    className="inline-flex h-11 min-w-[98px] items-center gap-1.5 rounded-full border border-emerald-100 bg-white px-3 text-[12px] font-semibold text-gray-700 shadow-sm transition-all duration-200 hover:border-emerald-200 hover:bg-emerald-50 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-emerald-500/20 active:scale-[0.97]"
                     aria-expanded={languageMenuOpen}
                     aria-haspopup="listbox"
                     aria-label="Marketplace language switch"
@@ -2628,7 +3002,7 @@ export default function MarketPlacePage() {
                       className={`shrink-0 snap-start whitespace-nowrap rounded-full border px-4 py-2.5 text-sm font-semibold leading-none transition-all duration-200 ${
                         activeFeaturedFilter === filter
                           ? "border-emerald-300/80 bg-emerald-50 text-emerald-700 shadow-[0_4px_14px_rgba(16,185,129,0.16)]"
-                          : "border-gray-200/70 bg-white/80 text-gray-600 hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-700 hover:shadow-sm active:scale-[0.97]"
+                          : "border-gray-200 bg-white text-gray-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:shadow-sm active:scale-[0.97]"
                       }`}
                     >
                       <span className="inline-flex items-center gap-2">
@@ -4461,25 +4835,25 @@ export default function MarketPlacePage() {
             <div className="absolute inset-0 bg-gradient-to-r from-green-900/90 via-green-800/85 to-green-900/90" />
             <div className="relative z-10 space-y-4 px-6 py-10 md:px-10">
               <h2 className="text-2xl font-bold text-white md:text-3xl">
-                Start Your Farming Journey Today
+                Grow Smarter With GreenDuty Marketplace
               </h2>
               <p className="text-sm text-white/80">
-                Join thousands of farmers using GreenDuty to grow smarter. Submit your requirements, get AI recommendations, and order seeds from trusted sellers.
+                Sign in to unlock AI recommendations, trusted local sellers, and faster buying for your farm in one place.
               </p>
               <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
+                <Link
+                  href="/market-place/login"
                   className="rounded-full bg-white px-5 py-2.5 text-sm font-bold text-green-700 shadow-md transition hover:bg-green-50"
                 >
                   Get Started
-                </button>
-                <button
-                  type="button"
+                </Link>
+                <Link
+                  href="/market-place/search"
                   className="inline-flex items-center gap-2 rounded-full border-2 border-white/50 px-5 py-2.5 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
                 >
-                  Watch Demo
-                  <Play className="h-4 w-4" />
-                </button>
+                  Browse Marketplace
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
               </div>
               <div className="flex flex-wrap gap-3 text-xs text-white/80">
                 <div className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 backdrop-blur-sm">
@@ -5385,5 +5759,4 @@ export default function MarketPlacePage() {
     </div>
   );
 }
-
 

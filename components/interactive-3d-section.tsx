@@ -377,7 +377,11 @@ function NatureIllustration({ className, isLight = false }: { className?: string
 export function Interactive3DSection() {
   const { t, locale } = useI18n();
   const { resolvedTheme } = useTheme();
-  const isLight = resolvedTheme === "light";
+  const [themeReady, setThemeReady] = useState(false);
+  useEffect(() => {
+    setThemeReady(true);
+  }, []);
+  const isLight = themeReady && resolvedTheme === "light";
   const isArabic = locale === "ar";
   const sectionRef = useRef<HTMLElement>(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-60px" });
